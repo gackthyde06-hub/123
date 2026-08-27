@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>熬鷹倉位通知</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0a0a0a;--card:#171717;--line:#2a2a2a;--muted:#969696;--long:#ff3b5c;--short:#20c879;--yellow:#f0b90b}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+    .wrap{max-width:640px;margin:auto;padding:24px 16px 60px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 2px 18px}.title{font-size:25px;font-weight:850}.sub{font-size:13px;color:var(--muted);margin-top:5px}.dot{width:10px;height:10px;border-radius:50%;background:#666;display:inline-block;margin-right:7px}.dot.ok{background:#30d158}.dot.bad{background:#ff453a}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}.card h2{font-size:16px;margin:0 0 12px}.pos{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #252525}.pos:first-of-type{border-top:0}.sym{font-size:19px;font-weight:800}.dir{font-size:14px;font-weight:800;margin-top:5px}.long{color:var(--long)}.short{color:var(--short)}.price{text-align:right}.price b{font-size:20px}.price span{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}
+    button{width:100%;border:0;border-radius:14px;padding:15px;font-size:17px;font-weight:800;margin-top:10px}#subscribe{background:var(--yellow);color:#111}#test{background:#292929;color:#fff}.msg{font-size:13px;color:var(--muted);min-height:20px;margin:10px 2px 0}.event{padding:12px 0;border-top:1px solid #252525}.event:first-of-type{border-top:0}.eventTop{display:flex;justify-content:space-between;gap:12px}.eventTitle{font-weight:750}.eventTime{font-size:12px;color:var(--muted);white-space:nowrap}.eventBody{font-size:13px;color:var(--muted);margin-top:5px}.empty{padding:8px 0;color:var(--muted);font-size:14px}.hint{font-size:13px;color:var(--muted);line-height:1.55}.statusText{font-size:13px;color:var(--muted)}
+  </style>
+</head>
+<body><div class="wrap">
+  <div class="top">
+    <div><div class="title">📡 熬鷹倉位通知</div><div class="sub">只通知：做多 / 做空 / 加倉 / 減倉 / 平倉</div></div>
+    <div class="statusText"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
+  </div>
+
+  <div class="card">
+    <h2>目前倉位</h2>
+    <div id="positions"><div class="empty">讀取中…</div></div>
+  </div>
+
+  <div class="card">
+    <h2>iPhone 通知</h2>
+    <div class="hint">用 Safari 開啟 → 分享 → 加入主畫面 → 從主畫面打開 → 允許通知。</div>
+    <button id="subscribe">開啟 iPhone 通知</button>
+    <button id="test">測試通知</button>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>最近動靜</h2>
+    <div id="events"><div class="empty">尚無新動靜</div></div>
+  </div>
+
+  <div class="hint">通知不追蹤浮盈浮虧或市價跳動，避免一直亂響。監控速度仍取決於 Binance 公開資料多久更新。</div>
+</div><script src="/app.js"></script></body>
+</html>
