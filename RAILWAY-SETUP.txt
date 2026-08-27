@@ -1,0 +1,16 @@
+熬鷹資本 iPhone 倉位通知 — Railway 最短部署
+
+程式已內建：
+- Portfolio ID 5075281354358777856
+- 熬鷹資本
+- 每 3 秒輪詢
+- 自動產生並保存 Web Push VAPID 金鑰
+
+Railway 只要做：
+1. 部署此專案
+2. 加一個 Volume，mount path=/data
+3. Variables 新增 DATA_DIR=/data（建議；程式也會讀 Railway 自動提供的 volume path）
+4. Settings > Networking > Generate Domain
+
+iPhone：
+Safari 開 HTTPS 網址 > 分享 > 加入主畫面 > 從主畫面開啟 > 開啟 iPhone 通知 > 測試通知。
