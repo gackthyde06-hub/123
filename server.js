@@ -620,7 +620,7 @@ async function fetchStatsOrders(traderId, firstPage = []) {
     try {
       detail = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v5.9] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v5.9.1] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
@@ -922,7 +922,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/5.9',
+        'user-agent': 'Mozilla/5.0 PositionAlert/5.9.1',
       },
       signal: controller.signal,
     });
@@ -1005,7 +1005,11 @@ let recentEvents = loadJson(EVENT_FILE, [])
   .filter(e => e?.kind === 'CONSENSUS'
     ? Array.isArray(e.traderIds) && e.traderIds.some(id => TRADER_IDS.has(id))
     : TRADER_IDS.has(e?.traderId))
+  // V5.9 could infer CLOSE from an empty public position snapshot. Lead traders may
+  // hide positions, so those legacy snapshot-CLOSE events are not trustworthy.
+  .filter(e => !(e?.source === 'official_snapshot' && e?.type === 'CLOSE'))
   .slice(0, 80);
+saveJson(EVENT_FILE, recentEvents);
 let consensusSent = loadJson(CONSENSUS_FILE, {});
 let timer = null;
 
@@ -1184,6 +1188,7 @@ function makeTraderEvent(type, trader, o, result) {
     id: `${Date.now()}-${trader.id}-${o.key}`,
     ts: new Date(o.time).toISOString(),
     kind: 'TRADER',
+    source: 'order_history',
     traderId: trader.id,
     traderName: trader.name,
     type,
@@ -1282,7 +1287,7 @@ async function syncOfficialSnapshot(s, result, { emitChanges = true } = {}) {
   }
 
   // If Binance returned rows but none matched our position schema, this is a parser
-  // warning, not proof that the trader is flat.
+  // warning, never evidence that the trader is flat.
   if (result.rawCount > 0 && result.positions.length === 0) {
     s.positionStatus = 'PARSE_ERROR';
     return false;
@@ -1290,130 +1295,41 @@ async function syncOfficialSnapshot(s, result, { emitChanges = true } = {}) {
 
   const official = result.positions || [];
 
-  // First valid snapshot after every deploy is baseline-only: never fire historical alerts.
-  if (!s.officialBaselineReady) {
-    s.officialBaselineReady = true;
-    s.emptyOfficialStreak = official.length ? 0 : 1;
-    s.positionStatus = official.length ? 'OK' : 'EMPTY_CONFIRMING';
-
-    if (official.length) {
-      const merged = new Map(s.positions);
-
-      for (const p of official) {
-        const key = positionKey(p.symbol, p.side);
-        const old = merged.get(key);
-        merged.set(key, {
-          ...old,
-          ...p,
-          openTime: old?.openTime || p.openTime || null,
-          source: old ? 'both' : 'positions',
-        });
-      }
-
-      s.positions = merged;
-      persistStates();
-    }
-
-    return true;
-  }
-
-  // Orders are faster than position snapshots. During a short grace period after an
-  // order event, don't let a stale position snapshot undo the newer order state.
-  if (s.lastOrderChangeAt && Date.now() - s.lastOrderChangeAt < 20000) {
-    s.positionStatus = official.length ? 'OK' : 'EMPTY_CONFIRMING';
-    return true;
-  }
+  // IMPORTANT V5.9.1 SAFETY RULE:
+  // The public copy-trading position endpoint may legitimately return an empty/partial
+  // list when a lead trader hides positions. Therefore absence from this endpoint is
+  // NEVER allowed to clear a position or emit CLOSE. Only explicit order-history
+  // reductions/closures are authoritative for trade events.
+  if (!s.officialBaselineReady) s.officialBaselineReady = true;
 
   if (!official.length) {
     s.emptyOfficialStreak += 1;
-    s.positionStatus = s.emptyOfficialStreak >= 3 ? 'EMPTY' : 'EMPTY_CONFIRMING';
-
-    // Three consecutive valid empty snapshots are required before clearing positions.
-    if (s.emptyOfficialStreak < 3 || s.positions.size === 0) {
-      return true;
-    }
-
-    const closing = [...s.positions.values()];
-    s.positions.clear();
+    s.positionStatus = 'HIDDEN_OR_EMPTY';
     s.missingOfficialCounts.clear();
-    persistStates();
-
-    if (emitChanges) {
-      for (const old of closing) {
-        await emitEvent(makeSnapshotEvent('CLOSE', s, null, old));
-      }
-    }
-
     return true;
   }
 
   s.emptyOfficialStreak = 0;
-  s.positionStatus = 'OK';
 
-  const officialMap = new Map();
-  for (const p of official) {
-    officialMap.set(positionKey(p.symbol, p.side), p);
+  // Official positive rows are useful as a health/visibility signal, but they are not
+  // allowed to mutate the canonical order-derived position state. This prevents a
+  // delayed snapshot from double-applying an ADD/REDUCE when the order record arrives.
+  const officialKeys = new Set(
+    official.map(p => positionKey(p.symbol, p.side))
+  );
+
+  let missingKnown = 0;
+  for (const key of s.positions.keys()) {
+    if (!officialKeys.has(key)) missingKnown += 1;
   }
 
-  const next = new Map(s.positions);
-  const pendingEvents = [];
+  s.positionStatus = missingKnown > 0 ? 'PARTIAL_OR_HIDDEN' : 'OK';
+  s.missingOfficialCounts.clear();
 
-  for (const [key, p] of officialMap) {
-    const old = s.positions.get(key);
-
-    if (!old) {
-      next.set(key, { ...p, source: 'positions' });
-      s.missingOfficialCounts.delete(key);
-      pendingEvents.push(makeSnapshotEvent('OPEN', s, p, null));
-      continue;
-    }
-
-    const merged = {
-      ...old,
-      ...p,
-      openTime: old.openTime || p.openTime || null,
-      source: 'both',
-    };
-
-    if (quantityChanged(old.amount, p.amount)) {
-      const type = p.amount > old.amount ? 'ADD' : 'REDUCE';
-      pendingEvents.push(makeSnapshotEvent(type, s, merged, old));
-    }
-
-    next.set(key, merged);
-    s.missingOfficialCounts.delete(key);
-  }
-
-  // A single missing item can be a transient/partial Binance response.
-  // Require two consecutive valid non-empty snapshots before calling it closed.
-  for (const [key, old] of s.positions) {
-    if (officialMap.has(key)) continue;
-
-    const misses = Number(s.missingOfficialCounts.get(key) || 0) + 1;
-    s.missingOfficialCounts.set(key, misses);
-
-    if (misses >= 2) {
-      next.delete(key);
-      s.missingOfficialCounts.delete(key);
-      pendingEvents.push(makeSnapshotEvent('CLOSE', s, null, old));
-    }
-  }
-
-  s.positions = next;
-  persistStates();
-
-  if (emitChanges) {
-    for (const event of pendingEvents) {
-      await emitEvent(event);
-      if (event.type === 'OPEN' || event.type === 'ADD') {
-        await maybeEmitConsensus(event.symbol, event.side);
-      }
-    }
-  }
-
+  // emitChanges is intentionally ignored for official snapshots in V5.9.1.
+  // Trade notifications are emitted only by processNewOrders().
   return true;
 }
-
 
 function currentConsensus(symbol, side) {
   const ids = [];
@@ -1462,7 +1378,7 @@ async function establishBaseline(s, orders) {
   persistStates();
 
   console.log(
-    `[baseline-v5.9] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
+    `[baseline-v5.9.1] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
   );
 }
 
@@ -1525,7 +1441,7 @@ async function pollTrader(s) {
     s.historyStatus = 'ERROR';
     s.historyError = String(e?.message || e);
     errors.push(`orders: ${s.historyError}`);
-    console.error(`[poll-orders-v5.9] ${s.trader.name}: ${s.historyError}`);
+    console.error(`[poll-orders-v5.9.1] ${s.trader.name}: ${s.historyError}`);
   }
 
   if (Date.now() - s.lastPositionRefresh >= POSITION_REFRESH_MS) {
@@ -1539,7 +1455,7 @@ async function pollTrader(s) {
       s.positionStatus = 'ERROR';
       s.positionError = result.error || 'positions unavailable';
       errors.push(`positions: ${s.positionError}`);
-      console.error(`[poll-positions-v5.9] ${s.trader.name}: ${s.positionError}`);
+      console.error(`[poll-positions-v5.9.1] ${s.trader.name}: ${s.positionError}`);
     }
   } else {
     positionSuccess = s.positionStatus !== 'ERROR';
@@ -1603,12 +1519,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v5.9] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v5.9.1] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v5.9] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v5.9.1] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -1653,11 +1569,11 @@ async function runNextReferenceRefresh() {
     persistReference();
 
     console.log(
-      `[reference-v5.9] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
+      `[reference-v5.9.1] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
     );
   } catch (e) {
     s.referenceError = String(e?.message || e);
-    console.warn(`[reference-v5.9] ${s.trader.name}: ${s.referenceError}`);
+    console.warn(`[reference-v5.9.1] ${s.trader.name}: ${s.referenceError}`);
   } finally {
     referenceRunning = false;
   }
@@ -1686,6 +1602,9 @@ function traderActivity(s) {
   }
 
   if (s.positions.size > 0) return { code: 'HOLDING', label: '持倉中', ts: e?.ts || null };
+  if (['HIDDEN_OR_EMPTY', 'PARTIAL_OR_HIDDEN'].includes(s.positionStatus)) {
+    return { code: 'UNKNOWN', label: '倉位隱藏', ts: e?.ts || null };
+  }
   if (ageMs != null && ageMs >= 12 * 60 * 60 * 1000) return { code: 'QUIET', label: '低活躍', ts: e.ts };
   return { code: 'FLAT', label: '空倉', ts: e?.ts || null };
 }
@@ -1700,11 +1619,14 @@ function signalValue(s) {
   const quality = st.qualityScore == null ? null : Number(st.qualityScore);
 
   if (positions <= 0) {
+    const hiddenOrUnknown = ['HIDDEN_OR_EMPTY', 'PARTIAL_OR_HIDDEN'].includes(s.positionStatus);
     return {
       score: null,
       level: 'WAIT',
-      label: '空倉',
-      reason: st.available ? `等待建倉 · ${st.sourceLabel}` : '等待建倉',
+      label: hiddenOrUnknown ? '未知' : '空倉',
+      reason: hiddenOrUnknown
+        ? '倉位隱藏 · 等待訂單確認'
+        : (st.available ? `等待建倉 · ${st.sourceLabel}` : '等待建倉'),
     };
   }
 
@@ -1837,7 +1759,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_9_TOTAL_FIX',
+    mode: 'V5_9_1_HIDDEN_SAFE',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
@@ -1907,7 +1829,7 @@ app.get('/api/status', (_req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V5.9',
+    mode: 'V5.9.1',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -2040,13 +1962,13 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V5.9',
+    mode: 'V5.9.1',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V5.9 started on ${PORT}`);
+    console.log(`Position Alert V5.9.1 started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
