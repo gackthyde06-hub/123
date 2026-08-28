@@ -83,7 +83,8 @@ function pnl(v){
   return`${x>0?'+':''}${x.toLocaleString('en-US',{maximumFractionDigits:digits})} U`
 }
 function pfText(s){
-  const x=Number(s?.profitFactor);
+  if(s?.profitFactor===null||s?.profitFactor===undefined||s?.profitFactor==='')return'—';
+  const x=Number(s.profitFactor);
   if(!Number.isFinite(x))return'—';
   if(s?.pfNoLosses)return'≥9.9';
   return x>=9.9?'≥9.9':x.toFixed(2)
@@ -167,7 +168,7 @@ function traderCard(t,events){
     </div>
 
     <div class="metrics">
-      <div class="metric"><div class="metricLabel">近期勝率 · ${sample}筆</div><div class="metricValue ${Number(s.winRate)>=50?'up':'down'}">${pct(s.winRate)}</div></div>
+      <div class="metric"><div class="metricLabel">近期勝率 · ${sample}筆</div><div class="metricValue ${sample?Number(s.winRate)>=50?'up':'down':'muted'}">${sample?pct(s.winRate):'—'}</div></div>
       <div class="metric"><div class="metricLabel">中位 ROI</div><div class="metricValue ${metricClass(s.medianRoi)}">${signedPct(s.medianRoi)}</div></div>
       <div class="metric"><div class="metricLabel">Profit Factor</div><div class="metricValue gold">${pfText(s)}</div></div>
     </div>
@@ -239,7 +240,7 @@ $('subscribe').onclick=async()=>{
     if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());
     if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');
     if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');
-    const reg=await navigator.serviceWorker.register('/sw.js?v=57'),permission=await Notification.requestPermission();
+    const reg=await navigator.serviceWorker.register('/sw.js?v=572'),permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('你沒有允許通知');
     const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});
     const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes()})});
