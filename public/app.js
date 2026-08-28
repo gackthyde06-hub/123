@@ -33,11 +33,24 @@ function saveLabel(id,value){const labels=loadLabels();labels[id]=value;localSto
 function typeLabel(t){return({OPEN:'建倉',ADD:'加碼',REDUCE:'減碼',CLOSE:'平倉',CONSENSUS:'共識'})[t]||t}
 function eventAction(e){if(e.type==='OPEN')return e.direction||'';if(e.type==='ADD')return'加碼';if(e.type==='REDUCE')return'減碼';if(e.type==='CLOSE')return'平倉';if(e.type==='CONSENSUS')return`${e.direction||''}共識`;return e.type||''}
 function directionClass(e){
+  const type=String(e?.type||'').toUpperCase();
   const side=String(e?.side||'').toUpperCase();
   const dir=String(e?.direction||'');
+
+  // Action color takes priority over position direction.
+  // Reduce = green; Close = gold, unless future backend supplies realizedPnl.
+  if(type==='REDUCE') return 'actionReduce';
+  if(type==='CLOSE'){
+    const pnl=Number(e?.realizedPnl);
+    if(Number.isFinite(pnl)) return pnl>=0?'marketUp':'marketDown';
+    return 'actionClose';
+  }
+
+  // Taiwan market convention requested by user:
+  // long/up = red, short/down = green.
   if(side==='LONG'||dir.includes('多')) return 'marketUp';
   if(side==='SHORT'||dir.includes('空')) return 'marketDown';
-  return '';
+  return 'actionNeutral';
 }
 function avgClass(v){
   const x=Number(v);
@@ -45,6 +58,7 @@ function avgClass(v){
   return x>0?'up':'down';
 }
 function avgText(v){
+  if(v===null||v===undefined||v==='')return'—';
   const x=Number(v);
   if(!Number.isFinite(x))return'—';
   const sign=x>0?'+':'';
@@ -52,6 +66,7 @@ function avgText(v){
   return `${sign}${x.toLocaleString('en-US',{maximumFractionDigits:digits})} U`;
 }
 function pctText(v){
+  if(v===null||v===undefined||v==='') return '—';
   const x=Number(v);
   return Number.isFinite(x)?`${x.toFixed(1)}%`:'—';
 }
@@ -149,11 +164,11 @@ function traderCard(t,events){
             <div class="metricValue neutral">${ok?(t.baselineReady?'● 監控中':'● 建立中'):'● 讀取異常'}</div>
           </div>
           <div class="metric">
-            <div class="metricLabel">近期勝率 · ${sampleText(st)}</div>
+            <div class="metricLabel">近期勝率 · 完整 ${sampleText(st)}</div>
             <div class="metricValue ${Number(st.winRate)>=50?'up':'down'}">${pctText(st.winRate)}</div>
           </div>
           <div class="metric">
-            <div class="metricLabel">平均獲利</div>
+            <div class="metricLabel">平均獲利${Number.isFinite(Number(st.avgRoi))?' · '+Number(st.avgRoi).toFixed(2)+'%':''}</div>
             <div class="metricValue ${avgClass(st.avgProfit)}">${avgText(st.avgProfit)}</div>
           </div>
         </div>
@@ -228,7 +243,7 @@ function renderAlert(events){
     ? `${e.symbol}｜${(e.traderNames||[]).join('、')}`
     : `${e.symbol}｜${price(e.tradePrice||e.entryPrice)}`;
 
-  el.innerHTML=`<img class="alertIcon" src="/app-icon-192.png?v=55" alt="">
+  el.innerHTML=`<img class="alertIcon" src="/app-icon-192.png?v=56" alt="">
     <div class="alertText">
       <div class="alertTitle ${cls}">${esc(title)}</div>
       <div class="alertBody ${cls}">${esc(body)}</div>
