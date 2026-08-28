@@ -1,367 +1,56 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/manifest.webmanifest?v=52">
-  <title>倉位通知</title>
-
-  <style>
-    :root{
-      color-scheme:dark;
-      --bg:#0a0a0a;
-      --card:#171717;
-      --card2:#101010;
-      --line:#292929;
-      --muted:#919191;
-      --long:#ff3b5c;
-      --short:#20c879;
-      --yellow:#f0b90b;
-      --green:#30d158;
-      --red:#ff453a;
-    }
-
-    *{box-sizing:border-box}
-
-    body{
-      margin:0;
-      background:var(--bg);
-      color:#fff;
-      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
-    }
-
-    .wrap{
-      max-width:680px;
-      margin:auto;
-      padding:22px 16px 60px;
-    }
-
-    .top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      margin:8px 2px 18px;
-    }
-
-    .title{
-      font-size:28px;
-      font-weight:900;
-      letter-spacing:-.5px;
-    }
-
-    .statusText{
-      color:var(--muted);
-      font-size:13px;
-      white-space:nowrap;
-    }
-
-    .dot{
-      display:inline-block;
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      background:#666;
-      margin-right:6px;
-    }
-
-    .dot.ok{background:var(--green)}
-    .dot.bad{background:var(--red)}
-
-    .card,.traderCard{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:15px;
-      margin:11px 0;
-    }
-
-    .row,.traderHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-    }
-
-    .label{
-      font-size:17px;
-      font-weight:850;
-    }
-
-    .small{
-      color:var(--muted);
-      font-size:12px;
-      margin-top:4px;
-    }
-
-    .traderName{
-      font-size:19px;
-      font-weight:900;
-    }
-
-    .state{
-      margin-top:4px;
-      font-size:12px;
-    }
-
-    .okText{color:var(--green)}
-    .badText{color:var(--red)}
-
-    .positionBox{
-      margin-top:11px;
-      background:var(--card2);
-      border-radius:14px;
-      padding:0 12px;
-      overflow:hidden;
-    }
-
-    .pos{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:12px 0;
-      border-top:1px solid #252525;
-    }
-
-    .pos:first-child{border-top:0}
-
-    .sym{
-      font-size:17px;
-      font-weight:850;
-    }
-
-    .dir{
-      margin-top:3px;
-      font-size:13px;
-      font-weight:850;
-    }
-
-    .long{color:var(--long)}
-    .short{color:var(--short)}
-
-    .price{
-      text-align:right;
-    }
-
-    .price span{
-      display:block;
-      color:var(--muted);
-      font-size:11px;
-      margin-bottom:3px;
-    }
-
-    .price b{
-      font-size:17px;
-      font-weight:850;
-    }
-
-    .empty{
-      color:var(--muted);
-      font-size:13px;
-      padding:13px 0;
-    }
-
-    .hidden{display:none!important}
-
-    .moreBtn{
-      width:100%;
-      border:0;
-      border-top:1px solid #252525;
-      background:transparent;
-      color:#bbb;
-      padding:11px 0;
-      font-size:13px;
-      font-weight:750;
-      margin:0;
-    }
-
-    .switch{
-      position:relative;
-      display:inline-block;
-      width:50px;
-      height:30px;
-      flex:0 0 auto;
-    }
-
-    .switch input{
-      opacity:0;
-      width:0;
-      height:0;
-    }
-
-    .slider{
-      position:absolute;
-      cursor:pointer;
-      inset:0;
-      background:#343434;
-      border-radius:999px;
-      transition:.2s;
-    }
-
-    .slider:before{
-      content:"";
-      position:absolute;
-      width:24px;
-      height:24px;
-      left:3px;
-      top:3px;
-      border-radius:50%;
-      background:#fff;
-      transition:.2s;
-    }
-
-    .switch input:checked + .slider{
-      background:var(--green);
-    }
-
-    .switch input:checked + .slider:before{
-      transform:translateX(20px);
-    }
-
-    .types{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .typeChoice input{
-      display:none;
-    }
-
-    .typeChoice span{
-      display:block;
-      text-align:center;
-      padding:10px 5px;
-      border-radius:11px;
-      background:#272727;
-      color:#aaa;
-      font-size:14px;
-      font-weight:800;
-      border:1px solid #303030;
-    }
-
-    .typeChoice input:checked + span{
-      background:#10351f;
-      border-color:#1d6c3c;
-      color:#56e68c;
-    }
-
-    button.action{
-      width:100%;
-      border:0;
-      border-radius:14px;
-      padding:14px;
-      margin-top:9px;
-      font-size:16px;
-      font-weight:850;
-    }
-
-    #subscribe{
-      background:var(--yellow);
-      color:#111;
-    }
-
-    #test{
-      background:#292929;
-      color:#fff;
-    }
-
-    .msg{
-      min-height:18px;
-      color:var(--muted);
-      font-size:12px;
-      margin-top:9px;
-    }
-
-    .event{
-      display:grid;
-      grid-template-columns:45px auto auto;
-      gap:5px 8px;
-      align-items:center;
-      border-top:1px solid #262626;
-      padding:10px 0;
-      font-size:13px;
-    }
-
-    .event:first-child{border-top:0}
-
-    .eventTime{
-      color:var(--muted);
-      font-size:11px;
-    }
-
-    .event .muted{
-      color:var(--muted);
-      grid-column:2 / -1;
-    }
-
-    h2{
-      margin:0 0 10px;
-      font-size:16px;
-    }
-
-    @media (max-width:420px){
-      .types{grid-template-columns:repeat(2,1fr)}
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080a0c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="倉位">
+<link rel="manifest" href="/manifest.webmanifest?v=53">
+<link rel="apple-touch-icon" href="/icons/icon-180.png?v=53">
+<title>倉位</title>
+<style>
+:root{color-scheme:dark;--bg:#080a0c;--card:#121518;--card2:#0c0f11;--line:#23282d;--muted:#858d94;--text:#f5f7fa;--long:#ff4d67;--short:#31d98b;--green:#30d158;--yellow:#f4c542}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#080a0c 0%,#0a0d10 100%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
+.wrap{max-width:680px;margin:auto;padding:18px 14px 48px}.top{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 14px}.brand{display:flex;align-items:center;gap:10px}.brand img{width:34px;height:34px;border-radius:10px}.title{font-size:24px;font-weight:900;letter-spacing:-.4px}.statusText{font-size:12px;color:var(--muted);white-space:nowrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#666;margin-right:6px}.dot.ok{background:var(--green)}.dot.bad{background:#ff453a}
+.card,.traderCard{background:rgba(18,21,24,.96);border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0;box-shadow:0 8px 24px rgba(0,0,0,.16)}
+.row,.traderHead{display:flex;align-items:center;justify-content:space-between;gap:12px}.label{font-size:16px;font-weight:850}.small,.state{font-size:12px;color:var(--muted);margin-top:4px}.okText{color:var(--green)}.badText{color:#ff453a}.traderName{font-size:18px;font-weight:900}
+.positionBox{margin-top:10px;background:var(--card2);border-radius:14px;padding:0 12px;overflow:hidden}.pos{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid #20252a}.pos:first-child{border-top:0}.sym{font-size:16px;font-weight:850}.dir{font-size:12px;font-weight:850;margin-top:3px}.long{color:var(--long)}.short{color:var(--short)}.price{text-align:right}.price span{display:block;color:var(--muted);font-size:10px;margin-bottom:2px}.price b{font-size:16px}.empty{color:var(--muted);font-size:12px;padding:12px 0}.hidden{display:none!important}
+.moreBtn,.activity summary{width:100%;border:0;background:transparent;color:#b3bac1;padding:10px 0;font-size:12px;font-weight:750;cursor:pointer}.moreBtn{border-top:1px solid #20252a}
+.switch{position:relative;display:inline-block;width:48px;height:29px;flex:0 0 auto}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;background:#343a40;border-radius:999px;transition:.18s}.slider:before{content:"";position:absolute;width:23px;height:23px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.18s}.switch input:checked+.slider{background:var(--green)}.switch input:checked+.slider:before{transform:translateX(19px)}
+.types{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}.typeChoice input{display:none}.typeChoice span{display:block;text-align:center;padding:9px 3px;border-radius:10px;background:#22272b;color:#8f979e;font-size:12px;font-weight:800;border:1px solid #2a3035}.typeChoice input:checked+span{background:#10351f;border-color:#1d6c3c;color:#63e69a}
+.activity{margin-top:8px;border-top:1px solid var(--line)}.activity summary{list-style:none;display:flex;justify-content:space-between;align-items:center}.activity summary::-webkit-details-marker{display:none}.activityCount{color:var(--muted);font-weight:700}.miniEvents{padding-bottom:2px}.miniEvent{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:center;padding:8px 0;border-top:1px solid #20252a;font-size:12px}.miniEvent .time{color:var(--muted);font-size:10px}.miniEvent .act{font-weight:800}.miniEvent .px{color:#b0b7bd;text-align:right}.miniEvent .coin{color:#e8ecef}
+button.action{width:100%;border:0;border-radius:13px;padding:13px;margin-top:8px;font-size:15px;font-weight:850}#subscribe{background:var(--yellow);color:#111}#test{background:#24282c;color:#fff}.msg{min-height:16px;color:var(--muted);font-size:11px;margin-top:8px;text-align:center}
+@media(max-width:460px){.types{grid-template-columns:repeat(3,1fr)}}
+</style>
 </head>
-
-<body>
-<div class="wrap">
-
-  <div class="top">
-    <div class="title">📡 倉位通知</div>
-    <div class="statusText">
-      <span id="dot" class="dot"></span>
-      <span id="status">連線中</span>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="row">
-      <div>
-        <div class="label">交易員通知</div>
-        <div id="allCount" class="small">4/4</div>
-      </div>
-
-      <label class="switch">
-        <input id="allToggle" type="checkbox" checked>
-        <span class="slider"></span>
-      </label>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="label">通知類型</div>
-    <div id="typeOptions" class="types"></div>
-  </div>
-
-  <div id="traders">
-    <div class="card">
-      <div class="empty">讀取中…</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <button id="subscribe" class="action">同步 iPhone 通知</button>
-    <button id="test" class="action">測試通知</button>
-    <div id="msg" class="msg"></div>
-  </div>
-
-  <div class="card">
-    <h2>最近動靜</h2>
-    <div id="events">
-      <div class="empty">尚無新動靜</div>
-    </div>
-  </div>
-
+<body><div class="wrap">
+<div class="top">
+  <div class="brand"><img src="/icons/icon-96.png?v=53" alt=""><div class="title">倉位</div></div>
+  <div class="statusText"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
 </div>
 
-<script src="/app.js?v=52"></script>
+<div class="card">
+  <div class="row">
+    <div><div class="label">交易員通知</div><div id="allCount" class="small">4/4</div></div>
+    <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="label">通知類型</div>
+  <div id="typeOptions" class="types"></div>
+</div>
+
+<div id="traders"><div class="card"><div class="empty">讀取中…</div></div></div>
+
+<div class="card">
+  <button id="subscribe" class="action">同步 iPhone 通知</button>
+  <button id="test" class="action">測試通知</button>
+  <div id="msg" class="msg"></div>
+</div>
+</div>
+<script src="/app.js?v=53"></script>
 </body>
 </html>

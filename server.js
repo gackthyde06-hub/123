@@ -506,7 +506,7 @@ async function establishBaseline(s, orders) {
   s.lastPositionRefresh = Date.now();
 
   persistStates();
-  console.log(`[baseline-v5.2] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
+  console.log(`[baseline-v5.3] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
 }
 
 async function processNewOrders(s, orders) {
@@ -547,7 +547,7 @@ async function pollTrader(s) {
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.2] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.3] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -558,7 +558,7 @@ async function loop() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_2_MULTI_TRADER',
+    mode: 'V5_3_MULTI_TRADER',
     pollMs: POLL_MS,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
@@ -690,12 +690,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.2',
+    mode: 'V5.3',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.2 started on ${PORT}`);
+  console.log(`Position Alert V5.3 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
