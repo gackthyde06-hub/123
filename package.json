@@ -1,6 +1,6 @@
 {
-  "name": "aoying-iphone-alert",
-  "version": "0.1.0",
+  "name": "position-alert-v52",
+  "version": "5.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,9 @@
     "dev": "node --watch server.js",
     "vapid": "web-push generate-vapid-keys"
   },
-  "engines": {"node": ">=20"},
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
