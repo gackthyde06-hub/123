@@ -776,6 +776,138 @@ async function loop() {
   timer = setTimeout(loop, POLL_MS);
 }
 
+
+function latestTraderEvent(traderId) {
+  return recentEvents.find(
+    e => e?.kind === 'TRADER' && e?.traderId === traderId
+  ) || null;
+}
+
+function traderActivity(s) {
+  const e = latestTraderEvent(s.trader.id);
+  const ageMs = e?.ts
+    ? Math.max(0, Date.now() - new Date(e.ts).getTime())
+    : null;
+
+  if (ageMs != null && ageMs <= 10 * 60 * 1000) {
+    if (e.type === 'OPEN') {
+      return { code: 'JUST_OPENED', label: '剛建倉', ts: e.ts };
+    }
+    if (e.type === 'ADD') {
+      return { code: 'ADDING', label: '正在加碼', ts: e.ts };
+    }
+    if (e.type === 'REDUCE') {
+      return { code: 'REDUCING', label: '正在減碼', ts: e.ts };
+    }
+    if (e.type === 'CLOSE') {
+      return { code: 'JUST_CLOSED', label: '剛平倉', ts: e.ts };
+    }
+  }
+
+  if (s.positions.size > 0) {
+    return { code: 'HOLDING', label: '持倉中', ts: e?.ts || null };
+  }
+
+  if (ageMs != null && ageMs >= 12 * 60 * 60 * 1000) {
+    return { code: 'QUIET', label: '低活躍', ts: e.ts };
+  }
+
+  return { code: 'FLAT', label: '空倉', ts: e?.ts || null };
+}
+
+function buildConsensusRows() {
+  const buckets = new Map();
+
+  for (const [traderId, s] of states) {
+    for (const p of s.positions.values()) {
+      const key = `${p.symbol}|${p.side}`;
+
+      if (!buckets.has(key)) buckets.set(key, []);
+
+      buckets.get(key).push({
+        traderId,
+        traderName: s.trader.name,
+        entryPrice: Number(p.entryPrice || 0),
+        openTime: p.openTime || null,
+      });
+    }
+  }
+
+  const rows = [];
+
+  for (const [key, members] of buckets) {
+    if (members.length < 2) continue;
+
+    const [symbol, side] = key.split('|');
+
+    const prices = members
+      .map(x => x.entryPrice)
+      .filter(x => Number.isFinite(x) && x > 0);
+
+    const times = members
+      .map(x => x.openTime ? new Date(x.openTime).getTime() : null)
+      .filter(Number.isFinite);
+
+    let entrySpreadPct = null;
+
+    if (prices.length >= 2) {
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      const mid = prices.reduce((a, b) => a + b, 0) / prices.length;
+
+      entrySpreadPct = mid > 0
+        ? ((max - min) / mid) * 100
+        : null;
+    }
+
+    let timeSpreadMin = null;
+
+    if (times.length >= 2) {
+      timeSpreadMin =
+        (Math.max(...times) - Math.min(...times)) / 60000;
+    }
+
+    let score = (members.length / TRADERS.length) * 50;
+
+    if (entrySpreadPct == null) score += 8;
+    else if (entrySpreadPct <= 0.35) score += 25;
+    else if (entrySpreadPct <= 0.8) score += 20;
+    else if (entrySpreadPct <= 1.5) score += 12;
+    else score += 4;
+
+    if (timeSpreadMin == null) score += 7;
+    else if (timeSpreadMin <= 15) score += 25;
+    else if (timeSpreadMin <= 60) score += 18;
+    else if (timeSpreadMin <= 240) score += 9;
+    else score += 3;
+
+    score = Math.max(0, Math.min(100, Math.round(score)));
+
+    const level =
+      members.length >= 3 && score >= 70 ? 'HIGH' :
+      score >= 50 ? 'MEDIUM' :
+      'LOW';
+
+    rows.push({
+      symbol,
+      side,
+      direction: sideZh(side),
+      count: members.length,
+      total: TRADERS.length,
+      score,
+      level,
+      entrySpreadPct,
+      timeSpreadMin,
+      traderIds: members.map(x => x.traderId),
+      traderNames: members.map(x => x.traderName),
+    });
+  }
+
+  return rows.sort(
+    (a, b) => b.score - a.score || b.count - a.count
+  );
+}
+
 app.get('/api/config', (_req, res) => {
   res.json({
     mode: 'V5_7_DECISION',
@@ -927,12 +1059,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.7',
+    mode: 'V5.7.1',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.7 started on ${PORT}`);
+  console.log(`Position Alert V5.7.1 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
