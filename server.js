@@ -103,6 +103,7 @@ function normalizePosition(raw) {
     side,
     amount: Math.abs(signed),
     entryPrice: n(raw?.entryPrice ?? raw?.avgPrice),
+    openTime: null,
     source: 'positions',
   };
 }
@@ -123,6 +124,7 @@ function applyOrder(map, o) {
     side: o.positionSide,
     amount: 0,
     entryPrice: 0,
+    openTime: null,
     source: 'orders',
   };
 
@@ -132,7 +134,13 @@ function applyOrder(map, o) {
     const newEntry = oldQty > 0
       ? ((oldQty * old.entryPrice) + (o.qty * o.price)) / newQty
       : o.price;
-    const next = { ...old, amount: newQty, entryPrice: newEntry, source: 'orders' };
+    const next = {
+      ...old,
+      amount: newQty,
+      entryPrice: newEntry,
+      openTime: oldQty > 0 ? (old.openTime || null) : new Date(o.time).toISOString(),
+      source: 'orders',
+    };
     map.set(key, next);
     return { type: oldQty > 0 ? 'ADD' : 'OPEN', previous: old, current: next };
   }
@@ -209,7 +217,7 @@ for (const trader of TRADERS) {
     trader,
     positions: new Map(persistedPositions.map(p => [positionKey(p.symbol, p.side), p])),
     seen: new Set(persistedSeenKeys),
-    baselineReady: persistedSeenKeys.length > 0,
+    baselineReady: persistedSeenKeys.length > 0 && !persistedPositions.some(p => !p.openTime),
     lastFetch: null,
     lastError: null,
     lastPositionRefresh: 0,
@@ -406,7 +414,7 @@ async function loop() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_MULTI_TRADER',
+    mode: 'V5_1_MULTI_TRADER',
     pollMs: POLL_MS,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
@@ -427,6 +435,7 @@ app.get('/api/status', (_req, res) => {
         side: p.side,
         direction: sideZh(p.side),
         entryPrice: p.entryPrice,
+        openTime: p.openTime || null,
       })),
     };
   });
@@ -492,12 +501,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5',
+    mode: 'V5.1',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Leader Alert V5 started on ${PORT}`);
+  console.log(`Leader Alert V5.1 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
