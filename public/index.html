@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#070809">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=58">
-<link rel="apple-touch-icon" href="/app-icon-180.png?v=58">
+<link rel="manifest" href="/manifest.webmanifest?v=59">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=59">
 <title>倉位</title>
 <style>
 :root{
@@ -27,9 +27,9 @@ body{
     linear-gradient(180deg,#070809 0%,#090b0c 60%,#070809 100%);
 }
 button,input{font:inherit}
-.wrap{max-width:680px;margin:auto;padding:16px 14px 46px}
+.wrap{max-width:680px;margin:auto;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 12px) 14px calc(46px + env(safe-area-inset-bottom))}
 
-.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:5px 2px 13px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 2px 13px}
 .brandTitle{font-size:23px;font-weight:900;color:#e3be70;letter-spacing:.2px}
 .brandSub{font-size:11px;color:#77736b;margin-top:3px}
 .sync{text-align:right}
@@ -95,6 +95,11 @@ button,input{font:inherit}
 .confidenceBadge.high{background:#332a17;color:#e8c675}.confidenceBadge.medium{background:#25231d;color:#bdb189}.confidenceBadge.low{background:#221d1c;color:#a88672}
 .signalBadge{display:inline-block;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:900;border:1px solid #3d3528;background:#171613;color:#a99c82}.signalBadge.high{border-color:#8a6226;background:#2a2112;color:#f0c86c}.signalBadge.medium{border-color:#5b4b2b;background:#201d16;color:#d8bf83}.signalBadge.low{border-color:#433532;background:#1e1716;color:#b78d84}.signalBadge.wait{border-color:#343434;background:#171717;color:#888}
 .stateInfo{font-size:9px;color:#746f67}
+.dataBadge{display:inline-block;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:850;border:1px solid #3a352c;background:#171715;color:#989188}
+.dataBadge.live{border-color:#675027;background:#231d13;color:#dfbd73}
+.dataBadge.public{border-color:#4c4738;background:#1d1c18;color:#c5b88f}
+.dataBadge.none{border-color:#353535;background:#171717;color:#7d7d7d}
+.sourceNote{padding:7px 2px 1px;color:#68635c;font-size:8px;line-height:1.45}
 
 .metrics{
   display:grid;grid-template-columns:repeat(3,1fr);margin-top:9px;
@@ -191,7 +196,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
       <div id="msg" class="msg"></div>
-      <div class="note">即時動作約每 3 秒檢查；統計最多讀取 500 筆訂單、約每 5 分鐘重算。訊號價值會優先評估持倉集中度，再參考樣本、PF、中位 ROI 與資料可信度；持倉過度分散會自動大幅扣分。PF、ROI 與 PnL 均不含手續費與資金費。</div>
+      <div class="note">即時動作約每 3 秒檢查；倉位同時用訂單紀錄＋官方倉位快照交叉監控。若 Binance 某位交易員的訂單歷史暫時不可讀，仍會持續監看目前倉位；歷史統計則改顯示有來源標記的公開基準，不再永久空白。公開基準與重建統計都屬參考資料，PF、ROI 與 PnL 不含手續費與資金費。</div>
     </div>
   </details>
 </div>
@@ -208,6 +213,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=58"></script>
+<script src="/app.js?v=59"></script>
 </body>
 </html>
