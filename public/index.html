@@ -68,6 +68,16 @@ button,input{font:inherit}
 .consensusScore{text-align:right;color:#e0bb68;font-size:13px;font-weight:850}
 .consensusScore small{display:block;color:#777168;font-size:8px;font-weight:600;margin-top:2px}
 
+
+.tradeCalc{margin:10px 0 12px;border:1px solid #493820;border-radius:14px;background:linear-gradient(145deg,#171716,#0d0e0f);overflow:hidden}
+.tradeCalc>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:12px 13px;cursor:pointer;color:#d8c49a;font-size:12px;font-weight:850}
+.tradeCalc>summary::-webkit-details-marker{display:none}.tradeCalcHint{font-size:8px;color:#7b7469;font-weight:700}.tradeCalcBody{padding:0 11px 11px;border-top:1px solid #29251f}
+.calcLead{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.calcGrid{display:grid;grid-template-columns:1.15fr .85fr 1fr;gap:7px;margin-top:8px}.calcPrices{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.calcField{min-width:0}.calcField label{display:block;color:#80786d;font-size:8px;font-weight:800;margin:0 0 4px 2px}.calcField input,.calcField select{width:100%;height:42px;border:1px solid #363534;border-radius:9px;background:#0c0d0e;color:#eee7dc;padding:0 9px;font-size:16px;font-weight:760;outline:none}.calcField input:focus,.calcField select:focus{border-color:#c99a45}.calcField input::placeholder{color:#55514b}.calcField select{appearance:auto}
+.calcResult{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.calcCell{background:#0b0c0d;border:1px solid #262729;border-radius:9px;padding:8px;min-width:0}.calcCell span{display:block;color:#746d64;font-size:7.5px;font-weight:800}.calcCell b{display:block;margin-top:3px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calcProfit{color:var(--up)}.calcLoss{color:var(--down)}.calcGold{color:var(--gold2)}
+.calcMsg{min-height:14px;margin-top:7px;font-size:8px;color:#777168;text-align:center;line-height:1.4}.calcMsg.bad{color:#e1a65f}.calcNote{font-size:7.5px;color:#5f5a54;text-align:center;margin-top:5px}.calcSelected{color:#c9a55d}.pos[data-calc-entry]{cursor:pointer}
+@media(max-width:420px){.calcGrid{grid-template-columns:1fr .8fr}.calcGrid .calcSymbol{grid-column:1/-1}.calcPrices{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.calcPrices .calcField input{padding:0 6px;font-size:14px}.calcResult{grid-template-columns:repeat(2,1fr)}.calcCell:last-child{grid-column:1/-1}}
+
 .sectionBar{display:flex;align-items:center;justify-content:space-between;margin:10px 3px 7px}
 .sectionTitle{font-size:13px;color:#d5c5a3;font-weight:820}
 .masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:9px;color:#7b776f}
@@ -183,6 +193,36 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   <div id="latest" class="latest"></div>
   <div id="consensusPanel" class="consensusPanel"></div>
 
+  <details id="tradeCalc" class="tradeCalc">
+    <summary><span>⚡ 下單試算</span><span class="tradeCalcHint">槓桿 · 金額 · TP / SL　⌄</span></summary>
+    <div class="tradeCalcBody">
+      <div class="calcLead">
+        <div class="calcField"><label for="calcMargin">金額（保證金 U）</label><input id="calcMargin" inputmode="decimal" type="number" min="1" step="1" placeholder="300"></div>
+        <div class="calcField"><label for="calcLev">槓桿</label><input id="calcLev" inputmode="numeric" type="number" min="1" max="125" step="1" placeholder="20"></div>
+      </div>
+      <div class="calcGrid">
+        <div class="calcField calcSymbol"><label for="calcSymbol">標的</label><input id="calcSymbol" autocapitalize="characters" spellcheck="false" placeholder="BTCUSDT"></div>
+        <div class="calcField"><label for="calcSide">方向</label><select id="calcSide"><option value="LONG">做多</option><option value="SHORT">做空</option></select></div>
+        <div class="calcField"><label for="calcEntry">進場</label><input id="calcEntry" inputmode="decimal" type="number" min="0" step="any" placeholder="TV帶入"></div>
+      </div>
+      <div class="calcPrices">
+        <div class="calcField"><label for="calcTp">TP</label><input id="calcTp" inputmode="decimal" type="number" min="0" step="any" placeholder="TV帶入"></div>
+        <div class="calcField"><label for="calcSl">SL</label><input id="calcSl" inputmode="decimal" type="number" min="0" step="any" placeholder="TV帶入"></div>
+        <div class="calcField"><label for="calcQty">預估數量</label><input id="calcQty" type="text" value="—" readonly></div>
+      </div>
+      <div class="calcResult" aria-live="polite">
+        <div class="calcCell"><span>總倉位</span><b id="calcNotional" class="calcGold">—</b></div>
+        <div class="calcCell"><span>TP 預估獲利</span><b id="calcProfit" class="calcProfit">—</b></div>
+        <div class="calcCell"><span>SL 預估虧損</span><b id="calcLoss" class="calcLoss">—</b></div>
+        <div class="calcCell"><span>TP 保證金報酬</span><b id="calcProfitPct" class="calcProfit">—</b></div>
+        <div class="calcCell"><span>SL 保證金報酬</span><b id="calcLossPct" class="calcLoss">—</b></div>
+        <div class="calcCell"><span>RR</span><b id="calcRR" class="calcGold">—</b></div>
+      </div>
+      <div id="calcMsg" class="calcMsg">先輸入金額、槓桿、進場、TP、SL；之後 TradingView 可自動帶入價格。</div>
+      <div class="calcNote">試算未含手續費、滑價、資金費與強平因素；目前不會送出真實訂單。</div>
+    </div>
+  </details>
+
   <div class="sectionBar">
     <div class="sectionTitle">核心交易員</div>
     <div class="masterWrap">
@@ -217,6 +257,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=594"></script>
+<script src="/app.js?v=595"></script>
 </body>
 </html>
