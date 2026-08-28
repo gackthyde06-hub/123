@@ -72,16 +72,18 @@ button,input{font:inherit}
 .tradeCalc{margin:10px 0 12px;border:1px solid #493820;border-radius:14px;background:linear-gradient(145deg,#171716,#0d0e0f);overflow:hidden}
 .tradeCalc>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:12px 13px;cursor:pointer;color:#d8c49a;font-size:12px;font-weight:850}
 .tradeCalc>summary::-webkit-details-marker{display:none}.tradeCalcHint{font-size:8px;color:#7b7469;font-weight:700}.tradeCalcBody{padding:0 11px 11px;border-top:1px solid #29251f}
-.calcLead{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.calcGrid{display:grid;grid-template-columns:1.15fr .85fr 1fr;gap:7px;margin-top:8px}.calcPrices{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}.calcPositionPick{margin-top:9px}.calcPositionPick select{font-size:14px}.calcAutoGrid input[readonly]{color:#cfc7bb;background:#101112;border-color:#2b2c2e;cursor:default}
-.calcField{min-width:0}.calcField label{display:block;color:#80786d;font-size:8px;font-weight:800;margin:0 0 4px 2px}.calcField input,.calcField select{width:100%;height:42px;border:1px solid #363534;border-radius:9px;background:#0c0d0e;color:#eee7dc;padding:0 9px;font-size:16px;font-weight:760;outline:none}.calcField input:focus,.calcField select:focus{border-color:#c99a45}.calcField input::placeholder{color:#55514b}.calcField select{appearance:auto}
-.calcResult{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.calcCell{background:#0b0c0d;border:1px solid #262729;border-radius:9px;padding:8px;min-width:0}.calcCell span{display:block;color:#746d64;font-size:7.5px;font-weight:800}.calcCell b{display:block;margin-top:3px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calcProfit{color:var(--up)}.calcLoss{color:var(--down)}.calcGold{color:var(--gold2)}
-.calcMsg{min-height:14px;margin-top:7px;font-size:8px;color:#777168;text-align:center;line-height:1.4}.calcMsg.bad{color:#e1a65f}.calcNote{font-size:7.5px;color:#5f5a54;text-align:center;margin-top:5px}.calcSelected{color:#c9a55d}.pos[data-calc-entry]{cursor:pointer}
-.calcSourceLine{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.calcSourceBadge{font-size:8px;color:#c9a55d;background:#1b1710;border:1px solid #4b3a20;border-radius:7px;padding:6px 8px;white-space:nowrap}.tvStatus{display:flex;align-items:center;gap:6px;margin:7px 2px 1px;font-size:8px;color:#777168}.tvStatus b{color:#aaa196}.tvStatus span:last-child{margin-left:auto}.tvDot{width:6px;height:6px;border-radius:50%;background:#665f57}.tvDot.ok{background:#50c878}.tvSetup{margin-top:10px;border-top:1px solid #242526;padding-top:8px}.tvSetup>summary{list-style:none;cursor:pointer;color:#8d8376;font-size:9px;font-weight:820}.tvSetup>summary::-webkit-details-marker{display:none}.tvSetupGrid{display:grid;gap:7px;margin-top:8px}.tvSetup textarea{width:100%;min-height:64px;resize:vertical;border:1px solid #302f2d;border-radius:8px;background:#0b0c0d;color:#c8bda8;padding:8px;font-size:10px;line-height:1.35}.tvHelp{font-size:7.5px;color:#66605a;line-height:1.45}.hidden{display:none!important}
-@media(max-width:420px){.calcGrid{grid-template-columns:1.05fr .72fr 1fr;gap:5px}.calcPositionPick select{font-size:13px}.calcAutoGrid .calcField input{padding:0 6px;font-size:13px}.calcPrices{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.calcPrices .calcField input{padding:0 6px;font-size:14px}.calcResult{grid-template-columns:repeat(2,1fr)}.calcCell:last-child{grid-column:1/-1}}
+.calcPositionPick{margin-top:10px}.calcPositionPick select{font-size:14px}.calcGrid{display:grid;grid-template-columns:1.15fr .85fr 1fr;gap:7px;margin-top:8px}.calcAutoGrid input[readonly]{color:#cfc7bb;background:#101112;border-color:#2b2c2e;cursor:default}
+.calcModeRow{display:grid;grid-template-columns:1fr;gap:7px;margin-top:9px}.calcLead{display:grid;grid-template-columns:1fr .72fr 1fr;gap:7px;margin-top:8px}.calcPrices{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.calcField{min-width:0}.calcField label{display:block;color:#80786d;font-size:8px;font-weight:800;margin:0 0 4px 2px}.calcField input,.calcField select{width:100%;height:42px;border:1px solid #363534;border-radius:9px;background:#0c0d0e;color:#eee7dc;padding:0 9px;font-size:16px;font-weight:760;outline:none}.calcField input:focus,.calcField select:focus{border-color:#c99a45}.calcField input::placeholder{color:#55514b}.calcField select{appearance:auto}.calcField input:disabled{opacity:.48}.calcField input[readonly]{color:#cfc7bb;background:#101112}
+.autoLevels{margin-top:9px;padding:9px;border:1px solid #302a20;border-radius:11px;background:#0b0c0d}.autoHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.autoHead b{font-size:10px;color:#d2b46f}.autoHead span{display:block;margin-top:2px;color:#6f685f;font-size:7.5px}.autoRefresh{border:1px solid #4a3921;background:#19150f;color:#c9a55d;border-radius:7px;padding:6px 8px;font-size:8px;font-weight:800}.autoRefresh:disabled{opacity:.45}.levelGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.levelCell{border:1px solid #252627;background:#101112;border-radius:9px;padding:8px}.levelCell span{display:block;color:#777168;font-size:7.5px}.levelCell b{display:block;margin-top:3px;font-size:11px}.levelCell small{display:block;margin-top:3px;color:#6c665e;font-size:7px}.autoAdopt{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}.autoCheck{display:flex;align-items:center;gap:6px;min-height:34px;padding:6px 7px;border:1px solid #292a2b;border-radius:8px;color:#9b9183;font-size:8px}.autoCheck input{accent-color:#d6aa52}.autoCheck strong{margin-left:auto;color:#c5a359;font-size:8px;white-space:nowrap}.autoNote{min-height:11px;margin-top:5px;color:#665f57;font-size:7px;text-align:center;line-height:1.4}
+.calcPriceHint{display:block;min-height:10px;margin:3px 2px 0;color:#6e685f;font-size:7px}.calcResult{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.calcCell{background:#0b0c0d;border:1px solid #262729;border-radius:9px;padding:8px;min-width:0}.calcCell span{display:block;color:#746d64;font-size:7.5px;font-weight:800}.calcCell b{display:block;margin-top:3px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calcProfit{color:var(--up)}.calcLoss{color:var(--down)}.calcGold{color:var(--gold2)}
+.calcMsg{min-height:14px;margin-top:7px;font-size:8px;color:#777168;text-align:center;line-height:1.4}.calcMsg.bad{color:#e1a65f}.calcNote{font-size:7.5px;color:#5f5a54;text-align:center;margin-top:5px;line-height:1.45}.calcSelected{color:#c9a55d}.pos[data-calc-entry]{cursor:pointer}
+.bottomMaster{margin-top:12px;border:1px solid #302a20;border-radius:13px;background:#101111;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.bottomMasterText b{display:block;color:#d5c5a3;font-size:11px}.bottomMasterText span{display:block;color:#746d64;font-size:8px;margin-top:3px}.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:9px;color:#a99b82}
+@media(max-width:420px){.calcGrid{grid-template-columns:1.05fr .72fr 1fr;gap:5px}.calcPositionPick select{font-size:13px}.calcAutoGrid .calcField input{padding:0 6px;font-size:13px}.calcLead{grid-template-columns:1fr .66fr 1fr;gap:5px}.calcLead .calcField input{padding:0 6px;font-size:14px}.calcPrices{gap:5px}.calcPrices .calcField input{padding:0 6px;font-size:14px}.calcResult{grid-template-columns:repeat(2,1fr)}.autoAdopt{grid-template-columns:1fr}.levelCell b{font-size:10px}}
+
 
 .sectionBar{display:flex;align-items:center;justify-content:space-between;margin:10px 3px 7px}
 .sectionTitle{font-size:13px;color:#d5c5a3;font-weight:820}
-.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:9px;color:#7b776f}
 
 .traderCard{
   margin:9px 0;padding:13px;border:1px solid #473720;border-radius:17px;
@@ -195,61 +197,63 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   <div id="consensusPanel" class="consensusPanel"></div>
 
   <details id="tradeCalc" class="tradeCalc">
-    <summary><span>⚡ 下單試算</span><span class="tradeCalcHint">槓桿 · 金額 · TP / SL　⌄</span></summary>
+    <summary><span>⚡ 跟單 / 盈損試算</span><span class="tradeCalcHint">自動區間 · 最大虧損 · TP / SL　⌄</span></summary>
     <div class="tradeCalcBody">
-      <div class="calcLead">
-        <div class="calcField"><label for="calcMargin">金額（保證金 U）</label><input id="calcMargin" inputmode="decimal" type="number" min="1" step="1" placeholder="300"></div>
-        <div class="calcField"><label for="calcLev">槓桿</label><input id="calcLev" inputmode="numeric" type="number" min="1" max="125" step="1" placeholder="20"></div>
-      </div>
-      <div class="calcPositionPick calcSourceLine">
-        <div class="calcField"><label for="calcSource">訊號來源</label><select id="calcSource"><option value="POSITION">高手目前倉位</option><option value="TV">TradingView 自動訊號</option></select></div>
-        <span id="calcSourceBadge" class="calcSourceBadge">高手目前倉位</span>
-      </div>
-      <div id="tvStatus" class="tvStatus"><span class="tvDot"></span><b>TV 等待訊號</b><span>設定 Webhook 後自動帶入</span></div>
-      <div id="calcPositionWrap" class="calcPositionPick">
+      <div class="calcPositionPick">
         <div class="calcField"><label for="calcPosition">選擇目前監控倉位</label><select id="calcPosition"><option value="">目前沒有可選倉位</option></select></div>
       </div>
-      <div id="calcTvWrap" class="calcPositionPick hidden">
-        <div class="calcField"><label for="calcTvSignal">TradingView 訊號</label><select id="calcTvSignal"><option value="">等待 TradingView 訊號</option></select></div>
-      </div>
       <div class="calcGrid calcAutoGrid">
-        <div class="calcField calcSymbol"><label for="calcSymbol">標的</label><input id="calcSymbol" type="text" value="—" readonly></div>
+        <div class="calcField"><label for="calcSymbol">標的</label><input id="calcSymbol" type="text" value="—" readonly></div>
         <div class="calcField"><label for="calcSideLabel">方向</label><input id="calcSideLabel" type="text" value="—" readonly></div>
         <input id="calcSide" type="hidden" value="LONG">
         <div class="calcField"><label for="calcEntry">進場位</label><input id="calcEntry" type="text" value="—" readonly></div>
       </div>
-      <div class="calcPrices">
-        <div class="calcField"><label for="calcTp">TP</label><input id="calcTp" inputmode="decimal" type="number" min="0" step="any" placeholder="TV 自動"></div>
-        <div class="calcField"><label for="calcSl">SL</label><input id="calcSl" inputmode="decimal" type="number" min="0" step="any" placeholder="TV 自動"></div>
-        <div class="calcField"><label for="calcQty">預估數量</label><input id="calcQty" type="text" value="—" readonly></div>
+
+      <div class="calcModeRow">
+        <div class="calcField"><label for="calcMode">試算方式</label><select id="calcMode"><option value="MARGIN">固定保證金</option><option value="MAX_LOSS">固定最大虧損</option></select></div>
       </div>
+      <div class="calcLead">
+        <div class="calcField"><label for="calcMargin">保證金 U</label><input id="calcMargin" inputmode="decimal" type="number" min="0" step="1" placeholder="300"></div>
+        <div class="calcField"><label for="calcLev">槓桿</label><input id="calcLev" inputmode="numeric" type="number" min="1" max="125" step="1" placeholder="20"></div>
+        <div class="calcField"><label for="calcMaxLoss">最大虧損 U</label><input id="calcMaxLoss" inputmode="decimal" type="number" min="0" step="1" placeholder="100" disabled></div>
+      </div>
+
+      <div class="autoLevels">
+        <div class="autoHead"><div><b>自動參考 TP / SL</b><span>Binance 15分結構 + ATR14 · 僅供參考</span></div><button id="autoRefresh" class="autoRefresh" type="button">重新抓</button></div>
+        <div class="levelGrid">
+          <div class="levelCell"><span>TP 參考區間</span><b id="autoTpRange" class="calcProfit">—</b><small id="autoTpPct">等待選倉位</small></div>
+          <div class="levelCell"><span>SL 參考區間</span><b id="autoSlRange" class="calcLoss">—</b><small id="autoSlPct">等待選倉位</small></div>
+        </div>
+        <div class="autoAdopt">
+          <label class="autoCheck"><input id="useAutoTp" type="checkbox"><span>採用建議 TP</span><strong id="autoTpSuggested">—</strong></label>
+          <label class="autoCheck"><input id="useAutoSl" type="checkbox"><span>採用建議 SL</span><strong id="autoSlSuggested">—</strong></label>
+        </div>
+        <div id="autoNote" class="autoNote">選倉位後會自動抓一次；你仍可手動輸入。</div>
+      </div>
+
+      <div class="calcPrices">
+        <div class="calcField"><label for="calcTp">TP 點位</label><input id="calcTp" inputmode="decimal" type="number" min="0" step="any" placeholder="可手動輸入"><small id="calcTpMove" class="calcPriceHint">—</small></div>
+        <div class="calcField"><label for="calcSl">SL 點位</label><input id="calcSl" inputmode="decimal" type="number" min="0" step="any" placeholder="可手動輸入"><small id="calcSlMove" class="calcPriceHint">—</small></div>
+      </div>
+
       <div class="calcResult" aria-live="polite">
+        <div class="calcCell"><span id="calcMarginResultLabel">使用保證金</span><b id="calcMarginResult" class="calcGold">—</b></div>
         <div class="calcCell"><span>總倉位</span><b id="calcNotional" class="calcGold">—</b></div>
+        <div class="calcCell"><span>預估數量</span><b id="calcQty" class="calcGold">—</b></div>
+        <div class="calcCell"><span>TP 價格變動</span><b id="calcPriceProfitPct" class="calcProfit">—</b></div>
+        <div class="calcCell"><span>SL 價格變動</span><b id="calcPriceLossPct" class="calcLoss">—</b></div>
+        <div class="calcCell"><span>RR</span><b id="calcRR" class="calcGold">—</b></div>
         <div class="calcCell"><span>TP 預估獲利</span><b id="calcProfit" class="calcProfit">—</b></div>
         <div class="calcCell"><span>SL 預估虧損</span><b id="calcLoss" class="calcLoss">—</b></div>
-        <div class="calcCell"><span>TP 保證金報酬</span><b id="calcProfitPct" class="calcProfit">—</b></div>
-        <div class="calcCell"><span>SL 保證金報酬</span><b id="calcLossPct" class="calcLoss">—</b></div>
-        <div class="calcCell"><span>RR</span><b id="calcRR" class="calcGold">—</b></div>
+        <div class="calcCell"><span>槓桿後 TP / SL</span><b id="calcLeveragedPct" class="calcGold">—</b></div>
       </div>
-      <div id="calcMsg" class="calcMsg">選高手倉位，或等待 TradingView 訊號自動帶入。</div>
-      <div class="calcNote">試算未含手續費、滑價、資金費與強平因素；目前不會送出真實訂單。</div>
-      <details class="tvSetup">
-        <summary>TradingView 自動帶入設定　⌄</summary>
-        <div class="tvSetupGrid">
-          <div class="calcField"><label for="tvWebhookUrl">Webhook URL（TradingView 只設定一次）</label><input id="tvWebhookUrl" type="text" readonly value="部署後自動產生"></div>
-          <div class="calcField"><label for="tvWebhookMessage">基本策略 Alert 訊息</label><textarea id="tvWebhookMessage" readonly></textarea></div>
-          <div class="tvHelp">TradingView 快訊觸發後會 POST 到上面的網址。若你的 Pine 同時傳入 sl、tp1、tp2、tp3，App 會一起自動填入；否則至少會自動帶入標的、方向、進場價。</div>
-        </div>
-      </details>
+      <div id="calcMsg" class="calcMsg">選一筆高手目前倉位開始試算。</div>
+      <div class="calcNote">自動 TP/SL 是結構與波動參考，不代表必然有效；試算未含手續費、滑價、資金費與強平因素，也不會送出真實訂單。</div>
     </div>
   </details>
 
   <div class="sectionBar">
     <div class="sectionTitle">核心交易員</div>
-    <div class="masterWrap">
-      <span id="allCount" class="masterCount">4/4</span>
-      <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
-    </div>
   </div>
 
   <div id="traders"><div class="emptyText">讀取中…</div></div>
@@ -264,6 +268,11 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
       <div class="note">即時動作約每 3 秒檢查；倉位同時用訂單紀錄＋官方倉位快照交叉監控。若 Binance 某位交易員的訂單歷史暫時不可讀，仍會持續監看目前倉位；歷史統計則改顯示有來源標記的公開基準，不再永久空白。公開基準與重建統計都屬參考資料，PF、ROI 與 PnL 不含手續費與資金費。</div>
     </div>
   </details>
+
+  <div class="bottomMaster">
+    <div class="bottomMasterText"><b>高手通知總開關</b><span>控制全部 4 位交易員通知</span></div>
+    <div class="masterWrap"><span id="allCount" class="masterCount">4/4</span><label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label></div>
+  </div>
 </div>
 
 <div id="labelModal" class="modalBackdrop" aria-hidden="true">
@@ -278,6 +287,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=600"></script>
+<script src="/app.js?v=610"></script>
 </body>
 </html>
