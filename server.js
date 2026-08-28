@@ -4,9 +4,11 @@ import webpush from 'web-push';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.set('trust proxy', 1);
 
 const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Math.max(2000, Number(process.env.POLL_MS || 3000));
@@ -118,8 +120,11 @@ const CONSENSUS_FILE = path.join(DATA_DIR, 'consensus-v5.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
 const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
+const TV_SIGNAL_FILE = path.join(DATA_DIR, 'tv-signals-v60.json');
+const TV_TOKEN_FILE = path.join(DATA_DIR, 'tv-webhook-v60.json');
 
 app.use(express.json({ limit: '128kb' }));
+app.use(express.text({ type: ['text/plain', 'application/x-www-form-urlencoded'], limit: '64kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
   lastModified: false,
@@ -133,6 +138,165 @@ function loadJson(file, fallback) {
 }
 function saveJson(file, data) {
   try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
+}
+
+function getTvWebhookToken() {
+  const fromEnv = String(process.env.TV_WEBHOOK_TOKEN || '').trim();
+  if (fromEnv.length >= 20) return fromEnv;
+
+  const saved = loadJson(TV_TOKEN_FILE, null);
+  if (saved?.token && String(saved.token).length >= 20) return String(saved.token);
+
+  const token = crypto.randomBytes(24).toString('hex');
+  saveJson(TV_TOKEN_FILE, { token, createdAt: new Date().toISOString() });
+  return token;
+}
+
+const TV_WEBHOOK_TOKEN = getTvWebhookToken();
+let tvSignals = loadJson(TV_SIGNAL_FILE, [])
+  .filter(x => x && x.id && x.symbol && ['LONG', 'SHORT'].includes(x.side))
+  .slice(0, 40);
+
+function requestOrigin(req) {
+  const forwarded = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
+  const proto = forwarded || req.protocol || 'https';
+  const host = req.get('host');
+  return `${proto}://${host}`;
+}
+
+function safeTokenEqual(a, b) {
+  const aa = Buffer.from(String(a || ''));
+  const bb = Buffer.from(String(b || ''));
+  return aa.length === bb.length && aa.length > 0 && crypto.timingSafeEqual(aa, bb);
+}
+
+function parseTvBody(body) {
+  if (body && typeof body === 'object' && !Array.isArray(body)) return body;
+  const text = String(body || '').trim();
+  if (!text) return {};
+
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {}
+
+  // Optional simple fallback: symbol=BTCUSDT|side=LONG|entry=70000|sl=69000|tp1=72000
+  const out = {};
+  for (const piece of text.split(/[|,\n]/)) {
+    const idx = piece.indexOf('=');
+    if (idx <= 0) continue;
+    out[piece.slice(0, idx).trim()] = piece.slice(idx + 1).trim();
+  }
+  return out;
+}
+
+function tvValue(obj, ...keys) {
+  for (const key of keys) {
+    const value = obj?.[key];
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return null;
+}
+
+function tvNum(obj, ...keys) {
+  const raw = tvValue(obj, ...keys);
+  if (raw === null) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function normalizeTvSymbol(raw) {
+  let s = String(raw || '').trim().toUpperCase();
+  if (!s) return '';
+  if (s.includes(':')) s = s.split(':').pop();
+  s = s.replace(/\s+/g, '').replace(/\.P$/i, '').replace(/\.PERP$/i, '');
+  return s;
+}
+
+function normalizeTvSide(raw) {
+  const s = String(raw || '').trim().toUpperCase();
+  if (['LONG', 'BUY', '多', '做多'].includes(s)) return 'LONG';
+  if (['SHORT', 'SELL', '空', '做空'].includes(s)) return 'SHORT';
+  return '';
+}
+
+function normalizeTvTime(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const num = Number(raw);
+  if (Number.isFinite(num) && num > 0) {
+    const ms = num < 10_000_000_000 ? num * 1000 : num;
+    const d = new Date(ms);
+    return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+  }
+  const d = new Date(String(raw));
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+}
+
+function normalizeTvSignal(input) {
+  const body = parseTvBody(input);
+  const nested = body?.data && typeof body.data === 'object' && !Array.isArray(body.data)
+    ? { ...body.data, ...body }
+    : body;
+
+  const symbol = normalizeTvSymbol(tvValue(nested, 'symbol', 'ticker', 'pair', 'market'));
+  const side = normalizeTvSide(tvValue(nested, 'side', 'direction', 'action', 'orderAction', 'position'));
+  const entry = tvNum(nested, 'entry', 'entryPrice', 'price', 'triggerPrice', 'close', 'orderPrice');
+  const sl = tvNum(nested, 'sl', 'stopLoss', 'stop_loss', 'stop', 'stopPrice');
+
+  const tpCandidates = [
+    tvNum(nested, 'tp1', 'takeProfit1', 'take_profit_1'),
+    tvNum(nested, 'tp2', 'takeProfit2', 'take_profit_2'),
+    tvNum(nested, 'tp3', 'takeProfit3', 'take_profit_3'),
+    tvNum(nested, 'tp', 'takeProfit', 'take_profit'),
+  ].filter(Number.isFinite);
+  const tps = [...new Set(tpCandidates)];
+
+  if (!symbol) throw new Error('TV_MISSING_SYMBOL');
+  if (!side) throw new Error('TV_MISSING_SIDE');
+  if (!(entry > 0)) throw new Error('TV_MISSING_ENTRY');
+
+  const now = new Date().toISOString();
+  const signalTime = normalizeTvTime(tvValue(nested, 'time', 'timestamp', 'ts', 'signalTime')) || now;
+  const timeframe = String(tvValue(nested, 'timeframe', 'interval', 'tf') || '').trim();
+  const source = String(tvValue(nested, 'source', 'strategy', 'indicator', 'name') || 'TradingView').trim().slice(0, 80);
+  const note = String(tvValue(nested, 'note', 'comment', 'reason') || '').trim().slice(0, 160);
+  const rawForHash = JSON.stringify(body);
+  const payloadHash = crypto.createHash('sha256').update(rawForHash).digest('hex').slice(0, 24);
+  const idSeed = `${payloadHash}|${signalTime}|${symbol}|${side}|${entry}`;
+  const id = crypto.createHash('sha256').update(idSeed).digest('hex').slice(0, 20);
+
+  return {
+    id,
+    receivedAt: now,
+    signalTime,
+    symbol,
+    side,
+    direction: side === 'SHORT' ? '做空' : '做多',
+    entry,
+    sl,
+    tp1: tps[0] ?? null,
+    tp2: tps[1] ?? null,
+    tp3: tps[2] ?? null,
+    tps,
+    timeframe,
+    source,
+    note,
+    payloadHash,
+  };
+}
+
+function rememberTvSignal(signal) {
+  const now = Date.now();
+  const duplicate = tvSignals.find(x =>
+    x?.payloadHash === signal.payloadHash &&
+    now - new Date(x.receivedAt || 0).getTime() < 60_000
+  );
+  if (duplicate) return { signal: duplicate, duplicate: true };
+
+  tvSignals.unshift(signal);
+  tvSignals = tvSignals.slice(0, 40);
+  saveJson(TV_SIGNAL_FILE, tvSignals);
+  return { signal, duplicate: false };
 }
 function n(v) {
   const x = Number(v);
@@ -1863,14 +2027,43 @@ function buildConsensusRows() {
   return rows.sort((a, b) => b.score - a.score || b.count - a.count);
 }
 
-app.get('/api/config', (_req, res) => {
+
+app.post('/api/tv-webhook/:token', async (req, res) => {
+  if (!safeTokenEqual(req.params.token, TV_WEBHOOK_TOKEN)) {
+    return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
+  }
+
+  try {
+    const signal = normalizeTvSignal(req.body);
+    const saved = rememberTvSignal(signal);
+    console.log(`[TV] ${saved.duplicate ? 'duplicate' : 'new'} ${signal.symbol} ${signal.direction} @ ${signal.entry}`);
+    return res.json({
+      ok: true,
+      duplicate: saved.duplicate,
+      id: saved.signal.id,
+      symbol: saved.signal.symbol,
+      side: saved.signal.side,
+      entry: saved.signal.entry,
+      sl: saved.signal.sl,
+      tps: saved.signal.tps,
+    });
+  } catch (e) {
+    console.warn(`[TV] rejected: ${String(e?.message || e)}`);
+    return res.status(400).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+app.get('/api/config', (req, res) => {
   res.json({
-    mode: 'V5_9_2_LIVE_PNL',
+    mode: 'V6_0_TV_AUTO',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
+    tvWebhookReady: true,
+    tvWebhookUrl: `${requestOrigin(req)}/api/tv-webhook/${TV_WEBHOOK_TOKEN}`,
+    tvBasicMessage: '{"symbol":"{{ticker}}","side":"{{strategy.order.action}}","entry":"{{strategy.order.price}}","time":"{{time}}","timeframe":"{{interval}}"}',
     traders: TRADERS,
     eventTypes: EVENT_TYPES,
   });
@@ -1942,6 +2135,12 @@ app.get('/api/status', (_req, res) => {
       symbols: markPrices.size,
       refreshMs: MARK_PRICE_REFRESH_MS,
     },
+    tradingView: {
+      ready: true,
+      signalCount: tvSignals.length,
+      lastSignalAt: tvSignals[0]?.receivedAt || null,
+      signals: tvSignals.slice(0, 20),
+    },
     healthy: traderRows.filter(t => Boolean(t.lastFetch)).length,
     total: traderRows.length,
   });
@@ -1949,13 +2148,16 @@ app.get('/api/status', (_req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V5.9.2',
+    mode: 'V6.0',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
     markPriceUpdatedAt,
     markPriceError,
     markPriceSymbols: markPrices.size,
+    tvWebhookReady: true,
+    tvSignalCount: tvSignals.length,
+    tvLastSignalAt: tvSignals[0]?.receivedAt || null,
     traders: [...states.values()].map(s => ({
       id: s.trader.id,
       name: s.trader.name,
@@ -2085,13 +2287,13 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V5.9.2',
+    mode: 'V6.0',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V5.9.1 started on ${PORT}`);
+    console.log(`Position Alert V6.0 TV AUTO started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
