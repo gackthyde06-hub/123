@@ -1,367 +1,133 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="/manifest.webmanifest?v=52">
-  <title>倉位通知</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070809">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="倉位">
+<link rel="manifest" href="/manifest.webmanifest?v=54">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=54">
+<title>倉位</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#070809;--panel:#111315;--panel2:#0c0e10;--line:#4b3820;
+  --line2:#24272a;--gold:#d7a94b;--gold2:#f0c66a;--text:#f3f0e8;
+  --muted:#8c8a85;--green:#62d84e;--long:#65db54;--short:#ff695d;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC",sans-serif;
+  background:
+    radial-gradient(circle at 18% 0%,rgba(187,128,40,.12),transparent 27%),
+    linear-gradient(180deg,#070809 0%,#090b0d 100%);
+}
+.wrap{max-width:680px;margin:auto;padding:18px 14px 46px}
+.top{display:flex;align-items:center;justify-content:space-between;margin:5px 2px 14px}
+.brand{display:flex;align-items:center;gap:11px}
+.brand img{width:45px;height:45px;border-radius:13px;box-shadow:0 0 22px rgba(215,169,75,.18)}
+.brandTitle{font-size:23px;font-weight:850;color:#e4c37a;letter-spacing:.5px}
+.brandSub{font-size:12px;color:#817d74;margin-top:3px}
+.statusPill{font-size:12px;color:#a7a39a;white-space:nowrap}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin-right:6px}
+.dot.ok{background:var(--green);box-shadow:0 0 10px rgba(98,216,78,.45)}.dot.bad{background:#ff5b53}
 
-  <style>
-    :root{
-      color-scheme:dark;
-      --bg:#0a0a0a;
-      --card:#171717;
-      --card2:#101010;
-      --line:#292929;
-      --muted:#919191;
-      --long:#ff3b5c;
-      --short:#20c879;
-      --yellow:#f0b90b;
-      --green:#30d158;
-      --red:#ff453a;
-    }
+.alertPreview{
+  display:none;position:relative;margin:12px 0 18px;padding:14px 15px;
+  border:1px solid #725124;border-radius:18px;
+  background:linear-gradient(110deg,rgba(30,30,29,.98),rgba(12,13,14,.98));
+  box-shadow:0 9px 30px rgba(0,0,0,.25),inset 0 0 24px rgba(193,139,45,.04)
+}
+.alertPreview.show{display:flex}.alertIcon{width:52px;height:52px;border-radius:14px;margin-right:12px}
+.alertText{min-width:0;flex:1}.alertTitle{font-size:17px;font-weight:780}.alertBody{font-size:14px;color:#ddd8ce;margin-top:6px}
+.alertTime{color:#918b80;font-size:11px;margin-left:10px}
 
-    *{box-sizing:border-box}
+.sectionBar{display:flex;align-items:center;justify-content:space-between;margin:13px 4px 8px}
+.sectionTitle{font-size:14px;color:#d3c9b4;font-weight:760}
+.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:11px;color:#8d877c}
 
-    body{
-      margin:0;
-      background:var(--bg);
-      color:#fff;
-      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
-    }
+.traderCard{
+  border:1px solid #4d3a22;border-radius:18px;margin:10px 0;padding:13px;
+  background:linear-gradient(145deg,rgba(27,28,28,.98),rgba(13,14,15,.98));
+  box-shadow:0 10px 25px rgba(0,0,0,.20)
+}
+.traderHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.traderIdentity{display:flex;align-items:center;gap:11px;min-width:0}
+.traderIcon{width:51px;height:51px;border-radius:14px;border:1px solid #5c4527;object-fit:cover}
+.traderName{font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vip{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:5px;background:#d9a94a;color:#17120b;font-size:10px;font-weight:900;vertical-align:2px}
+.state{font-size:12px;margin-top:4px}.okText{color:var(--green)}.badText{color:#ff6259}
 
-    .wrap{
-      max-width:680px;
-      margin:auto;
-      padding:22px 16px 60px;
-    }
+.switch{position:relative;display:inline-block;width:49px;height:29px;flex:0 0 auto}
+.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;border-radius:999px;background:#343434;transition:.18s;border:1px solid #444}
+.slider:before{content:"";position:absolute;width:23px;height:23px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 5px rgba(0,0,0,.35)}
+.switch input:checked+.slider{background:linear-gradient(90deg,#c89435,#e5b95b);border-color:#e5b95b}
+.switch input:checked+.slider:before{transform:translateX(20px)}
 
-    .top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      margin:8px 2px 18px;
-    }
+.positionBox{margin-top:10px;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:#0d0f10}
+.pos{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:11px 12px;border-top:1px solid #202326}
+.pos:first-child{border-top:0}.symline{display:flex;align-items:center;gap:8px;min-width:0}.sym{font-size:15px;font-weight:760}
+.tag{font-size:11px;font-weight:850;padding:3px 7px;border-radius:7px}.tag.long{background:#173d18;color:#6fe95c}.tag.short{background:#481d1a;color:#ff7168}
+.price{text-align:right;font-size:16px;font-weight:760}
+.hidden{display:none!important}
+.moreBtn{width:100%;border:0;border-top:1px solid #202326;background:#0d0f10;color:#9c958a;padding:9px;font-size:11px;font-weight:700}
 
-    .title{
-      font-size:28px;
-      font-weight:900;
-      letter-spacing:-.5px;
-    }
+.activity{margin-top:7px;border-top:1px solid #29251f}
+.activity summary{list-style:none;display:flex;align-items:center;justify-content:space-between;color:#8f8b83;font-size:11px;padding:9px 2px 2px;cursor:pointer}
+.activity summary::-webkit-details-marker{display:none}.activity summary b{font-weight:700;color:#b2aa9d}
+.miniEvent{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:center;padding:8px 2px;border-top:1px solid #232323;font-size:11px}
+.miniEvent .time{color:#726f6b}.miniEvent .act{font-weight:800}.miniEvent .coin{color:#d8d3ca}.miniEvent .px{color:#a59e92;text-align:right}.empty{padding:10px 2px;color:#77736c;font-size:11px}
 
-    .statusText{
-      color:var(--muted);
-      font-size:13px;
-      white-space:nowrap;
-    }
-
-    .dot{
-      display:inline-block;
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      background:#666;
-      margin-right:6px;
-    }
-
-    .dot.ok{background:var(--green)}
-    .dot.bad{background:var(--red)}
-
-    .card,.traderCard{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:15px;
-      margin:11px 0;
-    }
-
-    .row,.traderHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-    }
-
-    .label{
-      font-size:17px;
-      font-weight:850;
-    }
-
-    .small{
-      color:var(--muted);
-      font-size:12px;
-      margin-top:4px;
-    }
-
-    .traderName{
-      font-size:19px;
-      font-weight:900;
-    }
-
-    .state{
-      margin-top:4px;
-      font-size:12px;
-    }
-
-    .okText{color:var(--green)}
-    .badText{color:var(--red)}
-
-    .positionBox{
-      margin-top:11px;
-      background:var(--card2);
-      border-radius:14px;
-      padding:0 12px;
-      overflow:hidden;
-    }
-
-    .pos{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:12px 0;
-      border-top:1px solid #252525;
-    }
-
-    .pos:first-child{border-top:0}
-
-    .sym{
-      font-size:17px;
-      font-weight:850;
-    }
-
-    .dir{
-      margin-top:3px;
-      font-size:13px;
-      font-weight:850;
-    }
-
-    .long{color:var(--long)}
-    .short{color:var(--short)}
-
-    .price{
-      text-align:right;
-    }
-
-    .price span{
-      display:block;
-      color:var(--muted);
-      font-size:11px;
-      margin-bottom:3px;
-    }
-
-    .price b{
-      font-size:17px;
-      font-weight:850;
-    }
-
-    .empty{
-      color:var(--muted);
-      font-size:13px;
-      padding:13px 0;
-    }
-
-    .hidden{display:none!important}
-
-    .moreBtn{
-      width:100%;
-      border:0;
-      border-top:1px solid #252525;
-      background:transparent;
-      color:#bbb;
-      padding:11px 0;
-      font-size:13px;
-      font-weight:750;
-      margin:0;
-    }
-
-    .switch{
-      position:relative;
-      display:inline-block;
-      width:50px;
-      height:30px;
-      flex:0 0 auto;
-    }
-
-    .switch input{
-      opacity:0;
-      width:0;
-      height:0;
-    }
-
-    .slider{
-      position:absolute;
-      cursor:pointer;
-      inset:0;
-      background:#343434;
-      border-radius:999px;
-      transition:.2s;
-    }
-
-    .slider:before{
-      content:"";
-      position:absolute;
-      width:24px;
-      height:24px;
-      left:3px;
-      top:3px;
-      border-radius:50%;
-      background:#fff;
-      transition:.2s;
-    }
-
-    .switch input:checked + .slider{
-      background:var(--green);
-    }
-
-    .switch input:checked + .slider:before{
-      transform:translateX(20px);
-    }
-
-    .types{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-      margin-top:12px;
-    }
-
-    .typeChoice input{
-      display:none;
-    }
-
-    .typeChoice span{
-      display:block;
-      text-align:center;
-      padding:10px 5px;
-      border-radius:11px;
-      background:#272727;
-      color:#aaa;
-      font-size:14px;
-      font-weight:800;
-      border:1px solid #303030;
-    }
-
-    .typeChoice input:checked + span{
-      background:#10351f;
-      border-color:#1d6c3c;
-      color:#56e68c;
-    }
-
-    button.action{
-      width:100%;
-      border:0;
-      border-radius:14px;
-      padding:14px;
-      margin-top:9px;
-      font-size:16px;
-      font-weight:850;
-    }
-
-    #subscribe{
-      background:var(--yellow);
-      color:#111;
-    }
-
-    #test{
-      background:#292929;
-      color:#fff;
-    }
-
-    .msg{
-      min-height:18px;
-      color:var(--muted);
-      font-size:12px;
-      margin-top:9px;
-    }
-
-    .event{
-      display:grid;
-      grid-template-columns:45px auto auto;
-      gap:5px 8px;
-      align-items:center;
-      border-top:1px solid #262626;
-      padding:10px 0;
-      font-size:13px;
-    }
-
-    .event:first-child{border-top:0}
-
-    .eventTime{
-      color:var(--muted);
-      font-size:11px;
-    }
-
-    .event .muted{
-      color:var(--muted);
-      grid-column:2 / -1;
-    }
-
-    h2{
-      margin:0 0 10px;
-      font-size:16px;
-    }
-
-    @media (max-width:420px){
-      .types{grid-template-columns:repeat(2,1fr)}
-    }
-  </style>
+.settings{
+  margin-top:13px;border:1px solid #4d3a22;border-radius:17px;
+  background:linear-gradient(145deg,rgba(25,25,24,.98),rgba(12,13,14,.98))
+}
+.settings>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px 14px;color:#d8c9a5;font-weight:760;cursor:pointer}
+.settings>summary::-webkit-details-marker{display:none}.settingsInner{padding:0 13px 13px}
+.types{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.typeChoice input{display:none}.typeChoice span{display:block;text-align:center;padding:9px 3px;border-radius:9px;border:1px solid #4b3820;color:#a99570;font-size:11px;font-weight:800;background:#111}
+.typeChoice input:checked+span{background:linear-gradient(90deg,#c89435,#e5b95b);color:#15110a;border-color:#e5b95b}
+button.action{width:100%;border:0;border-radius:11px;padding:12px;margin-top:8px;font-size:14px;font-weight:850}
+#subscribe{background:linear-gradient(90deg,#c89435,#e7bd61);color:#16110a}#test{background:#232425;color:#e6e1d7;border:1px solid #383838}
+.msg{min-height:15px;color:#89847b;font-size:10px;text-align:center;margin-top:7px}
+@media(max-width:430px){.types{grid-template-columns:repeat(3,1fr)}}
+</style>
 </head>
-
 <body>
 <div class="wrap">
-
   <div class="top">
-    <div class="title">📡 倉位通知</div>
-    <div class="statusText">
-      <span id="dot" class="dot"></span>
-      <span id="status">連線中</span>
+    <div class="brand">
+      <img src="/app-icon-192.png?v=54" alt="">
+      <div><div class="brandTitle">交易監控</div><div class="brandSub">即時提醒</div></div>
+    </div>
+    <div class="statusPill"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
+  </div>
+
+  <div id="alertPreview" class="alertPreview"></div>
+
+  <div class="sectionBar">
+    <div class="sectionTitle">監控中的交易員</div>
+    <div class="masterWrap">
+      <span id="allCount" class="masterCount">4/4</span>
+      <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
     </div>
   </div>
 
-  <div class="card">
-    <div class="row">
-      <div>
-        <div class="label">交易員通知</div>
-        <div id="allCount" class="small">4/4</div>
-      </div>
+  <div id="traders"><div class="empty">讀取中…</div></div>
 
-      <label class="switch">
-        <input id="allToggle" type="checkbox" checked>
-        <span class="slider"></span>
-      </label>
+  <details class="settings">
+    <summary><span>🔔 通知設定</span><span>⌄</span></summary>
+    <div class="settingsInner">
+      <div id="typeOptions" class="types"></div>
+      <button id="subscribe" class="action">同步 iPhone 通知</button>
+      <button id="test" class="action">測試通知</button>
+      <div id="msg" class="msg"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="label">通知類型</div>
-    <div id="typeOptions" class="types"></div>
-  </div>
-
-  <div id="traders">
-    <div class="card">
-      <div class="empty">讀取中…</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <button id="subscribe" class="action">同步 iPhone 通知</button>
-    <button id="test" class="action">測試通知</button>
-    <div id="msg" class="msg"></div>
-  </div>
-
-  <div class="card">
-    <h2>最近動靜</h2>
-    <div id="events">
-      <div class="empty">尚無新動靜</div>
-    </div>
-  </div>
-
+  </details>
 </div>
-
-<script src="/app.js?v=52"></script>
+<script src="/app.js?v=54"></script>
 </body>
 </html>
