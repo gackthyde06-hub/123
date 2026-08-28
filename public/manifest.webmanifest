@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "高手倉位雷達",
-  "short_name": "高手雷達",
+  "name": "倉位通知",
+  "short_name": "倉位通知",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

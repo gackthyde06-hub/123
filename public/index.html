@@ -1,50 +1,367 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a0a0a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <title>高手倉位雷達</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.webmanifest?v=52">
+  <title>倉位通知</title>
+
   <style>
-    :root{color-scheme:dark;--bg:#0a0a0a;--card:#171717;--card2:#111;--line:#2a2a2a;--muted:#969696;--long:#ff3b5c;--short:#20c879;--yellow:#f0b90b;--blue:#38a8ff}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:#fff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
-    .wrap{max-width:680px;margin:auto;padding:24px 16px 60px}.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:10px 2px 18px}.title{font-size:27px;font-weight:900}.sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}.dot{width:10px;height:10px;border-radius:50%;background:#666;display:inline-block;margin-right:7px}.dot.ok{background:#30d158}.dot.bad{background:#ff453a}.statusText{font-size:13px;color:var(--muted);white-space:nowrap;margin-top:7px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}.card h2{font-size:17px;margin:0 0 12px}.masterRow,.traderHead{display:flex;align-items:center;justify-content:space-between;gap:14px}.masterTitle{font-weight:850}.masterSub,.traderMeta{font-size:12px;color:var(--muted);margin-top:4px}.traderCard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}.traderName{font-size:18px;font-weight:850}.okText{color:#30d158}.badText{color:#ff453a}.positionBox{margin-top:12px;background:var(--card2);border-radius:14px;padding:0 12px}.pos{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-top:1px solid #252525}.pos:first-of-type{border-top:0}.sym{font-size:18px;font-weight:800}.dir{font-size:13px;font-weight:800;margin-top:4px}.long{color:var(--long)}.short{color:var(--short)}.price{text-align:right}.price b{font-size:18px}.price span{display:block;color:var(--muted);font-size:11px;margin-bottom:4px}.empty{padding:13px 0;color:var(--muted);font-size:13px}
-    .switch{position:relative;display:inline-block;width:50px;height:30px;flex:0 0 auto}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;inset:0;background:#343434;border-radius:999px;transition:.2s}.slider:before{content:"";position:absolute;height:24px;width:24px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}.switch input:checked + .slider{background:#30d158}.switch input:checked + .slider:before{transform:translateX(20px)}
-    button{width:100%;border:0;border-radius:14px;padding:15px;font-size:17px;font-weight:800;margin-top:10px}#subscribe{background:var(--yellow);color:#111}#test{background:#292929;color:#fff}.msg{font-size:13px;color:var(--muted);min-height:20px;margin:10px 2px 0}.hint{font-size:13px;color:var(--muted);line-height:1.55}.event{padding:12px 0;border-top:1px solid #252525}.event:first-of-type{border-top:0}.eventTop{display:flex;justify-content:space-between;gap:10px}.eventTitle{font-weight:750;line-height:1.35}.eventTime{font-size:11px;color:var(--muted);white-space:nowrap}.eventBody{font-size:13px;color:var(--muted);margin-top:5px}.traderBadge{display:inline-block;background:#2b2b2b;border:1px solid #3a3a3a;padding:2px 6px;border-radius:7px;font-size:11px;color:#ddd;margin-right:4px}.consensus{background:#201a05;border-radius:12px;padding:12px;margin:4px 0;border:1px solid #55460a}.consensus .eventTitle{color:#ffd84d}
+    :root{
+      color-scheme:dark;
+      --bg:#0a0a0a;
+      --card:#171717;
+      --card2:#101010;
+      --line:#292929;
+      --muted:#919191;
+      --long:#ff3b5c;
+      --short:#20c879;
+      --yellow:#f0b90b;
+      --green:#30d158;
+      --red:#ff453a;
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:#fff;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
+    }
+
+    .wrap{
+      max-width:680px;
+      margin:auto;
+      padding:22px 16px 60px;
+    }
+
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      margin:8px 2px 18px;
+    }
+
+    .title{
+      font-size:28px;
+      font-weight:900;
+      letter-spacing:-.5px;
+    }
+
+    .statusText{
+      color:var(--muted);
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .dot{
+      display:inline-block;
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      background:#666;
+      margin-right:6px;
+    }
+
+    .dot.ok{background:var(--green)}
+    .dot.bad{background:var(--red)}
+
+    .card,.traderCard{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:15px;
+      margin:11px 0;
+    }
+
+    .row,.traderHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+    }
+
+    .label{
+      font-size:17px;
+      font-weight:850;
+    }
+
+    .small{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:4px;
+    }
+
+    .traderName{
+      font-size:19px;
+      font-weight:900;
+    }
+
+    .state{
+      margin-top:4px;
+      font-size:12px;
+    }
+
+    .okText{color:var(--green)}
+    .badText{color:var(--red)}
+
+    .positionBox{
+      margin-top:11px;
+      background:var(--card2);
+      border-radius:14px;
+      padding:0 12px;
+      overflow:hidden;
+    }
+
+    .pos{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 0;
+      border-top:1px solid #252525;
+    }
+
+    .pos:first-child{border-top:0}
+
+    .sym{
+      font-size:17px;
+      font-weight:850;
+    }
+
+    .dir{
+      margin-top:3px;
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .long{color:var(--long)}
+    .short{color:var(--short)}
+
+    .price{
+      text-align:right;
+    }
+
+    .price span{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      margin-bottom:3px;
+    }
+
+    .price b{
+      font-size:17px;
+      font-weight:850;
+    }
+
+    .empty{
+      color:var(--muted);
+      font-size:13px;
+      padding:13px 0;
+    }
+
+    .hidden{display:none!important}
+
+    .moreBtn{
+      width:100%;
+      border:0;
+      border-top:1px solid #252525;
+      background:transparent;
+      color:#bbb;
+      padding:11px 0;
+      font-size:13px;
+      font-weight:750;
+      margin:0;
+    }
+
+    .switch{
+      position:relative;
+      display:inline-block;
+      width:50px;
+      height:30px;
+      flex:0 0 auto;
+    }
+
+    .switch input{
+      opacity:0;
+      width:0;
+      height:0;
+    }
+
+    .slider{
+      position:absolute;
+      cursor:pointer;
+      inset:0;
+      background:#343434;
+      border-radius:999px;
+      transition:.2s;
+    }
+
+    .slider:before{
+      content:"";
+      position:absolute;
+      width:24px;
+      height:24px;
+      left:3px;
+      top:3px;
+      border-radius:50%;
+      background:#fff;
+      transition:.2s;
+    }
+
+    .switch input:checked + .slider{
+      background:var(--green);
+    }
+
+    .switch input:checked + .slider:before{
+      transform:translateX(20px);
+    }
+
+    .types{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .typeChoice input{
+      display:none;
+    }
+
+    .typeChoice span{
+      display:block;
+      text-align:center;
+      padding:10px 5px;
+      border-radius:11px;
+      background:#272727;
+      color:#aaa;
+      font-size:14px;
+      font-weight:800;
+      border:1px solid #303030;
+    }
+
+    .typeChoice input:checked + span{
+      background:#10351f;
+      border-color:#1d6c3c;
+      color:#56e68c;
+    }
+
+    button.action{
+      width:100%;
+      border:0;
+      border-radius:14px;
+      padding:14px;
+      margin-top:9px;
+      font-size:16px;
+      font-weight:850;
+    }
+
+    #subscribe{
+      background:var(--yellow);
+      color:#111;
+    }
+
+    #test{
+      background:#292929;
+      color:#fff;
+    }
+
+    .msg{
+      min-height:18px;
+      color:var(--muted);
+      font-size:12px;
+      margin-top:9px;
+    }
+
+    .event{
+      display:grid;
+      grid-template-columns:45px auto auto;
+      gap:5px 8px;
+      align-items:center;
+      border-top:1px solid #262626;
+      padding:10px 0;
+      font-size:13px;
+    }
+
+    .event:first-child{border-top:0}
+
+    .eventTime{
+      color:var(--muted);
+      font-size:11px;
+    }
+
+    .event .muted{
+      color:var(--muted);
+      grid-column:2 / -1;
+    }
+
+    h2{
+      margin:0 0 10px;
+      font-size:16px;
+    }
+
+    @media (max-width:420px){
+      .types{grid-template-columns:repeat(2,1fr)}
+    }
   </style>
 </head>
-<body><div class="wrap">
-  <div class="top">
-    <div><div class="title">📡 高手倉位雷達</div><div class="sub">熬鷹＋3 位精選交易員｜只通知做多 / 做空 / 加倉 / 減倉 / 平倉</div></div>
-    <div class="statusText"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
-  </div>
 
-  <div class="card">
-    <div class="masterRow">
-      <div><div class="masterTitle">全部通知</div><div id="allCount" class="masterSub">4/4 已開啟</div></div>
-      <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="title">📡 倉位通知</div>
+    <div class="statusText">
+      <span id="dot" class="dot"></span>
+      <span id="status">連線中</span>
     </div>
   </div>
 
-  <div id="traders"><div class="card"><div class="empty">讀取交易員中…</div></div></div>
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">交易員通知</div>
+        <div id="allCount" class="small">4/4</div>
+      </div>
+
+      <label class="switch">
+        <input id="allToggle" type="checkbox" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
 
   <div class="card">
-    <h2>iPhone 通知</h2>
-    <div class="hint">每位交易員右上角都能獨立開 / 關通知。網頁仍會顯示所有倉位。</div>
-    <button id="subscribe">開啟 / 同步 iPhone 通知</button>
-    <button id="test">測試目前開啟的通知</button>
+    <div class="label">通知類型</div>
+    <div id="typeOptions" class="types"></div>
+  </div>
+
+  <div id="traders">
+    <div class="card">
+      <div class="empty">讀取中…</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <button id="subscribe" class="action">同步 iPhone 通知</button>
+    <button id="test" class="action">測試通知</button>
     <div id="msg" class="msg"></div>
   </div>
 
   <div class="card">
     <h2>最近動靜</h2>
-    <div id="events"><div class="empty">尚無新動靜</div></div>
+    <div id="events">
+      <div class="empty">尚無新動靜</div>
+    </div>
   </div>
 
-  <div class="hint">同一幣種若 2 位以上監控交易員同向持倉，系統會額外推送共識訊號。通知速度仍取決於 Binance 公開資料更新速度。</div>
-</div><script src="/app.js?v=5"></script></body>
+</div>
+
+<script src="/app.js?v=52"></script>
+</body>
 </html>
