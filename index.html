@@ -3,54 +3,131 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#080a0c">
+<meta name="theme-color" content="#070809">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=53">
-<link rel="apple-touch-icon" href="/icons/icon-180.png?v=53">
+<link rel="manifest" href="/manifest.webmanifest?v=54">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=54">
 <title>倉位</title>
 <style>
-:root{color-scheme:dark;--bg:#080a0c;--card:#121518;--card2:#0c0f11;--line:#23282d;--muted:#858d94;--text:#f5f7fa;--long:#ff4d67;--short:#31d98b;--green:#30d158;--yellow:#f4c542}
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#080a0c 0%,#0a0d10 100%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif}
-.wrap{max-width:680px;margin:auto;padding:18px 14px 48px}.top{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 14px}.brand{display:flex;align-items:center;gap:10px}.brand img{width:34px;height:34px;border-radius:10px}.title{font-size:24px;font-weight:900;letter-spacing:-.4px}.statusText{font-size:12px;color:var(--muted);white-space:nowrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#666;margin-right:6px}.dot.ok{background:var(--green)}.dot.bad{background:#ff453a}
-.card,.traderCard{background:rgba(18,21,24,.96);border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0;box-shadow:0 8px 24px rgba(0,0,0,.16)}
-.row,.traderHead{display:flex;align-items:center;justify-content:space-between;gap:12px}.label{font-size:16px;font-weight:850}.small,.state{font-size:12px;color:var(--muted);margin-top:4px}.okText{color:var(--green)}.badText{color:#ff453a}.traderName{font-size:18px;font-weight:900}
-.positionBox{margin-top:10px;background:var(--card2);border-radius:14px;padding:0 12px;overflow:hidden}.pos{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-top:1px solid #20252a}.pos:first-child{border-top:0}.sym{font-size:16px;font-weight:850}.dir{font-size:12px;font-weight:850;margin-top:3px}.long{color:var(--long)}.short{color:var(--short)}.price{text-align:right}.price span{display:block;color:var(--muted);font-size:10px;margin-bottom:2px}.price b{font-size:16px}.empty{color:var(--muted);font-size:12px;padding:12px 0}.hidden{display:none!important}
-.moreBtn,.activity summary{width:100%;border:0;background:transparent;color:#b3bac1;padding:10px 0;font-size:12px;font-weight:750;cursor:pointer}.moreBtn{border-top:1px solid #20252a}
-.switch{position:relative;display:inline-block;width:48px;height:29px;flex:0 0 auto}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;background:#343a40;border-radius:999px;transition:.18s}.slider:before{content:"";position:absolute;width:23px;height:23px;left:3px;top:3px;border-radius:50%;background:#fff;transition:.18s}.switch input:checked+.slider{background:var(--green)}.switch input:checked+.slider:before{transform:translateX(19px)}
-.types{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}.typeChoice input{display:none}.typeChoice span{display:block;text-align:center;padding:9px 3px;border-radius:10px;background:#22272b;color:#8f979e;font-size:12px;font-weight:800;border:1px solid #2a3035}.typeChoice input:checked+span{background:#10351f;border-color:#1d6c3c;color:#63e69a}
-.activity{margin-top:8px;border-top:1px solid var(--line)}.activity summary{list-style:none;display:flex;justify-content:space-between;align-items:center}.activity summary::-webkit-details-marker{display:none}.activityCount{color:var(--muted);font-weight:700}.miniEvents{padding-bottom:2px}.miniEvent{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:center;padding:8px 0;border-top:1px solid #20252a;font-size:12px}.miniEvent .time{color:var(--muted);font-size:10px}.miniEvent .act{font-weight:800}.miniEvent .px{color:#b0b7bd;text-align:right}.miniEvent .coin{color:#e8ecef}
-button.action{width:100%;border:0;border-radius:13px;padding:13px;margin-top:8px;font-size:15px;font-weight:850}#subscribe{background:var(--yellow);color:#111}#test{background:#24282c;color:#fff}.msg{min-height:16px;color:var(--muted);font-size:11px;margin-top:8px;text-align:center}
-@media(max-width:460px){.types{grid-template-columns:repeat(3,1fr)}}
+:root{
+  color-scheme:dark;
+  --bg:#070809;--panel:#111315;--panel2:#0c0e10;--line:#4b3820;
+  --line2:#24272a;--gold:#d7a94b;--gold2:#f0c66a;--text:#f3f0e8;
+  --muted:#8c8a85;--green:#62d84e;--long:#65db54;--short:#ff695d;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC",sans-serif;
+  background:
+    radial-gradient(circle at 18% 0%,rgba(187,128,40,.12),transparent 27%),
+    linear-gradient(180deg,#070809 0%,#090b0d 100%);
+}
+.wrap{max-width:680px;margin:auto;padding:18px 14px 46px}
+.top{display:flex;align-items:center;justify-content:space-between;margin:5px 2px 14px}
+.brand{display:flex;align-items:center;gap:11px}
+.brand img{width:45px;height:45px;border-radius:13px;box-shadow:0 0 22px rgba(215,169,75,.18)}
+.brandTitle{font-size:23px;font-weight:850;color:#e4c37a;letter-spacing:.5px}
+.brandSub{font-size:12px;color:#817d74;margin-top:3px}
+.statusPill{font-size:12px;color:#a7a39a;white-space:nowrap}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#555;margin-right:6px}
+.dot.ok{background:var(--green);box-shadow:0 0 10px rgba(98,216,78,.45)}.dot.bad{background:#ff5b53}
+
+.alertPreview{
+  display:none;position:relative;margin:12px 0 18px;padding:14px 15px;
+  border:1px solid #725124;border-radius:18px;
+  background:linear-gradient(110deg,rgba(30,30,29,.98),rgba(12,13,14,.98));
+  box-shadow:0 9px 30px rgba(0,0,0,.25),inset 0 0 24px rgba(193,139,45,.04)
+}
+.alertPreview.show{display:flex}.alertIcon{width:52px;height:52px;border-radius:14px;margin-right:12px}
+.alertText{min-width:0;flex:1}.alertTitle{font-size:17px;font-weight:780}.alertBody{font-size:14px;color:#ddd8ce;margin-top:6px}
+.alertTime{color:#918b80;font-size:11px;margin-left:10px}
+
+.sectionBar{display:flex;align-items:center;justify-content:space-between;margin:13px 4px 8px}
+.sectionTitle{font-size:14px;color:#d3c9b4;font-weight:760}
+.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:11px;color:#8d877c}
+
+.traderCard{
+  border:1px solid #4d3a22;border-radius:18px;margin:10px 0;padding:13px;
+  background:linear-gradient(145deg,rgba(27,28,28,.98),rgba(13,14,15,.98));
+  box-shadow:0 10px 25px rgba(0,0,0,.20)
+}
+.traderHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.traderIdentity{display:flex;align-items:center;gap:11px;min-width:0}
+.traderIcon{width:51px;height:51px;border-radius:14px;border:1px solid #5c4527;object-fit:cover}
+.traderName{font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vip{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:5px;background:#d9a94a;color:#17120b;font-size:10px;font-weight:900;vertical-align:2px}
+.state{font-size:12px;margin-top:4px}.okText{color:var(--green)}.badText{color:#ff6259}
+
+.switch{position:relative;display:inline-block;width:49px;height:29px;flex:0 0 auto}
+.switch input{opacity:0;width:0;height:0}.slider{position:absolute;inset:0;border-radius:999px;background:#343434;transition:.18s;border:1px solid #444}
+.slider:before{content:"";position:absolute;width:23px;height:23px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 5px rgba(0,0,0,.35)}
+.switch input:checked+.slider{background:linear-gradient(90deg,#c89435,#e5b95b);border-color:#e5b95b}
+.switch input:checked+.slider:before{transform:translateX(20px)}
+
+.positionBox{margin-top:10px;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:#0d0f10}
+.pos{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:11px 12px;border-top:1px solid #202326}
+.pos:first-child{border-top:0}.symline{display:flex;align-items:center;gap:8px;min-width:0}.sym{font-size:15px;font-weight:760}
+.tag{font-size:11px;font-weight:850;padding:3px 7px;border-radius:7px}.tag.long{background:#173d18;color:#6fe95c}.tag.short{background:#481d1a;color:#ff7168}
+.price{text-align:right;font-size:16px;font-weight:760}
+.hidden{display:none!important}
+.moreBtn{width:100%;border:0;border-top:1px solid #202326;background:#0d0f10;color:#9c958a;padding:9px;font-size:11px;font-weight:700}
+
+.activity{margin-top:7px;border-top:1px solid #29251f}
+.activity summary{list-style:none;display:flex;align-items:center;justify-content:space-between;color:#8f8b83;font-size:11px;padding:9px 2px 2px;cursor:pointer}
+.activity summary::-webkit-details-marker{display:none}.activity summary b{font-weight:700;color:#b2aa9d}
+.miniEvent{display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:center;padding:8px 2px;border-top:1px solid #232323;font-size:11px}
+.miniEvent .time{color:#726f6b}.miniEvent .act{font-weight:800}.miniEvent .coin{color:#d8d3ca}.miniEvent .px{color:#a59e92;text-align:right}.empty{padding:10px 2px;color:#77736c;font-size:11px}
+
+.settings{
+  margin-top:13px;border:1px solid #4d3a22;border-radius:17px;
+  background:linear-gradient(145deg,rgba(25,25,24,.98),rgba(12,13,14,.98))
+}
+.settings>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px 14px;color:#d8c9a5;font-weight:760;cursor:pointer}
+.settings>summary::-webkit-details-marker{display:none}.settingsInner{padding:0 13px 13px}
+.types{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.typeChoice input{display:none}.typeChoice span{display:block;text-align:center;padding:9px 3px;border-radius:9px;border:1px solid #4b3820;color:#a99570;font-size:11px;font-weight:800;background:#111}
+.typeChoice input:checked+span{background:linear-gradient(90deg,#c89435,#e5b95b);color:#15110a;border-color:#e5b95b}
+button.action{width:100%;border:0;border-radius:11px;padding:12px;margin-top:8px;font-size:14px;font-weight:850}
+#subscribe{background:linear-gradient(90deg,#c89435,#e7bd61);color:#16110a}#test{background:#232425;color:#e6e1d7;border:1px solid #383838}
+.msg{min-height:15px;color:#89847b;font-size:10px;text-align:center;margin-top:7px}
+@media(max-width:430px){.types{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
-<body><div class="wrap">
-<div class="top">
-  <div class="brand"><img src="/icons/icon-96.png?v=53" alt=""><div class="title">倉位</div></div>
-  <div class="statusText"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
-</div>
-
-<div class="card">
-  <div class="row">
-    <div><div class="label">交易員通知</div><div id="allCount" class="small">4/4</div></div>
-    <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <img src="/app-icon-192.png?v=54" alt="">
+      <div><div class="brandTitle">交易監控</div><div class="brandSub">即時提醒</div></div>
+    </div>
+    <div class="statusPill"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
   </div>
-</div>
 
-<div class="card">
-  <div class="label">通知類型</div>
-  <div id="typeOptions" class="types"></div>
-</div>
+  <div id="alertPreview" class="alertPreview"></div>
 
-<div id="traders"><div class="card"><div class="empty">讀取中…</div></div></div>
+  <div class="sectionBar">
+    <div class="sectionTitle">監控中的交易員</div>
+    <div class="masterWrap">
+      <span id="allCount" class="masterCount">4/4</span>
+      <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
+    </div>
+  </div>
 
-<div class="card">
-  <button id="subscribe" class="action">同步 iPhone 通知</button>
-  <button id="test" class="action">測試通知</button>
-  <div id="msg" class="msg"></div>
+  <div id="traders"><div class="empty">讀取中…</div></div>
+
+  <details class="settings">
+    <summary><span>🔔 通知設定</span><span>⌄</span></summary>
+    <div class="settingsInner">
+      <div id="typeOptions" class="types"></div>
+      <button id="subscribe" class="action">同步 iPhone 通知</button>
+      <button id="test" class="action">測試通知</button>
+      <div id="msg" class="msg"></div>
+    </div>
+  </details>
 </div>
-</div>
-<script src="/app.js?v=53"></script>
+<script src="/app.js?v=54"></script>
 </body>
 </html>
