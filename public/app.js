@@ -1,20 +1,36 @@
 const $=id=>document.getElementById(id);
 
-let cfg=null,lastStatus=null;
+let cfg=null,lastStatus=null,currentLabelId=null;
 const TRADER_PREF='position-alert-traders-v52';
 const TYPE_PREF='position-alert-types-v52';
 const LABEL_PREF='position-alert-labels-v55';
+const UI_PREF='position-alert-ui-v57';
 const DEFAULT_TYPES=['OPEN','ADD','REDUCE','CLOSE','CONSENSUS'];
 
-const activityOpen=new Set();
-const positionsOpen=new Set();
+const ui=loadObject(UI_PREF,{
+  activityOpen:[],
+  positionsOpen:[],
+  statsOpen:[],
+  settingsOpen:false
+});
+const activityOpen=new Set(ui.activityOpen||[]);
+const positionsOpen=new Set(ui.positionsOpen||[]);
+const statsOpen=new Set(ui.statsOpen||[]);
 
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function price(v){const x=Number(v||0);if(!x)return'-';if(x>=1000)return x.toLocaleString('en-US',{maximumFractionDigits:2});if(x>=1)return x.toLocaleString('en-US',{maximumFractionDigits:6});return x.toLocaleString('en-US',{maximumFractionDigits:8})}
 function localTime(iso){if(!iso)return'';try{return new Date(iso).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}catch{return''}}
+function ageText(iso){
+  if(!iso)return'尚未同步';
+  const sec=Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/1000));
+  if(sec<60)return`${sec} 秒前`;
+  const min=Math.floor(sec/60);if(min<60)return`${min} 分前`;
+  const hr=Math.floor(min/60);return`${hr} 小時前`;
+}
 function defaultTraderIds(){return cfg?.traders?.map(t=>t.id)||[]}
 function loadArray(k,f){try{const v=JSON.parse(localStorage.getItem(k)||'null');if(Array.isArray(v))return v}catch{}return f}
 function loadObject(k,f={}){try{const v=JSON.parse(localStorage.getItem(k)||'null');if(v&&typeof v==='object'&&!Array.isArray(v))return v}catch{}return f}
+function saveUI(){localStorage.setItem(UI_PREF,JSON.stringify({activityOpen:[...activityOpen],positionsOpen:[...positionsOpen],statsOpen:[...statsOpen],settingsOpen:$('settingsPanel')?.open||false}))}
 function loadEnabledTraders(){const valid=new Set(defaultTraderIds());return loadArray(TRADER_PREF,defaultTraderIds()).filter(id=>valid.has(id))}
 function saveEnabledTraders(x){localStorage.setItem(TRADER_PREF,JSON.stringify(x))}
 function loadEnabledTypes(){const valid=new Set(cfg?.eventTypes||DEFAULT_TYPES);return loadArray(TYPE_PREF,[...valid]).filter(x=>valid.has(x))}
@@ -22,315 +38,216 @@ function saveEnabledTypes(x){localStorage.setItem(TYPE_PREF,JSON.stringify(x))}
 function loadLabels(){
   const saved=loadObject(LABEL_PREF,{});
   return {
-    '5075281354358777856': saved['5075281354358777856'] ?? '核心',
-    '4112815248716815105': saved['4112815248716815105'] ?? '核心',
-    '4855144495762648832': saved['4855144495762648832'] ?? '',
-    '4556315195316581632': saved['4556315195316581632'] ?? '',
+    '5075281354358777856':saved['5075281354358777856']??'核心',
+    '4112815248716815105':saved['4112815248716815105']??'核心',
+    '4855144495762648832':saved['4855144495762648832']??'',
+    '4556315195316581632':saved['4556315195316581632']??'',
     ...saved
   }
 }
 function saveLabel(id,value){const labels=loadLabels();labels[id]=value;localStorage.setItem(LABEL_PREF,JSON.stringify(labels))}
 function typeLabel(t){return({OPEN:'建倉',ADD:'加碼',REDUCE:'減碼',CLOSE:'平倉',CONSENSUS:'共識'})[t]||t}
 function eventAction(e){if(e.type==='OPEN')return e.direction||'';if(e.type==='ADD')return'加碼';if(e.type==='REDUCE')return'減碼';if(e.type==='CLOSE')return'平倉';if(e.type==='CONSENSUS')return`${e.direction||''}共識`;return e.type||''}
-function directionClass(e){
+function actionClass(e){
   const type=String(e?.type||'').toUpperCase();
   const side=String(e?.side||'').toUpperCase();
   const dir=String(e?.direction||'');
-
-  // Action color takes priority over position direction.
-  // Reduce = green; Close = gold, unless future backend supplies realizedPnl.
-  if(type==='REDUCE') return 'actionReduce';
-  if(type==='CLOSE'){
-    const pnl=Number(e?.realizedPnl);
-    if(Number.isFinite(pnl)) return pnl>=0?'marketUp':'marketDown';
-    return 'actionClose';
-  }
-
-  // Taiwan market convention requested by user:
-  // long/up = red, short/down = green.
-  if(side==='LONG'||dir.includes('多')) return 'marketUp';
-  if(side==='SHORT'||dir.includes('空')) return 'marketDown';
-  return 'actionNeutral';
+  if(type==='REDUCE')return'green';
+  if(type==='CLOSE')return'gold';
+  if(side==='LONG'||dir.includes('多'))return'red';
+  if(side==='SHORT'||dir.includes('空'))return'green';
+  return'gold';
 }
-function avgClass(v){
-  const x=Number(v);
-  if(!Number.isFinite(x)||x===0)return'neutral';
-  return x>0?'up':'down';
+function activityClass(a){
+  if(!a)return'';
+  if(a.code==='REDUCING')return'reduce';
+  if(a.code==='JUST_OPENED'||a.code==='ADDING')return'long';
+  if(a.code==='JUST_CLOSED')return'close';
+  return'';
 }
-function avgText(v){
+function confidenceLabel(c){return({HIGH:'高',MEDIUM:'中',LOW:'低'})[c]||'低'}
+function confidenceClass(c){return String(c||'LOW').toLowerCase()}
+function pct(v,d=1){
   if(v===null||v===undefined||v==='')return'—';
-  const x=Number(v);
-  if(!Number.isFinite(x))return'—';
-  const sign=x>0?'+':'';
+  const x=Number(v);return Number.isFinite(x)?`${x.toFixed(d)}%`:'—'
+}
+function signedPct(v,d=2){
+  if(v===null||v===undefined||v==='')return'—';
+  const x=Number(v);if(!Number.isFinite(x))return'—';
+  return`${x>0?'+':''}${x.toFixed(d)}%`
+}
+function pnl(v){
+  if(v===null||v===undefined||v==='')return'—';
+  const x=Number(v);if(!Number.isFinite(x))return'—';
   const digits=Math.abs(x)>=100?1:Math.abs(x)>=10?2:3;
-  return `${sign}${x.toLocaleString('en-US',{maximumFractionDigits:digits})} U`;
+  return`${x>0?'+':''}${x.toLocaleString('en-US',{maximumFractionDigits:digits})} U`
 }
-function pctText(v){
-  if(v===null||v===undefined||v==='') return '—';
-  const x=Number(v);
-  return Number.isFinite(x)?`${x.toFixed(1)}%`:'—';
+function pfText(s){
+  const x=Number(s?.profitFactor);
+  if(!Number.isFinite(x))return'—';
+  if(s?.pfNoLosses)return'≥9.9';
+  return x>=9.9?'≥9.9':x.toFixed(2)
 }
-function sampleText(s){
-  const n=Number(s?.sample||0);
-  return n?`${n} 筆`:'—';
+function metricClass(v){
+  const x=Number(v);if(!Number.isFinite(x)||x===0)return'gold';
+  return x>0?'up':'down'
 }
-
+function durationText(v){
+  const x=Number(v);if(!Number.isFinite(x))return'—';
+  if(x<60)return`${Math.round(x)} 分`;
+  if(x<1440)return`${(x/60).toFixed(1)} 小時`;
+  return`${(x/1440).toFixed(1)} 天`
+}
 async function getPushSubscription(){if(!('serviceWorker'in navigator))return null;const r=await navigator.serviceWorker.getRegistration('/');return r?await r.pushManager.getSubscription():null}
 async function syncPreferences(){const sub=await getPushSubscription();if(!sub)return;await fetch('/api/preferences',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes()})})}
 function b64ToUint8(base64){const padding='='.repeat((4-base64.length%4)%4),s=(base64+padding).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
 
-function renderMasterToggle(){
+function renderMaster(){
   const enabled=loadEnabledTraders();
   $('allToggle').checked=enabled.length===cfg.traders.length;
   $('allCount').textContent=`${enabled.length}/${cfg.traders.length}`;
 }
-
-function renderTypeOptions(){
+function renderTypes(){
   const enabled=new Set(loadEnabledTypes());
-  $('typeOptions').innerHTML=(cfg.eventTypes||DEFAULT_TYPES).map(t=>`
-    <label class="typeChoice">
-      <input class="typeToggle" type="checkbox" data-type="${esc(t)}" ${enabled.has(t)?'checked':''}>
-      <span>${esc(typeLabel(t))}</span>
-    </label>`).join('');
-
+  $('typeOptions').innerHTML=(cfg.eventTypes||DEFAULT_TYPES).map(t=>`<label class="typeChoice"><input class="typeToggle" type="checkbox" data-type="${esc(t)}" ${enabled.has(t)?'checked':''}><span>${esc(typeLabel(t))}</span></label>`).join('');
   document.querySelectorAll('.typeToggle').forEach(el=>el.addEventListener('change',async()=>{
     const types=[...document.querySelectorAll('.typeToggle:checked')].map(x=>x.dataset.type);
-    saveEnabledTypes(types);
-    await syncPreferences().catch(()=>{});
-    $('msg').textContent='✅ 通知類型已更新';
+    saveEnabledTypes(types);await syncPreferences().catch(()=>{});$('msg').textContent='✅ 通知類型已更新';
   }));
 }
-
-function positionRow(p,extra=false,open=false){
-  const isLong=p.side==='LONG';
-  return `<div class="pos ${extra&&!open?'extraPos hidden':extra?'extraPos':''}">
-    <div class="symline">
-      <span class="sym">${esc(p.symbol)}</span>
-      <span class="dirTag ${isLong?'long':'short'}">${esc(p.direction)}</span>
-    </div>
-    <div class="price ${isLong?'marketUp':'marketDown'}">${price(p.entryPrice)}</div>
-  </div>`;
+function renderLatest(events){
+  const el=$('latest'),e=(events||[])[0];
+  if(!e||!e.ts||Date.now()-new Date(e.ts).getTime()>30*60*1000){el.classList.remove('show');return}
+  const title=e.kind==='CONSENSUS'?`${(e.traderNames||[]).length}人共識｜${eventAction(e)}`:`${e.traderName}｜${eventAction(e)}`;
+  const body=e.kind==='CONSENSUS'?`${e.symbol}｜${(e.traderNames||[]).join('、')}`:`${e.symbol}｜${price(e.tradePrice||e.entryPrice)}`;
+  el.innerHTML=`<div><div class="latestTitle ${actionClass(e)}">${esc(title)}</div><div class="latestBody">${esc(body)}</div></div><div class="latestTime">${ageText(e.ts)}</div>`;
+  el.classList.add('show');
 }
-
-function traderEvents(id,events){
-  return (events||[])
-    .filter(e=>e.traderId===id||(e.kind==='CONSENSUS'&&Array.isArray(e.traderIds)&&e.traderIds.includes(id)))
-    .slice(0,6);
+function renderConsensus(rows){
+  const panel=$('consensusPanel'),list=(rows||[]).slice(0,3);
+  if(!list.length){panel.classList.remove('show');return}
+  panel.innerHTML=`<div class="panelTitle"><b>即時共識</b><span>同幣種 · 同方向</span></div>`+list.map(c=>{
+    const long=c.side==='LONG',level=String(c.level||'LOW').toLowerCase();
+    const spread=Number.isFinite(Number(c.entrySpreadPct))?`價差 ${Number(c.entrySpreadPct).toFixed(2)}%`:'價差 —';
+    const time=Number.isFinite(Number(c.timeSpreadMin))?`時間差 ${Math.round(c.timeSpreadMin)}m`:'時間差 —';
+    return`<div class="consensusRow"><div class="consensusMain"><div class="consensusLine"><span class="consensusSymbol">${esc(c.symbol)}</span><span class="dirBadge ${long?'long':'short'}">${esc(c.direction)}</span><span class="levelBadge ${level}">${c.level==='HIGH'?'高':c.level==='MEDIUM'?'中':'低'}</span></div><div class="consensusMeta">${c.count}/${c.total} 人 · ${spread} · ${time}</div></div><div class="consensusScore">${c.score}<small>共識強度</small></div></div>`
+  }).join('');
+  panel.classList.add('show');
 }
-
-function miniEventRow(e){
-  const cls=directionClass(e);
-  return `<div class="miniEvent">
-    <span class="time">${localTime(e.ts)}</span>
-    <span><span class="act ${cls}">${esc(eventAction(e))}</span> <span class="coin">${esc(e.symbol||'')}</span></span>
-    <span class="px ${cls}">${e.kind==='CONSENSUS'?esc((e.traderNames||[]).length+'人'):price(e.tradePrice||e.entryPrice)}</span>
-  </div>`;
+function positionRow(p,extra,open){
+  const long=p.side==='LONG';
+  return`<div class="pos ${extra&&!open?'hidden extraPos':extra?'extraPos':''}"><div class="symline"><span class="sym">${esc(p.symbol)}</span><span class="dirTag ${long?'long':'short'}">${esc(p.direction)}</span></div><div class="price ${long?'red':'green'}">${price(p.entryPrice)}</div></div>`
 }
+function traderEvents(id,events){return(events||[]).filter(e=>e.traderId===id||(e.kind==='CONSENSUS'&&Array.isArray(e.traderIds)&&e.traderIds.includes(id))).slice(0,8)}
+function eventRow(e){return`<div class="event"><span class="eventTime">${localTime(e.ts)}</span><span><span class="eventAct ${actionClass(e)}">${esc(eventAction(e))}</span> <span class="eventCoin">${esc(e.symbol||'')}</span></span><span class="eventPx ${actionClass(e)}">${e.kind==='CONSENSUS'?esc((e.traderNames||[]).length+'人'):price(e.tradePrice||e.entryPrice)}</span></div>`}
 
 function traderCard(t,events){
-  const enabled=loadEnabledTraders().includes(t.id);
-  const ok=!t.lastError;
-  const list=t.positions||[];
-  const first=list.slice(0,1);
-  const rest=list.slice(1);
-  const evs=traderEvents(t.id,events);
-  const posOpen=positionsOpen.has(t.id);
-  const actOpen=activityOpen.has(t.id);
-  const labels=loadLabels();
-  const label=labels[t.id]||'';
-  const st=t.recentStats||{};
+  const enabled=loadEnabledTraders().includes(t.id),list=t.positions||[],rest=list.slice(1),openPos=positionsOpen.has(t.id),openAct=activityOpen.has(t.id),openStats=statsOpen.has(t.id),evs=traderEvents(t.id,events),labels=loadLabels(),label=labels[t.id]||'',s=t.recentStats||{},a=t.activity||{};
+  let positions=list.length?positionRow(list[0],false,openPos)+rest.map(p=>positionRow(p,true,openPos)).join(''):'<div class="emptyText">目前無倉位</div>';
+  if(rest.length)positions+=`<button class="moreBtn" data-pos-id="${esc(t.id)}" data-count="${rest.length}">${openPos?'收合':`查看其餘 ${rest.length} 筆`}</button>`;
 
-  let positions=list.length
-    ? first.map(p=>positionRow(p,false,posOpen)).join('')+rest.map(p=>positionRow(p,true,posOpen)).join('')
-    : '<div class="emptyText">目前無倉位</div>';
+  const sample=Number(s.sample||0);
+  const confidence=s.confidence||'LOW';
+  const staleness=t.lastFetch?ageText(t.lastFetch):'未同步';
 
-  if(rest.length){
-    positions+=`<button class="moreBtn" data-id="${esc(t.id)}" data-count="${rest.length}">
-      ${posOpen?'收合':`查看其餘 ${rest.length} 筆`}
-    </button>`;
-  }
-
-  return `<section class="traderCard" data-trader="${esc(t.id)}">
+  return`<section class="traderCard">
     <div class="traderTop">
       <div class="traderMain">
         <div class="nameLine">
           <div class="traderName">${esc(t.name)}</div>
-          <button class="customTag ${label?'':'tagEmpty'}" data-label-id="${esc(t.id)}">${esc(label||'＋標籤')}</button>
+          <button class="customTag ${label?'':'empty'}" data-label-id="${esc(t.id)}">${esc(label||'＋標籤')}</button>
         </div>
-
-        <div class="metrics">
-          <div class="metric">
-            <div class="metricLabel">狀態</div>
-            <div class="metricValue neutral">${ok?(t.baselineReady?'● 監控中':'● 建立中'):'● 讀取異常'}</div>
-          </div>
-          <div class="metric">
-            <div class="metricLabel">近期勝率 · 完整 ${sampleText(st)}</div>
-            <div class="metricValue ${Number(st.winRate)>=50?'up':'down'}">${pctText(st.winRate)}</div>
-          </div>
-          <div class="metric">
-            <div class="metricLabel">平均獲利${Number.isFinite(Number(st.avgRoi))?' · '+Number(st.avgRoi).toFixed(2)+'%':''}</div>
-            <div class="metricValue ${avgClass(st.avgProfit)}">${avgText(st.avgProfit)}</div>
-          </div>
+        <div class="stateLine">
+          <span class="statusBadge ${activityClass(a)}">${esc(a.label||'監控中')}</span>
+          <span class="confidenceBadge ${confidenceClass(confidence)}">可信 ${confidenceLabel(confidence)}</span>
+          <span class="stateInfo">${list.length?`持倉 ${list.length}`:'空倉'} · ${staleness}</span>
         </div>
       </div>
-
-      <label class="switch">
-        <input type="checkbox" class="traderToggle" data-id="${esc(t.id)}" ${enabled?'checked':''}>
-        <span class="slider"></span>
-      </label>
+      <label class="switch"><input class="traderToggle" data-id="${esc(t.id)}" type="checkbox" ${enabled?'checked':''}><span class="slider"></span></label>
     </div>
+
+    <div class="metrics">
+      <div class="metric"><div class="metricLabel">近期勝率 · ${sample}筆</div><div class="metricValue ${Number(s.winRate)>=50?'up':'down'}">${pct(s.winRate)}</div></div>
+      <div class="metric"><div class="metricLabel">中位 ROI</div><div class="metricValue ${metricClass(s.medianRoi)}">${signedPct(s.medianRoi)}</div></div>
+      <div class="metric"><div class="metricLabel">Profit Factor</div><div class="metricValue gold">${pfText(s)}</div></div>
+    </div>
+    <div class="statFoot"><span>平均 ${pnl(s.avgProfit)}</span><span>Avg ROI ${signedPct(s.avgRoi)}</span><span>統計 ${Number(t.statsOrderCount||s.orderCount||0)} orders</span></div>
 
     <div class="positionBox">${positions}</div>
 
-    <details class="activity" data-id="${esc(t.id)}" ${actOpen?'open':''}>
+    <details class="details activity" data-activity-id="${esc(t.id)}" ${openAct?'open':''}>
       <summary><b>◷ 最近動靜</b><span>${evs.length?evs.length+' 筆':'無'}　⌄</span></summary>
-      <div>${evs.length?evs.map(miniEventRow).join(''):'<div class="emptyText">尚無新動靜</div>'}</div>
+      <div>${evs.length?evs.map(eventRow).join(''):'<div class="emptyText">尚無新動靜</div>'}</div>
     </details>
-  </section>`;
-}
 
-function bindTraderControls(){
+    <details class="details stats" data-stats-id="${esc(t.id)}" ${openStats?'open':''}>
+      <summary><b>▦ 數據明細</b><span>可信度 ${Number(s.confidenceScore||0)}　⌄</span></summary>
+      <div class="statsGrid">
+        <div class="statCell"><span>平均獲利</span><b class="${metricClass(s.avgProfit)}">${pnl(s.avgProfit)}</b></div>
+        <div class="statCell"><span>平均 ROI</span><b class="${metricClass(s.avgRoi)}">${signedPct(s.avgRoi)}</b></div>
+        <div class="statCell"><span>中位 ROI</span><b class="${metricClass(s.medianRoi)}">${signedPct(s.medianRoi)}</b></div>
+        <div class="statCell"><span>平均持倉</span><b>${durationText(s.avgDurationMin)}</b></div>
+        <div class="statCell"><span>完整交易樣本</span><b>${sample} 筆</b></div>
+        <div class="statCell"><span>統計更新</span><b>${t.statsUpdatedAt?ageText(t.statsUpdatedAt):'—'}</b></div>
+      </div>
+    </details>
+  </section>`
+}
+function bindCards(){
   document.querySelectorAll('.traderToggle').forEach(el=>el.addEventListener('change',async e=>{
-    const id=e.currentTarget.dataset.id;
-    const set=new Set(loadEnabledTraders());
-    e.currentTarget.checked?set.add(id):set.delete(id);
-    saveEnabledTraders([...set]);
-    renderMasterToggle();
-    await syncPreferences().catch(()=>{});
-    $('msg').textContent='✅ 交易員通知已更新';
+    const set=new Set(loadEnabledTraders()),id=e.currentTarget.dataset.id;e.currentTarget.checked?set.add(id):set.delete(id);saveEnabledTraders([...set]);renderMaster();await syncPreferences().catch(()=>{});$('msg').textContent='✅ 交易員通知已更新'
   }));
-
-  document.querySelectorAll('.moreBtn').forEach(btn=>btn.addEventListener('click',e=>{
-    const id=e.currentTarget.dataset.id;
-    const box=e.currentTarget.closest('.positionBox');
-    const extras=[...box.querySelectorAll('.extraPos')];
-    const opening=!positionsOpen.has(id);
-
-    if(opening)positionsOpen.add(id);
-    else positionsOpen.delete(id);
-
-    extras.forEach(x=>x.classList.toggle('hidden',!opening));
-    e.currentTarget.textContent=opening?'收合':`查看其餘 ${e.currentTarget.dataset.count} 筆`;
+  document.querySelectorAll('[data-pos-id]').forEach(btn=>btn.addEventListener('click',e=>{
+    const id=e.currentTarget.dataset.posId,box=e.currentTarget.closest('.positionBox'),open=!positionsOpen.has(id);open?positionsOpen.add(id):positionsOpen.delete(id);box.querySelectorAll('.extraPos').forEach(x=>x.classList.toggle('hidden',!open));e.currentTarget.textContent=open?'收合':`查看其餘 ${e.currentTarget.dataset.count} 筆`;saveUI()
   }));
-
-  document.querySelectorAll('.activity').forEach(d=>d.addEventListener('toggle',e=>{
-    const id=e.currentTarget.dataset.id;
-    if(e.currentTarget.open)activityOpen.add(id);
-    else activityOpen.delete(id);
-  }));
-
-  document.querySelectorAll('.customTag').forEach(btn=>btn.addEventListener('click',e=>{
-    const id=e.currentTarget.dataset.labelId;
-    const current=loadLabels()[id]||'';
-    const value=prompt('自訂標籤（留白可刪除）',current);
-    if(value===null)return;
-    saveLabel(id,value.trim().slice(0,10));
-    if(lastStatus)renderTraders(lastStatus.traders||[],lastStatus.events||[]);
-  }));
+  document.querySelectorAll('[data-activity-id]').forEach(d=>d.addEventListener('toggle',e=>{const id=e.currentTarget.dataset.activityId;e.currentTarget.open?activityOpen.add(id):activityOpen.delete(id);saveUI()}));
+  document.querySelectorAll('[data-stats-id]').forEach(d=>d.addEventListener('toggle',e=>{const id=e.currentTarget.dataset.statsId;e.currentTarget.open?statsOpen.add(id):statsOpen.delete(id);saveUI()}));
+  document.querySelectorAll('[data-label-id]').forEach(btn=>btn.addEventListener('click',e=>openLabelSheet(e.currentTarget.dataset.labelId)));
 }
+function renderTraders(list,events){$('traders').innerHTML=(list||[]).map(t=>traderCard(t,events)).join('');bindCards()}
 
-function renderAlert(events){
-  const el=$('alertPreview');
-  const e=(events||[])[0];
-  if(!e){el.classList.remove('show');return}
-
-  const cls=directionClass(e);
-  const title=e.kind==='CONSENSUS'
-    ? `${(e.traderNames||[]).length}人共識｜${eventAction(e)}`
-    : `${e.traderName}｜${eventAction(e)}`;
-
-  const body=e.kind==='CONSENSUS'
-    ? `${e.symbol}｜${(e.traderNames||[]).join('、')}`
-    : `${e.symbol}｜${price(e.tradePrice||e.entryPrice)}`;
-
-  el.innerHTML=`<img class="alertIcon" src="/app-icon-192.png?v=56" alt="">
-    <div class="alertText">
-      <div class="alertTitle ${cls}">${esc(title)}</div>
-      <div class="alertBody ${cls}">${esc(body)}</div>
-    </div>
-    <div class="alertTime">${localTime(e.ts)}</div>`;
-  el.classList.add('show');
+function updateSync(){
+  if(!lastStatus)return;
+  const times=(lastStatus.traders||[]).map(t=>t.lastFetch?new Date(t.lastFetch).getTime():0).filter(Boolean);
+  if(!times.length){$('syncAge').textContent='尚未同步';return}
+  const oldest=new Date(Math.min(...times)).toISOString();
+  const sec=Math.max(0,Math.round((Date.now()-new Date(oldest).getTime())/1000));
+  $('syncAge').textContent=`資料 ${ageText(oldest)}`;
+  $('dot').className=`dot ${sec<=10?'ok':sec<=25?'warn':'bad'}`;
 }
-
-function renderTraders(list,events){
-  $('traders').innerHTML=list.map(t=>traderCard(t,events)).join('');
-  bindTraderControls();
+function openLabelSheet(id){
+  currentLabelId=id;$('labelInput').value=loadLabels()[id]||'';$('labelModal').classList.add('show');$('labelModal').setAttribute('aria-hidden','false');setTimeout(()=>$('labelInput').focus(),50)
 }
+function closeLabelSheet(){$('labelModal').classList.remove('show');$('labelModal').setAttribute('aria-hidden','true');currentLabelId=null}
+function saveLabelSheet(){if(!currentLabelId)return;saveLabel(currentLabelId,$('labelInput').value.trim().slice(0,10));closeLabelSheet();if(lastStatus)renderTraders(lastStatus.traders,lastStatus.events)}
 
 async function refresh(){
   try{
-    if(!cfg){
-      cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());
-      renderTypeOptions();
-    }
-
-    const s=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());
-    lastStatus=s;
-
-    const ok=s.healthy>0;
-    $('dot').className=`dot ${ok?'ok':'bad'}`;
-    $('status').textContent=ok?`監控中 ${s.healthy}/${s.total}`:'異常';
-
-    renderMasterToggle();
-    renderAlert(s.events||[]);
-    renderTraders(s.traders||[],s.events||[]);
-  }catch{
-    $('dot').className='dot bad';
-    $('status').textContent='連線異常';
-  }
+    if(!cfg){cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());renderTypes()}
+    const s=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());lastStatus=s;
+    const ok=s.healthy>0;$('status').textContent=ok?`監控 ${s.healthy}/${s.total}`:'連線異常';
+    renderMaster();renderLatest(s.events||[]);renderConsensus(s.consensus||[]);renderTraders(s.traders||[],s.events||[]);updateSync()
+  }catch{$('dot').className='dot bad';$('status').textContent='連線異常';$('syncAge').textContent='等待重連'}
 }
 
-$('allToggle').addEventListener('change',async e=>{
-  const ids=e.currentTarget.checked?defaultTraderIds():[];
-  saveEnabledTraders(ids);
-  renderMasterToggle();
-  if(lastStatus)renderTraders(lastStatus.traders||[],lastStatus.events||[]);
-  await syncPreferences().catch(()=>{});
-  $('msg').textContent=e.currentTarget.checked?'✅ 全部交易員已開啟':'🔕 全部交易員已關閉';
-});
+$('allToggle').addEventListener('change',async e=>{const ids=e.currentTarget.checked?defaultTraderIds():[];saveEnabledTraders(ids);renderMaster();if(lastStatus)renderTraders(lastStatus.traders,lastStatus.events);await syncPreferences().catch(()=>{});$('msg').textContent=e.currentTarget.checked?'✅ 全部交易員已開啟':'🔕 全部交易員已關閉'});
+$('settingsPanel').open=!!ui.settingsOpen;$('settingsPanel').addEventListener('toggle',saveUI);
+$('labelCancel').addEventListener('click',closeLabelSheet);$('labelSave').addEventListener('click',saveLabelSheet);$('labelModal').addEventListener('click',e=>{if(e.target===$('labelModal'))closeLabelSheet()});$('labelInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveLabelSheet();if(e.key==='Escape')closeLabelSheet()});
 
 $('subscribe').onclick=async()=>{
   try{
     if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());
     if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');
     if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');
-
-    const reg=await navigator.serviceWorker.register('/sw.js?v=55');
-    const permission=await Notification.requestPermission();
+    const reg=await navigator.serviceWorker.register('/sw.js?v=57'),permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('你沒有允許通知');
-
-    const existing=await reg.pushManager.getSubscription();
-    const sub=existing||await reg.pushManager.subscribe({
-      userVisibleOnly:true,
-      applicationServerKey:b64ToUint8(cfg.vapidPublicKey)
-    });
-
-    const r=await fetch('/api/subscribe',{
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      body:JSON.stringify({
-        subscription:sub,
-        enabledTraders:loadEnabledTraders(),
-        enabledTypes:loadEnabledTypes()
-      })
-    });
-
-    if(!r.ok)throw new Error(await r.text());
-    $('msg').textContent='✅ iPhone 通知已同步';
-  }catch(e){
-    $('msg').textContent=`❌ ${e.message}`;
-  }
+    const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});
+    const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes()})});
+    if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知已同步'
+  }catch(e){$('msg').textContent=`❌ ${e.message}`}
 };
-
-$('test').onclick=async()=>{
-  const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id;
-  const r=await fetch('/api/test-push',{
-    method:'POST',
-    headers:{'content-type':'application/json'},
-    body:JSON.stringify({traderId})
-  });
-  $('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`;
-};
+$('test').onclick=async()=>{const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id,r=await fetch('/api/test-push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({traderId})});$('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`};
 
 refresh();
 setInterval(refresh,8000);
+setInterval(updateSync,1000);

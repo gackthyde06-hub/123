@@ -7,125 +7,174 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=56">
-<link rel="apple-touch-icon" href="/app-icon-180.png?v=56">
+<link rel="manifest" href="/manifest.webmanifest?v=57">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=57">
 <title>倉位</title>
 <style>
 :root{
   color-scheme:dark;
-  --bg:#070809;--panel:#131414;--panel2:#0c0e0f;--line:#503c20;--soft:#28292b;
-  --gold:#d7a94b;--gold2:#efc66d;--text:#f1eee7;--muted:#89857d;
-  --up:#ff5d5d;--down:#4ed887;--bad:#ff7b72;
+  --bg:#070809;--card:#131414;--card2:#0c0e0f;--line:#4b3820;--line2:#262728;
+  --gold:#d4a54b;--gold2:#edc46e;--text:#f2eee6;--muted:#89857d;
+  --up:#ff5e60;--down:#4fd58a;--warn:#e5b858;--bad:#ff796e;
 }
 *{box-sizing:border-box}
+html{background:var(--bg)}
 body{
   margin:0;color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC",sans-serif;
   background:
-    radial-gradient(circle at 14% -5%,rgba(216,163,72,.13),transparent 27%),
-    linear-gradient(180deg,#070809,#090b0c 55%,#070809);
+    radial-gradient(circle at 14% -5%,rgba(214,163,72,.12),transparent 27%),
+    linear-gradient(180deg,#070809 0%,#090b0c 60%,#070809 100%);
 }
-.wrap{max-width:680px;margin:auto;padding:16px 14px 44px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 2px 14px}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
-.brandTitle{font-size:22px;font-weight:900;color:#e2bf73;letter-spacing:.3px}
-.brandSub{font-size:11px;color:#817c73;margin-top:3px}
-.statusPill{font-size:11px;color:#a39e94;white-space:nowrap}
+button,input{font:inherit}
+.wrap{max-width:680px;margin:auto;padding:16px 14px 46px}
+
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:5px 2px 13px}
+.brandTitle{font-size:23px;font-weight:900;color:#e3be70;letter-spacing:.2px}
+.brandSub{font-size:11px;color:#77736b;margin-top:3px}
+.sync{text-align:right}
+.syncMain{font-size:11px;color:#b0aa9f}
+.syncSub{font-size:9px;color:#706b63;margin-top:3px}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:#555}
-.dot.ok{background:var(--gold);box-shadow:0 0 9px rgba(215,169,75,.42)}
-.dot.bad{background:var(--bad)}
+.dot.ok{background:var(--gold);box-shadow:0 0 8px rgba(212,165,75,.38)}
+.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
 
-.alertPreview{
-  display:none;align-items:center;margin:10px 0 14px;padding:12px 13px;
-  border:1px solid #65491f;border-radius:16px;
-  background:linear-gradient(120deg,rgba(30,29,27,.98),rgba(12,13,14,.98));
-  box-shadow:0 9px 28px rgba(0,0,0,.22)
+.latest{
+  display:none;margin:9px 0 12px;padding:11px 12px;border-radius:14px;
+  border:1px solid #5b431f;background:linear-gradient(120deg,#191817,#0d0e0f)
 }
-.alertPreview.show{display:flex}
-.alertIcon{width:44px;height:44px;border-radius:12px;margin-right:11px}
-.alertText{min-width:0;flex:1}.alertTitle{font-size:15px;font-weight:820}
-.alertBody{font-size:13px;color:#ddd7cc;margin-top:4px}.alertTime{font-size:10px;color:#8f897f;margin-left:8px}
-.marketUp{color:var(--up)!important}.marketDown{color:var(--down)!important}.actionReduce{color:var(--down)!important}.actionClose{color:var(--gold2)!important}.actionNeutral{color:#d7d2c8!important}
+.latest.show{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.latestTitle{font-size:13px;font-weight:850}.latestBody{font-size:11px;color:#bfb9ae;margin-top:3px}
+.latestTime{font-size:9px;color:#777168}
 
-.sectionBar{display:flex;align-items:center;justify-content:space-between;margin:11px 3px 7px}
-.sectionTitle{font-size:14px;font-weight:800;color:#d6c8aa}
-.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:10px;color:#847f77}
+.consensusPanel{
+  display:none;margin:10px 0 13px;padding:12px;border:1px solid #6b4d20;border-radius:16px;
+  background:linear-gradient(145deg,rgba(30,27,21,.98),rgba(12,13,14,.98))
+}
+.consensusPanel.show{display:block}
+.panelTitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.panelTitle b{font-size:13px;color:#e3c27e}.panelTitle span{font-size:9px;color:#7c766b}
+.consensusRow{display:grid;grid-template-columns:1fr auto;gap:10px;padding:9px 0;border-top:1px solid #29251d}
+.consensusRow:first-of-type{border-top:0}
+.consensusMain{min-width:0}
+.consensusLine{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.consensusSymbol{font-size:14px;font-weight:850}
+.dirBadge,.levelBadge,.statusBadge,.confidenceBadge{
+  display:inline-block;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:900
+}
+.dirBadge.long{background:#481c1d;color:#ff7778}.dirBadge.short{background:#123823;color:#63e39c}
+.levelBadge.high{background:#4d3717;color:#f1c96d}.levelBadge.medium{background:#27251d;color:#d7c38b}.levelBadge.low{background:#222;color:#999}
+.consensusMeta{font-size:9px;color:#7f796f;margin-top:4px}
+.consensusScore{text-align:right;color:#e0bb68;font-size:13px;font-weight:850}
+.consensusScore small{display:block;color:#777168;font-size:8px;font-weight:600;margin-top:2px}
+
+.sectionBar{display:flex;align-items:center;justify-content:space-between;margin:10px 3px 7px}
+.sectionTitle{font-size:13px;color:#d5c5a3;font-weight:820}
+.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:9px;color:#7b776f}
 
 .traderCard{
-  border:1px solid #4b3922;border-radius:17px;margin:9px 0;padding:13px;
-  background:linear-gradient(145deg,rgba(27,27,26,.98),rgba(12,13,14,.98));
-  box-shadow:0 9px 24px rgba(0,0,0,.20)
+  margin:9px 0;padding:13px;border:1px solid #473720;border-radius:17px;
+  background:linear-gradient(145deg,rgba(26,26,25,.98),rgba(12,13,14,.98));
+  box-shadow:0 8px 22px rgba(0,0,0,.18)
 }
 .traderTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .traderMain{min-width:0;flex:1}
-.nameLine{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
-.traderName{font-size:18px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.nameLine{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.traderName{font-size:17px;font-weight:860;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .customTag{
-  border:1px solid #7b5b29;background:#17130d;color:#d9ad56;border-radius:7px;
-  padding:3px 7px;font-size:10px;font-weight:850;cursor:pointer
+  border:1px solid #715525;background:#16130e;color:#d5aa56;border-radius:7px;
+  padding:3px 7px;font-size:9px;font-weight:850;cursor:pointer
 }
-.customTag.tagEmpty{color:#76684f;border-color:#4a402f;background:#111}
+.customTag.empty{color:#766a54;border-color:#4b4234;background:#101111}
+
+.stateLine{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.statusBadge{background:#25221b;color:#d4b979}
+.statusBadge.reduce{background:#123823;color:#63e39c}
+.statusBadge.long{background:#481c1d;color:#ff7778}
+.statusBadge.close{background:#392d18;color:#e9bf69}
+.confidenceBadge.high{background:#332a17;color:#e8c675}.confidenceBadge.medium{background:#25231d;color:#bdb189}.confidenceBadge.low{background:#221d1c;color:#a88672}
+.stateInfo{font-size:9px;color:#746f67}
 
 .metrics{
-  display:grid;grid-template-columns:1.05fr 1fr 1.15fr;margin-top:8px;
-  border:1px solid #252525;border-radius:11px;overflow:hidden;background:#0c0e0f
+  display:grid;grid-template-columns:repeat(3,1fr);margin-top:9px;
+  border:1px solid #262728;border-radius:11px;overflow:hidden;background:#0c0e0f
 }
-.metric{min-width:0;padding:8px 9px;border-left:1px solid #252525}
+.metric{padding:8px 7px;min-width:0;border-left:1px solid #252628}
 .metric:first-child{border-left:0}
-.metricLabel{font-size:9px;color:#77736b;margin-bottom:3px;white-space:nowrap}
-.metricValue{font-size:12px;font-weight:820;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.metricValue.neutral{color:#d1a95c}.metricValue.up{color:var(--up)}.metricValue.down{color:var(--down)}
+.metricLabel{font-size:8px;color:#77736c;white-space:nowrap;margin-bottom:3px}
+.metricValue{font-size:13px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metricValue.up{color:var(--up)}.metricValue.down{color:var(--down)}.metricValue.gold{color:#d9b25f}.metricValue.muted{color:#aaa49a}
+.statFoot{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px;font-size:8px;color:#716c64}
 
-.switch{position:relative;display:inline-block;width:48px;height:29px;flex:0 0 auto}
+.switch{position:relative;display:inline-block;width:47px;height:28px;flex:0 0 auto}
 .switch input{opacity:0;width:0;height:0}
 .slider{position:absolute;inset:0;border-radius:999px;background:#343434;border:1px solid #444;transition:.18s}
-.slider:before{content:"";position:absolute;width:23px;height:23px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.18s;box-shadow:0 1px 5px rgba(0,0,0,.35)}
-.switch input:checked+.slider{background:linear-gradient(90deg,#c89232,#e6bb5c);border-color:#e4b85b}
+.slider:before{content:"";position:absolute;width:22px;height:22px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.18s}
+.switch input:checked+.slider{background:linear-gradient(90deg,#c68f32,#e1b75a);border-color:#dcb056}
 .switch input:checked+.slider:before{transform:translateX(19px)}
 
 .positionBox{margin-top:9px;border:1px solid #252628;border-radius:11px;overflow:hidden;background:#0c0e0f}
-.pos{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 11px;border-top:1px solid #202224}
-.pos:first-child{border-top:0}.symline{display:flex;align-items:center;gap:8px}.sym{font-size:14px;font-weight:780}
-.dirTag{font-size:10px;font-weight:850;padding:3px 7px;border-radius:6px}
-.dirTag.long{background:#481c1c;color:#ff7474}.dirTag.short{background:#123723;color:#62e39a}
-.price{font-size:15px;font-weight:780;text-align:right}
+.pos{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:center;padding:10px 11px;border-top:1px solid #202224}
+.pos:first-child{border-top:0}
+.symline{display:flex;align-items:center;gap:7px;min-width:0}.sym{font-size:13px;font-weight:800}
+.dirTag{font-size:9px;font-weight:900;padding:3px 6px;border-radius:6px}
+.dirTag.long{background:#481c1d;color:#ff7778}.dirTag.short{background:#123823;color:#63e39c}
+.price{font-size:14px;font-weight:790;text-align:right}.red{color:var(--up)!important}.green{color:var(--down)!important}.gold{color:var(--gold2)!important}
 .hidden{display:none!important}
-.moreBtn{width:100%;border:0;border-top:1px solid #202224;background:#0c0e0f;color:#999185;padding:9px;font-size:10px;font-weight:720}
+.moreBtn{width:100%;border:0;border-top:1px solid #202224;background:#0c0e0f;color:#938b7e;padding:9px;font-size:9px;font-weight:750}
 
-.activity{margin-top:7px;border-top:1px solid #28251f}
-.activity summary{list-style:none;display:flex;align-items:center;justify-content:space-between;color:#8e887e;font-size:10px;padding:9px 2px 1px;cursor:pointer}
-.activity summary::-webkit-details-marker{display:none}.activity summary b{font-weight:760;color:#aaa398}
-.miniEvent{display:grid;grid-template-columns:40px 1fr auto;gap:6px;align-items:center;padding:7px 2px;border-top:1px solid #222;font-size:10px}
-.miniEvent .time{color:#716e68}.miniEvent .act{font-weight:820}.miniEvent .coin{color:#d6d1c8}.miniEvent .px{color:#a39d92;text-align:right}
-.emptyText{padding:9px 2px;color:#77716a;font-size:10px}
+.details{margin-top:7px;border-top:1px solid #28251f}
+.details summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:9px 2px 1px;color:#948e84;font-size:9px;cursor:pointer}
+.details summary::-webkit-details-marker{display:none}.details summary b{font-weight:780;color:#aaa399}
+.event{display:grid;grid-template-columns:40px 1fr auto;gap:6px;align-items:center;padding:7px 2px;border-top:1px solid #222;font-size:10px}
+.eventTime{color:#716d66}.eventAct{font-weight:850}.eventCoin{color:#d5d0c7}.eventPx{color:#a49d92;text-align:right}
+.statsGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:8px 0 2px;border-top:1px solid #222}
+.statCell{background:#0c0e0f;border:1px solid #252628;border-radius:9px;padding:8px}
+.statCell span{display:block;color:#706b63;font-size:8px}.statCell b{display:block;margin-top:3px;font-size:11px}
+.emptyText{padding:9px 2px;color:#77716a;font-size:9px}
 
-.settings{margin-top:12px;border:1px solid #4a3820;border-radius:16px;background:linear-gradient(145deg,rgba(25,25,24,.98),rgba(12,13,14,.98))}
-.settings>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px;color:#d6c7a3;font-size:13px;font-weight:800;cursor:pointer}
+.settings{margin-top:12px;border:1px solid #493820;border-radius:16px;background:linear-gradient(145deg,#181817,#0c0d0e)}
+.settings>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px;color:#d3c29f;font-size:12px;font-weight:820;cursor:pointer}
 .settings>summary::-webkit-details-marker{display:none}.settingsInner{padding:0 12px 12px}
 .types{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.typeChoice input{display:none}
-.typeChoice span{display:block;text-align:center;padding:8px 2px;border-radius:8px;border:1px solid #4a3820;color:#a3916c;font-size:10px;font-weight:830;background:#111}
-.typeChoice input:checked+span{background:linear-gradient(90deg,#c89232,#e6bb5c);color:#161108;border-color:#e6bb5c}
-button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px;font-size:13px;font-weight:850}
-#subscribe{background:linear-gradient(90deg,#c89232,#e7bd62);color:#161108}
-#test{background:#222426;color:#e6e0d6;border:1px solid #373737}
-.msg{min-height:14px;color:#888179;font-size:9px;text-align:center;margin-top:6px}
-.note{font-size:9px;color:#67625b;margin-top:7px;line-height:1.45}
-@media(max-width:430px){.types{grid-template-columns:repeat(3,1fr)}.metric{padding:8px 6px}}
+.typeChoice span{display:block;text-align:center;padding:8px 2px;border-radius:8px;border:1px solid #483720;color:#a18f6d;font-size:9px;font-weight:850;background:#111}
+.typeChoice input:checked+span{background:linear-gradient(90deg,#c68f32,#e3b95d);color:#161108;border-color:#e1b75a}
+button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px;font-size:12px;font-weight:850}
+#subscribe{background:linear-gradient(90deg,#c68f32,#e4ba60);color:#151108}
+#test{background:#222426;color:#e4dfd5;border:1px solid #363738}
+.msg{min-height:13px;color:#878078;font-size:9px;text-align:center;margin-top:6px}
+.note{font-size:8px;color:#66615a;margin-top:7px;line-height:1.45}
+
+.modalBackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.68);z-index:30;align-items:flex-end;justify-content:center}
+.modalBackdrop.show{display:flex}
+.sheet{width:min(680px,100%);background:#151616;border:1px solid #5b4322;border-radius:20px 20px 0 0;padding:16px 14px max(16px,env(safe-area-inset-bottom))}
+.sheetTitle{font-size:16px;font-weight:850;color:#e0bd73}.sheetSub{font-size:10px;color:#777168;margin-top:4px}
+.sheet input{width:100%;margin-top:12px;background:#0c0e0f;color:#fff;border:1px solid #3b3b3b;border-radius:11px;padding:12px;font-size:16px;outline:none}
+.sheet input:focus{border-color:#c99a45}
+.sheetActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.sheetActions button{border:0;border-radius:10px;padding:12px;font-weight:850}
+#labelCancel{background:#272829;color:#ddd}.save{background:linear-gradient(90deg,#c68f32,#e4ba60);color:#151108}
+
+@media(max-width:420px){.types{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="brand">
-      <div><div class="brandTitle">交易監控</div><div class="brandSub">即時提醒</div></div>
+    <div>
+      <div class="brandTitle">交易監控</div>
+      <div class="brandSub">即時倉位 · 深度統計</div>
     </div>
-    <div class="statusPill"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
+    <div class="sync">
+      <div class="syncMain"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
+      <div id="syncAge" class="syncSub">同步中</div>
+    </div>
   </div>
 
-  <div id="alertPreview" class="alertPreview"></div>
+  <div id="latest" class="latest"></div>
+  <div id="consensusPanel" class="consensusPanel"></div>
 
   <div class="sectionBar">
-    <div class="sectionTitle">監控中的交易員</div>
+    <div class="sectionTitle">交易員</div>
     <div class="masterWrap">
       <span id="allCount" class="masterCount">4/4</span>
       <label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label>
@@ -141,10 +190,23 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
       <div id="msg" class="msg"></div>
-      <div class="note">近期勝率／平均獲利只統計最近 100 筆訂單內「完整建倉→完全平倉」的交易；分批減碼合併為同一筆。缺少建倉前段的交易會跳過，不含手續費／資金費。</div>
+      <div class="note">即時動作約每 3 秒檢查；統計最多讀取 500 筆訂單、約每 5 分鐘重算。統計會排除每個幣種/方向的第一個邊界交易，降低歷史截斷造成的誤差。PF、ROI 與 PnL 均不含手續費與資金費。</div>
     </div>
   </details>
 </div>
-<script src="/app.js?v=56"></script>
+
+<div id="labelModal" class="modalBackdrop" aria-hidden="true">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div id="sheetTitle" class="sheetTitle">自訂交易員標籤</div>
+    <div class="sheetSub">例如：核心、穩健、攻擊、觀察</div>
+    <input id="labelInput" maxlength="10" autocomplete="off" placeholder="輸入標籤">
+    <div class="sheetActions">
+      <button id="labelCancel" type="button">取消</button>
+      <button id="labelSave" class="save" type="button">儲存</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js?v=57"></script>
 </body>
 </html>
