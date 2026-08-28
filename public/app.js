@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 
 let cfg=null,lastStatus=null,currentLabelId=null;
-const TRADER_PREF='position-alert-traders-v59';
+const TRADER_PREF='position-alert-traders-v591';
 const TYPE_PREF='position-alert-types-v52';
 const LABEL_PREF='position-alert-labels-v55';
 const UI_PREF='position-alert-ui-v57';
@@ -34,7 +34,7 @@ function confidenceLabel(c){return({HIGH:'高',MEDIUM:'中',LOW:'低'})[c]||'低
 function confidenceClass(c){return String(c||'LOW').toLowerCase()}
 function signalClass(v){return String(v?.level||'WAIT').toLowerCase()}
 function sourceClass(d){const s=String(d?.sourceType||'NONE').toLowerCase();return s==='live'?'live':s==='public'?'public':'none'}
-function sourceStatusZh(v){return({OK:'正常',NO_HISTORY:'無歷史',PARSE_ERROR:'格式變更',ERROR:'暫時失敗',WAITING:'同步中',EMPTY:'空倉',EMPTY_CONFIRMING:'確認中'})[String(v||'WAITING')]||String(v||'同步中')}
+function sourceStatusZh(v){return({OK:'正常',NO_HISTORY:'無歷史',PARSE_ERROR:'格式變更',ERROR:'暫時失敗',WAITING:'同步中',EMPTY:'空倉',EMPTY_CONFIRMING:'確認中',HIDDEN_OR_EMPTY:'隱藏/未知',PARTIAL_OR_HIDDEN:'部分/隱藏'})[String(v||'WAITING')]||String(v||'同步中')}
 function hasNum(v){return v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))}
 function numberText(v,d=0){if(!hasNum(v))return'—';return Number(v).toLocaleString('en-US',{maximumFractionDigits:d})}
 function leverageText(v){return hasNum(v)?`${Number(v).toFixed(Number(v)%1?1:0)}x`:'—'}
@@ -42,9 +42,18 @@ function positionEmptyText(t){
   const p=String(t?.positionStatus||'WAITING');
   if(p==='ERROR')return'倉位來源暫時不可用 · 自動重試中';
   if(p==='PARSE_ERROR')return'Binance 倉位格式變更 · 訂單備援監控中';
+  if(p==='HIDDEN_OR_EMPTY')return'帶單員可能隱藏倉位 · 以訂單紀錄為準';
+  if(p==='PARTIAL_OR_HIDDEN')return'公開倉位不完整 · 以訂單紀錄為準';
   if(p==='EMPTY_CONFIRMING')return'目前無倉位 · 快照確認中';
   if(p==='WAITING')return'同步倉位中…';
   return'目前無倉位';
+}
+function positionSummary(t,list){
+  if((list||[]).length)return`持倉 ${(list||[]).length}`;
+  const p=String(t?.positionStatus||'WAITING');
+  if(p==='HIDDEN_OR_EMPTY'||p==='PARTIAL_OR_HIDDEN')return'倉位隱藏';
+  if(p==='ERROR'||p==='PARSE_ERROR'||p==='WAITING')return'倉位未知';
+  return'空倉';
 }
 function eventValue(e){
   if(e?.kind==='CONSENSUS')return`${(e.traderNames||[]).length}人`;
@@ -159,7 +168,7 @@ function traderCard(t,events){
           <span class="statusBadge ${activityClass(a)}">${esc(a.label||'監控中')}</span>
           <span class="signalBadge ${signalClass(sv)}">訊號 ${esc(signalText)}</span>
           ${sourceBadge}${confidenceBadge}
-          <span class="stateInfo">${list.length?`持倉 ${list.length}`:'空倉'} · ${staleness}</span>
+          <span class="stateInfo">${esc(positionSummary(t,list))} · ${staleness}</span>
         </div>
       </div>
       <label class="switch"><input class="traderToggle" data-id="${esc(t.id)}" type="checkbox" ${enabled?'checked':''}><span class="slider"></span></label>
@@ -231,7 +240,7 @@ async function refresh(){
 $('allToggle').addEventListener('change',async e=>{const ids=e.currentTarget.checked?defaultTraderIds():[];saveEnabledTraders(ids);renderMaster();if(lastStatus)renderTraders(lastStatus.traders,lastStatus.events);await syncPreferences().catch(()=>{});$('msg').textContent=e.currentTarget.checked?'✅ 全部交易員已開啟':'🔕 全部交易員已關閉'});
 $('settingsPanel').open=!!ui.settingsOpen;$('settingsPanel').addEventListener('toggle',saveUI);
 $('labelCancel').addEventListener('click',closeLabelSheet);$('labelSave').addEventListener('click',saveLabelSheet);$('labelModal').addEventListener('click',e=>{if(e.target===$('labelModal'))closeLabelSheet()});$('labelInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveLabelSheet();if(e.key==='Escape')closeLabelSheet()});
-$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=59'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes()})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
+$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=591'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes()})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
 $('test').onclick=async()=>{const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id,r=await fetch('/api/test-push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({traderId})});$('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`};
 
 refresh();
