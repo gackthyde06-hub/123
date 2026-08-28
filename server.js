@@ -11,6 +11,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Math.max(2000, Number(process.env.POLL_MS || 3000));
 const POSITION_REFRESH_MS = Math.max(5000, Number(process.env.POSITION_REFRESH_MS || 8000));
+const MARK_PRICE_REFRESH_MS = Math.max(3000, Number(process.env.MARK_PRICE_REFRESH_MS || 5000));
 const STATS_REFRESH_MS = Math.max(60000, Number(process.env.STATS_REFRESH_MS || 300000));
 const STATS_MAX_PAGES = Math.min(8, Math.max(2, Number(process.env.STATS_MAX_PAGES || 5)));
 const STATS_PAGE_SIZE = 100;
@@ -107,6 +108,7 @@ const EVENT_TYPE_SET = new Set(EVENT_TYPES);
 
 const BASE = 'https://www.binance.com/bapi/futures/v1';
 const ORDER_URL = `${BASE}/friendly/future/copy-trade/lead-portfolio/order-history`;
+const MARK_PRICE_URL = 'https://fapi.binance.com/fapi/v1/premiumIndex';
 
 const SUB_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const STATE_FILE = path.join(DATA_DIR, 'state-v5.json');
@@ -296,6 +298,17 @@ function normalizePosition(raw) {
     side,
     amount: Math.abs(amountNumber),
     entryPrice: n(raw?.entryPrice ?? raw?.avgPrice ?? raw?.averagePrice ?? raw?.price),
+    markPrice: (() => {
+      const v = raw?.markPrice ?? raw?.currentPrice ?? raw?.lastPrice;
+      const x = Number(v);
+      return Number.isFinite(x) && x > 0 ? x : null;
+    })(),
+    unrealizedProfit: (() => {
+      const v = raw?.unrealizedProfit ?? raw?.unRealizedProfit ?? raw?.unrealizedPnl ?? raw?.unRealizedPnl;
+      if (v === null || v === undefined || v === '') return null;
+      const x = Number(v);
+      return Number.isFinite(x) ? x : null;
+    })(),
     openTime: (() => {
       const t = n(raw?.openTime ?? raw?.updateTime ?? raw?.time);
       return t > 0 ? new Date(t).toISOString() : null;
@@ -922,7 +935,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/5.9.1',
+        'user-agent': 'Mozilla/5.0 PositionAlert/5.9.2',
       },
       signal: controller.signal,
     });
@@ -945,6 +958,98 @@ async function fetchReferenceStats(trader) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+
+const markPrices = new Map();
+let markPriceUpdatedAt = null;
+let markPriceLastAttempt = 0;
+let markPriceError = null;
+let markPriceBusy = false;
+
+async function refreshMarkPrices(force = false) {
+  if (markPriceBusy) return false;
+  if (!force && markPriceLastAttempt && Date.now() - markPriceLastAttempt < MARK_PRICE_REFRESH_MS) {
+    return true;
+  }
+
+  markPriceBusy = true;
+  markPriceLastAttempt = Date.now();
+
+  try {
+    const r = await fetch(MARK_PRICE_URL, {
+      headers: {
+        accept: 'application/json',
+        'user-agent': 'Mozilla/5.0 PositionAlert/5.9.2',
+      },
+    });
+
+    if (!r.ok) throw new Error(`mark-price HTTP ${r.status}`);
+
+    const json = await r.json();
+    const rows = Array.isArray(json) ? json : [json];
+    let parsed = 0;
+
+    for (const row of rows) {
+      const symbol = String(row?.symbol || '').toUpperCase();
+      const px = Number(row?.markPrice ?? row?.price);
+      if (!symbol || !Number.isFinite(px) || px <= 0) continue;
+      markPrices.set(symbol, px);
+      parsed += 1;
+    }
+
+    if (!parsed) throw new Error('mark-price empty');
+
+    markPriceUpdatedAt = new Date().toISOString();
+    markPriceError = null;
+    return true;
+  } catch (e) {
+    markPriceError = String(e?.message || e);
+    console.warn(`[mark-price-v5.9.2] ${markPriceError}`);
+    return false;
+  } finally {
+    markPriceBusy = false;
+  }
+}
+
+function positionPnlView(p) {
+  const entryPrice = Number(p?.entryPrice);
+  const amount = Math.abs(Number(p?.amount));
+  const cachedMark = Number(markPrices.get(String(p?.symbol || '').toUpperCase()));
+  const snapshotMark = Number(p?.markPrice);
+  const markPrice = Number.isFinite(cachedMark) && cachedMark > 0
+    ? cachedMark
+    : Number.isFinite(snapshotMark) && snapshotMark > 0
+      ? snapshotMark
+      : null;
+
+  if (
+    !Number.isFinite(entryPrice) || entryPrice <= 0 ||
+    !Number.isFinite(amount) || amount <= 0 ||
+    !Number.isFinite(markPrice) || markPrice <= 0
+  ) {
+    return {
+      markPrice: markPrice || null,
+      pnlPct: null,
+      unrealizedPnl: null,
+      pnlSource: null,
+      pnlEstimated: p?.source === 'orders',
+    };
+  }
+
+  const move = p?.side === 'SHORT'
+    ? entryPrice - markPrice
+    : markPrice - entryPrice;
+
+  return {
+    markPrice,
+    // Price-return percentage, intentionally NOT leveraged ROI.
+    pnlPct: (move / entryPrice) * 100,
+    unrealizedPnl: move * amount,
+    pnlSource: Number.isFinite(cachedMark) && cachedMark > 0 ? 'mark_price' : 'position_snapshot',
+    // Order-reconstructed quantity can be approximate if history starts mid-position.
+    pnlEstimated: p?.source === 'orders',
+  };
 }
 
 const persistedState = loadJson(STATE_FILE, {});
@@ -1470,6 +1575,7 @@ async function pollTrader(s) {
 }
 
 async function loop() {
+  void refreshMarkPrices();
   await Promise.allSettled([...states.values()].map(s => pollTrader(s)));
   timer = setTimeout(loop, POLL_MS);
 }
@@ -1519,12 +1625,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v5.9.1] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v5.9.2] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v5.9.1] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v5.9.2] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -1759,7 +1865,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_9_1_HIDDEN_SAFE',
+    mode: 'V5_9_2_LIVE_PNL',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
@@ -1807,13 +1913,21 @@ app.get('/api/status', (_req, res) => {
         direction: lastAction.direction,
         tradePrice: lastAction.tradePrice,
       } : null,
-      positions: [...s.positions.values()].map(p => ({
-        symbol: p.symbol,
-        side: p.side,
-        direction: sideZh(p.side),
-        entryPrice: p.entryPrice,
-        openTime: p.openTime || null,
-      })),
+      positions: [...s.positions.values()].map(p => {
+        const pv = positionPnlView(p);
+        return {
+          symbol: p.symbol,
+          side: p.side,
+          direction: sideZh(p.side),
+          entryPrice: p.entryPrice,
+          openTime: p.openTime || null,
+          markPrice: pv.markPrice,
+          pnlPct: pv.pnlPct,
+          unrealizedPnl: pv.unrealizedPnl,
+          pnlSource: pv.pnlSource,
+          pnlEstimated: pv.pnlEstimated,
+        };
+      }),
     };
   });
 
@@ -1822,6 +1936,12 @@ app.get('/api/status', (_req, res) => {
     traders: traderRows,
     consensus: buildConsensusRows(),
     events: recentEvents.slice(0, 40),
+    market: {
+      updatedAt: markPriceUpdatedAt,
+      error: markPriceError,
+      symbols: markPrices.size,
+      refreshMs: MARK_PRICE_REFRESH_MS,
+    },
     healthy: traderRows.filter(t => Boolean(t.lastFetch)).length,
     total: traderRows.length,
   });
@@ -1829,10 +1949,13 @@ app.get('/api/status', (_req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V5.9.1',
+    mode: 'V5.9.2',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
+    markPriceUpdatedAt,
+    markPriceError,
+    markPriceSymbols: markPrices.size,
     traders: [...states.values()].map(s => ({
       id: s.trader.id,
       name: s.trader.name,
@@ -1962,7 +2085,7 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V5.9.1',
+    mode: 'V5.9.2',
   });
 });
 
