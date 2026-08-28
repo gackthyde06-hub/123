@@ -4,11 +4,9 @@ import webpush from 'web-push';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.set('trust proxy', 1);
 
 const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Math.max(2000, Number(process.env.POLL_MS || 3000));
@@ -111,6 +109,10 @@ const EVENT_TYPE_SET = new Set(EVENT_TYPES);
 const BASE = 'https://www.binance.com/bapi/futures/v1';
 const ORDER_URL = `${BASE}/friendly/future/copy-trade/lead-portfolio/order-history`;
 const MARK_PRICE_URL = 'https://fapi.binance.com/fapi/v1/premiumIndex';
+const KLINE_URL = 'https://fapi.binance.com/fapi/v1/klines';
+const LEVEL_INTERVAL = '15m';
+const LEVEL_LIMIT = 140;
+const LEVEL_CACHE_MS = 30 * 1000;
 
 const SUB_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const STATE_FILE = path.join(DATA_DIR, 'state-v5.json');
@@ -120,11 +122,8 @@ const CONSENSUS_FILE = path.join(DATA_DIR, 'consensus-v5.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
 const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
-const TV_SIGNAL_FILE = path.join(DATA_DIR, 'tv-signals-v60.json');
-const TV_TOKEN_FILE = path.join(DATA_DIR, 'tv-webhook-v60.json');
 
 app.use(express.json({ limit: '128kb' }));
-app.use(express.text({ type: ['text/plain', 'application/x-www-form-urlencoded'], limit: '64kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
   lastModified: false,
@@ -138,165 +137,6 @@ function loadJson(file, fallback) {
 }
 function saveJson(file, data) {
   try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
-}
-
-function getTvWebhookToken() {
-  const fromEnv = String(process.env.TV_WEBHOOK_TOKEN || '').trim();
-  if (fromEnv.length >= 20) return fromEnv;
-
-  const saved = loadJson(TV_TOKEN_FILE, null);
-  if (saved?.token && String(saved.token).length >= 20) return String(saved.token);
-
-  const token = crypto.randomBytes(24).toString('hex');
-  saveJson(TV_TOKEN_FILE, { token, createdAt: new Date().toISOString() });
-  return token;
-}
-
-const TV_WEBHOOK_TOKEN = getTvWebhookToken();
-let tvSignals = loadJson(TV_SIGNAL_FILE, [])
-  .filter(x => x && x.id && x.symbol && ['LONG', 'SHORT'].includes(x.side))
-  .slice(0, 40);
-
-function requestOrigin(req) {
-  const forwarded = String(req.get('x-forwarded-proto') || '').split(',')[0].trim();
-  const proto = forwarded || req.protocol || 'https';
-  const host = req.get('host');
-  return `${proto}://${host}`;
-}
-
-function safeTokenEqual(a, b) {
-  const aa = Buffer.from(String(a || ''));
-  const bb = Buffer.from(String(b || ''));
-  return aa.length === bb.length && aa.length > 0 && crypto.timingSafeEqual(aa, bb);
-}
-
-function parseTvBody(body) {
-  if (body && typeof body === 'object' && !Array.isArray(body)) return body;
-  const text = String(body || '').trim();
-  if (!text) return {};
-
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  } catch {}
-
-  // Optional simple fallback: symbol=BTCUSDT|side=LONG|entry=70000|sl=69000|tp1=72000
-  const out = {};
-  for (const piece of text.split(/[|,\n]/)) {
-    const idx = piece.indexOf('=');
-    if (idx <= 0) continue;
-    out[piece.slice(0, idx).trim()] = piece.slice(idx + 1).trim();
-  }
-  return out;
-}
-
-function tvValue(obj, ...keys) {
-  for (const key of keys) {
-    const value = obj?.[key];
-    if (value !== undefined && value !== null && value !== '') return value;
-  }
-  return null;
-}
-
-function tvNum(obj, ...keys) {
-  const raw = tvValue(obj, ...keys);
-  if (raw === null) return null;
-  const value = Number(raw);
-  return Number.isFinite(value) && value > 0 ? value : null;
-}
-
-function normalizeTvSymbol(raw) {
-  let s = String(raw || '').trim().toUpperCase();
-  if (!s) return '';
-  if (s.includes(':')) s = s.split(':').pop();
-  s = s.replace(/\s+/g, '').replace(/\.P$/i, '').replace(/\.PERP$/i, '');
-  return s;
-}
-
-function normalizeTvSide(raw) {
-  const s = String(raw || '').trim().toUpperCase();
-  if (['LONG', 'BUY', '多', '做多'].includes(s)) return 'LONG';
-  if (['SHORT', 'SELL', '空', '做空'].includes(s)) return 'SHORT';
-  return '';
-}
-
-function normalizeTvTime(raw) {
-  if (raw === undefined || raw === null || raw === '') return null;
-  const num = Number(raw);
-  if (Number.isFinite(num) && num > 0) {
-    const ms = num < 10_000_000_000 ? num * 1000 : num;
-    const d = new Date(ms);
-    return Number.isFinite(d.getTime()) ? d.toISOString() : null;
-  }
-  const d = new Date(String(raw));
-  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
-}
-
-function normalizeTvSignal(input) {
-  const body = parseTvBody(input);
-  const nested = body?.data && typeof body.data === 'object' && !Array.isArray(body.data)
-    ? { ...body.data, ...body }
-    : body;
-
-  const symbol = normalizeTvSymbol(tvValue(nested, 'symbol', 'ticker', 'pair', 'market'));
-  const side = normalizeTvSide(tvValue(nested, 'side', 'direction', 'action', 'orderAction', 'position'));
-  const entry = tvNum(nested, 'entry', 'entryPrice', 'price', 'triggerPrice', 'close', 'orderPrice');
-  const sl = tvNum(nested, 'sl', 'stopLoss', 'stop_loss', 'stop', 'stopPrice');
-
-  const tpCandidates = [
-    tvNum(nested, 'tp1', 'takeProfit1', 'take_profit_1'),
-    tvNum(nested, 'tp2', 'takeProfit2', 'take_profit_2'),
-    tvNum(nested, 'tp3', 'takeProfit3', 'take_profit_3'),
-    tvNum(nested, 'tp', 'takeProfit', 'take_profit'),
-  ].filter(Number.isFinite);
-  const tps = [...new Set(tpCandidates)];
-
-  if (!symbol) throw new Error('TV_MISSING_SYMBOL');
-  if (!side) throw new Error('TV_MISSING_SIDE');
-  if (!(entry > 0)) throw new Error('TV_MISSING_ENTRY');
-
-  const now = new Date().toISOString();
-  const signalTime = normalizeTvTime(tvValue(nested, 'time', 'timestamp', 'ts', 'signalTime')) || now;
-  const timeframe = String(tvValue(nested, 'timeframe', 'interval', 'tf') || '').trim();
-  const source = String(tvValue(nested, 'source', 'strategy', 'indicator', 'name') || 'TradingView').trim().slice(0, 80);
-  const note = String(tvValue(nested, 'note', 'comment', 'reason') || '').trim().slice(0, 160);
-  const rawForHash = JSON.stringify(body);
-  const payloadHash = crypto.createHash('sha256').update(rawForHash).digest('hex').slice(0, 24);
-  const idSeed = `${payloadHash}|${signalTime}|${symbol}|${side}|${entry}`;
-  const id = crypto.createHash('sha256').update(idSeed).digest('hex').slice(0, 20);
-
-  return {
-    id,
-    receivedAt: now,
-    signalTime,
-    symbol,
-    side,
-    direction: side === 'SHORT' ? '做空' : '做多',
-    entry,
-    sl,
-    tp1: tps[0] ?? null,
-    tp2: tps[1] ?? null,
-    tp3: tps[2] ?? null,
-    tps,
-    timeframe,
-    source,
-    note,
-    payloadHash,
-  };
-}
-
-function rememberTvSignal(signal) {
-  const now = Date.now();
-  const duplicate = tvSignals.find(x =>
-    x?.payloadHash === signal.payloadHash &&
-    now - new Date(x.receivedAt || 0).getTime() < 60_000
-  );
-  if (duplicate) return { signal: duplicate, duplicate: true };
-
-  tvSignals.unshift(signal);
-  tvSignals = tvSignals.slice(0, 40);
-  saveJson(TV_SIGNAL_FILE, tvSignals);
-  return { signal, duplicate: false };
 }
 function n(v) {
   const x = Number(v);
@@ -1099,7 +939,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/5.9.2',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.1',
       },
       signal: controller.signal,
     });
@@ -1125,6 +965,204 @@ async function fetchReferenceStats(trader) {
 }
 
 
+
+const levelCandleCache = new Map();
+
+function cleanFuturesSymbol(value) {
+  const symbol = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!/^[A-Z0-9]{5,24}$/.test(symbol)) return '';
+  return symbol;
+}
+
+function parseKlineRow(row) {
+  if (!Array.isArray(row) || row.length < 6) return null;
+  const openTime = Number(row[0]);
+  const open = Number(row[1]);
+  const high = Number(row[2]);
+  const low = Number(row[3]);
+  const close = Number(row[4]);
+  const closeTime = Number(row[6] || 0);
+  if (![openTime, open, high, low, close].every(Number.isFinite)) return null;
+  if (!(high > 0) || !(low > 0) || !(close > 0) || high < low) return null;
+  return { openTime, open, high, low, close, closeTime };
+}
+
+async function fetchLevelCandles(symbol) {
+  const now = Date.now();
+  const cached = levelCandleCache.get(symbol);
+  if (cached && now - cached.at < LEVEL_CACHE_MS) return cached.candles;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${LEVEL_INTERVAL}&limit=${LEVEL_LIMIT}`;
+    const r = await fetch(url, {
+      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.1' },
+      signal: controller.signal,
+    });
+    if (!r.ok) throw new Error(`kline HTTP ${r.status}`);
+    const json = await r.json();
+    if (!Array.isArray(json)) throw new Error('kline invalid');
+    const candles = json.map(parseKlineRow).filter(Boolean);
+    if (candles.length < 40) throw new Error('kline too short');
+    levelCandleCache.set(symbol, { at: now, candles });
+    return candles;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function atrValue(candles, period = 14) {
+  const trs = [];
+  for (let i = 1; i < candles.length; i++) {
+    const c = candles[i];
+    const prev = candles[i - 1];
+    trs.push(Math.max(
+      c.high - c.low,
+      Math.abs(c.high - prev.close),
+      Math.abs(c.low - prev.close)
+    ));
+  }
+  const tail = trs.slice(-period);
+  if (!tail.length) return null;
+  const atr = tail.reduce((a, b) => a + b, 0) / tail.length;
+  return Number.isFinite(atr) && atr > 0 ? atr : null;
+}
+
+function swingLevels(candles, span = 2) {
+  const highs = [];
+  const lows = [];
+  for (let i = span; i < candles.length - span; i++) {
+    const c = candles[i];
+    let isHigh = true, isLow = true;
+    for (let j = i - span; j <= i + span; j++) {
+      if (j === i) continue;
+      if (candles[j].high >= c.high) isHigh = false;
+      if (candles[j].low <= c.low) isLow = false;
+    }
+    if (isHigh) highs.push({ price: c.high, time: c.openTime });
+    if (isLow) lows.push({ price: c.low, time: c.openTime });
+  }
+  return { highs, lows };
+}
+
+function nearestPriceLevel(points, entry, direction) {
+  const valid = points
+    .filter(p => direction === 'BELOW' ? p.price < entry : p.price > entry)
+    .slice(-12)
+    .sort((a, b) => Math.abs(a.price - entry) - Math.abs(b.price - entry));
+  return valid[0]?.price ?? null;
+}
+
+function favorableMovePct(side, entry, target) {
+  if (!(entry > 0) || !(target > 0)) return null;
+  return side === 'SHORT'
+    ? ((entry - target) / entry) * 100
+    : ((target - entry) / entry) * 100;
+}
+
+function adverseMovePct(side, entry, stop) {
+  if (!(entry > 0) || !(stop > 0)) return null;
+  return side === 'SHORT'
+    ? ((stop - entry) / entry) * 100
+    : ((entry - stop) / entry) * 100;
+}
+
+function buildReferenceLevels(candles, side, entry) {
+  // Ignore the still-forming last candle for structure detection when possible.
+  const closed = candles.length > 50 ? candles.slice(0, -1) : candles;
+  const recent = closed.slice(-96);
+  const atr = atrValue(recent, 14);
+  if (!(atr > 0)) throw new Error('ATR unavailable');
+
+  const swings = swingLevels(recent, 2);
+  const last20 = recent.slice(-20);
+  const last48 = recent.slice(-48);
+  const fallbackLow = Math.min(...last20.map(c => c.low));
+  const fallbackHigh = Math.max(...last20.map(c => c.high));
+  const broaderLow = Math.min(...last48.map(c => c.low));
+  const broaderHigh = Math.max(...last48.map(c => c.high));
+
+  let support = nearestPriceLevel(swings.lows, entry, 'BELOW');
+  let resistance = nearestPriceLevel(swings.highs, entry, 'ABOVE');
+  if (!(support > 0 && support < entry)) support = fallbackLow < entry ? fallbackLow : broaderLow;
+  if (!(resistance > entry)) resistance = fallbackHigh > entry ? fallbackHigh : broaderHigh;
+
+  if (side === 'LONG') {
+    if (!(support > 0 && support < entry)) support = entry - 1.15 * atr;
+    if (!(resistance > entry)) resistance = entry + 1.8 * atr;
+
+    const slNear = Math.min(support - 0.15 * atr, entry - 0.75 * atr);
+    const slFar = Math.min(support - 0.48 * atr, entry - 1.05 * atr);
+    const slSuggested = Math.min(support - 0.30 * atr, entry - 0.90 * atr);
+    const risk = entry - slSuggested;
+
+    const rrNear = entry + 1.5 * risk;
+    const rrFar = entry + 2.2 * risk;
+    const structR = (resistance - entry) / risk;
+    const structTarget = Math.max(entry + 0.6 * atr, resistance - 0.08 * atr);
+    const tpSuggested = structR >= 1.25 && structR <= 2.6
+      ? structTarget
+      : entry + 1.8 * risk;
+
+    return {
+      interval: LEVEL_INTERVAL,
+      atr,
+      support,
+      resistance,
+      sl: {
+        low: Math.min(slFar, slNear), high: Math.max(slFar, slNear), suggested: slSuggested,
+        near: slNear, far: slFar,
+      },
+      tp: {
+        low: Math.min(rrNear, rrFar), high: Math.max(rrNear, rrFar), suggested: tpSuggested,
+        near: rrNear, far: rrFar,
+      },
+      tpPct: favorableMovePct(side, entry, tpSuggested),
+      slPct: adverseMovePct(side, entry, slSuggested),
+      structureTarget: resistance,
+      structureTargetR: structR,
+      note: structR < 1.25 ? '上方結構壓力偏近，參考 TP 可能需要保守。' : null,
+    };
+  }
+
+  if (!(resistance > entry)) resistance = entry + 1.15 * atr;
+  if (!(support > 0 && support < entry)) support = entry - 1.8 * atr;
+
+  const slNear = Math.max(resistance + 0.15 * atr, entry + 0.75 * atr);
+  const slFar = Math.max(resistance + 0.48 * atr, entry + 1.05 * atr);
+  const slSuggested = Math.max(resistance + 0.30 * atr, entry + 0.90 * atr);
+  const risk = slSuggested - entry;
+
+  const rrNear = entry - 1.5 * risk;
+  const rrFar = entry - 2.2 * risk;
+  const structR = (entry - support) / risk;
+  const structTarget = Math.min(entry - 0.6 * atr, support + 0.08 * atr);
+  const tpSuggested = structR >= 1.25 && structR <= 2.6
+    ? structTarget
+    : entry - 1.8 * risk;
+
+  return {
+    interval: LEVEL_INTERVAL,
+    atr,
+    support,
+    resistance,
+    sl: {
+      low: Math.min(slNear, slFar), high: Math.max(slNear, slFar), suggested: slSuggested,
+      near: slNear, far: slFar,
+    },
+    tp: {
+      low: Math.min(rrFar, rrNear), high: Math.max(rrFar, rrNear), suggested: tpSuggested,
+      near: rrNear, far: rrFar,
+    },
+    tpPct: favorableMovePct(side, entry, tpSuggested),
+    slPct: adverseMovePct(side, entry, slSuggested),
+    structureTarget: support,
+    structureTargetR: structR,
+    note: structR < 1.25 ? '下方結構支撐偏近，參考 TP 可能需要保守。' : null,
+  };
+}
+
 const markPrices = new Map();
 let markPriceUpdatedAt = null;
 let markPriceLastAttempt = 0;
@@ -1144,7 +1182,7 @@ async function refreshMarkPrices(force = false) {
     const r = await fetch(MARK_PRICE_URL, {
       headers: {
         accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 PositionAlert/5.9.2',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.1',
       },
     });
 
@@ -1789,12 +1827,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v5.9.2] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v6.1] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v5.9.2] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v6.1] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -2027,43 +2065,14 @@ function buildConsensusRows() {
   return rows.sort((a, b) => b.score - a.score || b.count - a.count);
 }
 
-
-app.post('/api/tv-webhook/:token', async (req, res) => {
-  if (!safeTokenEqual(req.params.token, TV_WEBHOOK_TOKEN)) {
-    return res.status(404).json({ ok: false, error: 'NOT_FOUND' });
-  }
-
-  try {
-    const signal = normalizeTvSignal(req.body);
-    const saved = rememberTvSignal(signal);
-    console.log(`[TV] ${saved.duplicate ? 'duplicate' : 'new'} ${signal.symbol} ${signal.direction} @ ${signal.entry}`);
-    return res.json({
-      ok: true,
-      duplicate: saved.duplicate,
-      id: saved.signal.id,
-      symbol: saved.signal.symbol,
-      side: saved.signal.side,
-      entry: saved.signal.entry,
-      sl: saved.signal.sl,
-      tps: saved.signal.tps,
-    });
-  } catch (e) {
-    console.warn(`[TV] rejected: ${String(e?.message || e)}`);
-    return res.status(400).json({ ok: false, error: String(e?.message || e) });
-  }
-});
-
-app.get('/api/config', (req, res) => {
+app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_0_TV_AUTO',
+    mode: 'V6_1_SMART_CALC',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
-    tvWebhookReady: true,
-    tvWebhookUrl: `${requestOrigin(req)}/api/tv-webhook/${TV_WEBHOOK_TOKEN}`,
-    tvBasicMessage: '{"symbol":"{{ticker}}","side":"{{strategy.order.action}}","entry":"{{strategy.order.price}}","time":"{{time}}","timeframe":"{{interval}}"}',
     traders: TRADERS,
     eventTypes: EVENT_TYPES,
   });
@@ -2135,29 +2144,48 @@ app.get('/api/status', (_req, res) => {
       symbols: markPrices.size,
       refreshMs: MARK_PRICE_REFRESH_MS,
     },
-    tradingView: {
-      ready: true,
-      signalCount: tvSignals.length,
-      lastSignalAt: tvSignals[0]?.receivedAt || null,
-      signals: tvSignals.slice(0, 20),
-    },
     healthy: traderRows.filter(t => Boolean(t.lastFetch)).length,
     total: traderRows.length,
   });
 });
 
+
+app.get('/api/reference-levels', async (req, res) => {
+  const symbol = cleanFuturesSymbol(req.query?.symbol);
+  const side = String(req.query?.side || '').toUpperCase();
+  const entry = Number(req.query?.entry);
+
+  if (!symbol || !['LONG', 'SHORT'].includes(side) || !(entry > 0)) {
+    return res.status(400).json({ ok: false, error: 'INVALID_REFERENCE_REQUEST' });
+  }
+
+  try {
+    const candles = await fetchLevelCandles(symbol);
+    const levels = buildReferenceLevels(candles, side, entry);
+    return res.json({
+      ok: true,
+      symbol,
+      side,
+      entry,
+      generatedAt: new Date().toISOString(),
+      methodology: '15m structure + ATR14 + 1.5R~2.2R',
+      ...levels,
+    });
+  } catch (e) {
+    console.warn(`[reference-levels-v6.1] ${symbol}: ${String(e?.message || e)}`);
+    return res.status(502).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V6.0',
+    mode: 'V6.1',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
     markPriceUpdatedAt,
     markPriceError,
     markPriceSymbols: markPrices.size,
-    tvWebhookReady: true,
-    tvSignalCount: tvSignals.length,
-    tvLastSignalAt: tvSignals[0]?.receivedAt || null,
     traders: [...states.values()].map(s => ({
       id: s.trader.id,
       name: s.trader.name,
@@ -2287,13 +2315,13 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V6.0',
+    mode: 'V6.1',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V6.0 TV AUTO started on ${PORT}`);
+    console.log(`Position Alert V5.9.1 started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
