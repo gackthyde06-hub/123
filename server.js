@@ -10,19 +10,94 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Math.max(2000, Number(process.env.POLL_MS || 3000));
-const POSITION_REFRESH_MS = Math.max(15000, Number(process.env.POSITION_REFRESH_MS || 30000));
+const POSITION_REFRESH_MS = Math.max(5000, Number(process.env.POSITION_REFRESH_MS || 8000));
 const STATS_REFRESH_MS = Math.max(60000, Number(process.env.STATS_REFRESH_MS || 300000));
 const STATS_MAX_PAGES = Math.min(8, Math.max(2, Number(process.env.STATS_MAX_PAGES || 5)));
 const STATS_PAGE_SIZE = 100;
+const REFERENCE_REFRESH_MS = Math.max(15 * 60 * 1000, Number(process.env.REFERENCE_REFRESH_MS || 60 * 60 * 1000));
 const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || (fs.existsSync('/data') ? '/data' : __dirname);
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const TRADERS = [
-  { id: '5075281354358777856', name: '熬鷹資本', defaultTag: '主核心', priority: 1 },
-  { id: '5082904357337048064', name: 'HK大叔D', defaultTag: '人氣', priority: 2 },
-  { id: '4855144495762648832', name: '小新交易員', defaultTag: '數據', priority: 3 },
-  { id: '4556315195316581632', name: '人生到處知何似', defaultTag: '穩健', priority: 4 },
+  {
+    id: '5075281354358777856',
+    name: '熬鷹資本',
+    defaultTag: '主核心',
+    priority: 1,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5075281354358777856/',
+    referenceSeed: {
+      source: 'CopyRadar',
+      asOf: '2026-08-28',
+      qualityScore: 70,
+      winRate: 65.5,
+      sample: 110,
+      profitFactor: 2.19,
+      medianDurationMin: 9.3 * 60,
+      reportedRoi: 5572,
+      followers: 1000,
+      maxLeverage: 50,
+      reportedMdd: 68.3,
+      riskFlags: ['高槓桿', '深回撤'],
+    },
+  },
+  {
+    id: '5082904357337048064',
+    name: 'HK大叔D',
+    defaultTag: '人氣',
+    priority: 2,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5082904357337048064/',
+    referenceSeed: {
+      source: 'CopyRadar',
+      asOf: '2026-08-28',
+      qualityScore: 86,
+      reportedRoi: 990,
+      followers: 688,
+      riskFlags: ['高槓桿'],
+    },
+  },
+  {
+    id: '4855144495762648832',
+    name: '小新交易員',
+    defaultTag: '數據',
+    priority: 3,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4855144495762648832/',
+    referenceSeed: {
+      source: 'CopyRadar',
+      asOf: '2026-08-29',
+      qualityScore: 100,
+      winRate: 49.7,
+      sample: 304,
+      profitFactor: 1.74,
+      medianDurationMin: 6.6 * 60,
+      reportedRoi: 165,
+      followers: 201,
+      maxLeverage: 20,
+      reportedMdd: 24.0,
+      riskFlags: [],
+    },
+  },
+  {
+    id: '4556315195316581632',
+    name: '人生到處知何似',
+    defaultTag: '穩健',
+    priority: 4,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4556315195316581632/',
+    referenceSeed: {
+      source: 'CopyRadar',
+      asOf: '2026-08-28',
+      qualityScore: 96,
+      winRate: 93.3,
+      sample: 313,
+      profitFactor: 113.58,
+      medianDurationMin: 1.5 * 60,
+      reportedRoi: 37,
+      followers: 20,
+      maxLeverage: 5,
+      reportedMdd: 26.4,
+      riskFlags: [],
+    },
+  },
 ];
 
 const TRADER_IDS = new Set(TRADERS.map(t => t.id));
@@ -40,6 +115,7 @@ const EVENT_FILE = path.join(DATA_DIR, 'events-v5.json');
 const CONSENSUS_FILE = path.join(DATA_DIR, 'consensus-v5.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
+const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -70,12 +146,74 @@ function fmtPrice(v) {
 function sideZh(side) { return side === 'LONG' ? '做多' : '做空'; }
 function positionKey(symbol, side) { return `${symbol}:${side}`; }
 
-function getList(json) {
-  if (Array.isArray(json?.data)) return json.data;
-  for (const x of [json?.data?.list, json?.data?.rows, json?.list, json?.rows]) {
-    if (Array.isArray(x)) return x;
+function collectArrays(value, path = 'root', depth = 0, out = []) {
+  if (depth > 5 || value == null) return out;
+
+  if (Array.isArray(value)) {
+    out.push({ path, rows: value });
+    for (let i = 0; i < Math.min(value.length, 3); i++) {
+      if (value[i] && typeof value[i] === 'object') {
+        collectArrays(value[i], `${path}[${i}]`, depth + 1, out);
+      }
+    }
+    return out;
   }
-  return [];
+
+  if (typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      collectArrays(child, `${path}.${key}`, depth + 1, out);
+    }
+  }
+
+  return out;
+}
+
+function rowScore(row, kind) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return 0;
+
+  const keys = new Set(Object.keys(row));
+  const has = (...names) => names.some(x => keys.has(x));
+
+  if (kind === 'order') {
+    let score = 0;
+    if (has('symbol', 'pair')) score += 4;
+    if (has('side', 'orderSide')) score += 3;
+    if (has('positionSide', 'posSide')) score += 3;
+    if (has('executedQty', 'origQty', 'qty', 'quantity', 'executedQuantity')) score += 2;
+    if (has('avgPrice', 'price', 'executedPrice', 'averagePrice')) score += 2;
+    if (has('orderUpdateTime', 'orderTime', 'updateTime', 'time', 'createdTime')) score += 2;
+    return score;
+  }
+
+  let score = 0;
+  if (has('symbol', 'pair')) score += 5;
+  if (has('positionAmount', 'positionAmt', 'amount', 'qty', 'quantity', 'positionQuantity', 'positionQty')) score += 5;
+  if (has('positionSide', 'posSide')) score += 2;
+  if (has('entryPrice', 'avgPrice', 'averagePrice')) score += 2;
+  return score;
+}
+
+function extractBestRows(json, kind) {
+  const arrays = collectArrays(json);
+
+  if (!arrays.length) {
+    return { rows: [], path: null, rawCount: 0, score: 0 };
+  }
+
+  const ranked = arrays.map(candidate => {
+    const sample = candidate.rows.slice(0, 8);
+    const score = sample.reduce((sum, row) => sum + rowScore(row, kind), 0);
+    return { ...candidate, score };
+  }).sort((a, b) => b.score - a.score || b.rows.length - a.rows.length);
+
+  const best = ranked[0];
+
+  return {
+    rows: best?.rows || [],
+    path: best?.path || null,
+    rawCount: best?.rows?.length || 0,
+    score: best?.score || 0,
+  };
 }
 
 function commonHeaders(portfolioId) {
@@ -92,17 +230,36 @@ function commonHeaders(portfolioId) {
 }
 
 function normalizeOrder(raw) {
-  const symbol = String(raw?.symbol || '').toUpperCase();
-  const side = String(raw?.side || '').toUpperCase();
-  const positionSide = String(raw?.positionSide || '').toUpperCase();
+  const symbol = String(raw?.symbol ?? raw?.pair ?? '').toUpperCase();
+  const side = String(raw?.side ?? raw?.orderSide ?? '').toUpperCase();
+  const positionSide = String(raw?.positionSide ?? raw?.posSide ?? '').toUpperCase();
 
   if (!symbol || !['BUY', 'SELL'].includes(side) || !['LONG', 'SHORT'].includes(positionSide)) {
     return null;
   }
 
-  const qty = Math.abs(n(raw?.executedQty ?? raw?.origQty));
-  const price = n(raw?.avgPrice);
-  const time = n(raw?.orderUpdateTime ?? raw?.orderTime ?? raw?.updateTime);
+  const qty = Math.abs(n(
+    raw?.executedQty ??
+    raw?.origQty ??
+    raw?.qty ??
+    raw?.quantity ??
+    raw?.executedQuantity
+  ));
+
+  const price = n(
+    raw?.avgPrice ??
+    raw?.executedPrice ??
+    raw?.averagePrice ??
+    raw?.price
+  );
+
+  const time = n(
+    raw?.orderUpdateTime ??
+    raw?.orderTime ??
+    raw?.updateTime ??
+    raw?.createdTime ??
+    raw?.time
+  );
 
   if (!qty || !price || !time) return null;
 
@@ -118,20 +275,31 @@ function normalizeOrder(raw) {
 }
 
 function normalizePosition(raw) {
-  const symbol = String(raw?.symbol || raw?.pair || '').toUpperCase();
-  const signed = n(raw?.positionAmount ?? raw?.positionAmt ?? raw?.amount);
+  const symbol = String(raw?.symbol ?? raw?.pair ?? '').toUpperCase();
+  let amountRaw =
+    raw?.positionAmount ??
+    raw?.positionAmt ??
+    raw?.amount ??
+    raw?.positionQuantity ??
+    raw?.positionQty ??
+    raw?.quantity ??
+    raw?.qty;
 
-  if (!symbol || Math.abs(signed) < 1e-15) return null;
+  const amountNumber = n(amountRaw);
+  let side = String(raw?.positionSide ?? raw?.posSide ?? '').toUpperCase();
 
-  let side = String(raw?.positionSide || '').toUpperCase();
-  if (!['LONG', 'SHORT'].includes(side)) side = signed >= 0 ? 'LONG' : 'SHORT';
+  if (!symbol || Math.abs(amountNumber) < 1e-15) return null;
+  if (!['LONG', 'SHORT'].includes(side)) side = amountNumber >= 0 ? 'LONG' : 'SHORT';
 
   return {
     symbol,
     side,
-    amount: Math.abs(signed),
-    entryPrice: n(raw?.entryPrice ?? raw?.avgPrice),
-    openTime: null,
+    amount: Math.abs(amountNumber),
+    entryPrice: n(raw?.entryPrice ?? raw?.avgPrice ?? raw?.averagePrice ?? raw?.price),
+    openTime: (() => {
+      const t = n(raw?.openTime ?? raw?.updateTime ?? raw?.time);
+      return t > 0 ? new Date(t).toISOString() : null;
+    })(),
     source: 'positions',
   };
 }
@@ -363,9 +531,11 @@ function reconstruct(orders) {
 }
 
 function recoverPositionsFromRecent(s, orders) {
-  // If an older deployment persisted an empty map while the seen-order set survived,
-  // already-seen open positions would never be recreated. Rebuild the recent window
-  // every poll and restore only currently missing positions.
+  // One-time migration recovery only. Once a valid official-position baseline exists,
+  // never let an incomplete recent order window resurrect a position that Binance has
+  // already confirmed closed/flat. Fresh orders are still handled by processNewOrders().
+  if (s.officialBaselineReady) return 0;
+
   const rebuilt = reconstruct(orders);
   let recovered = 0;
 
@@ -406,17 +576,23 @@ async function fetchOrderPage(traderId, pageNumber = 1, pageSize = 100) {
     throw new Error(json?.message || 'order-history success=false');
   }
 
-  return getList(json).map(normalizeOrder).filter(Boolean);
+  const extracted = extractBestRows(json, 'order');
+  const orders = extracted.rows.map(normalizeOrder).filter(Boolean);
+
+  return {
+    orders,
+    rawCount: extracted.rawCount,
+    parsedCount: orders.length,
+    path: extracted.path,
+    score: extracted.score,
+  };
 }
 
 async function fetchOrders(traderId) {
-  // Hot path: only the newest page for fast 3-second signal detection.
   return fetchOrderPage(traderId, 1, 100);
 }
 
 async function fetchStatsOrders(traderId, firstPage = []) {
-  // Never make statistics an all-or-nothing dependency.
-  // Reuse the live page-1 data that already succeeded, then try deeper pages.
   const all = [];
   const seen = new Set();
 
@@ -433,29 +609,24 @@ async function fetchStatsOrders(traderId, firstPage = []) {
 
   addRows(firstPage);
 
-  // If no cached first page is available, fetch it once.
   if (!all.length) {
-    const rows = await fetchOrderPage(traderId, 1, STATS_PAGE_SIZE);
-    addRows(rows);
+    const first = await fetchOrderPage(traderId, 1, STATS_PAGE_SIZE);
+    addRows(first.orders);
   }
 
-  // Page 1 alone is already useful and must be retained if any deeper page fails.
   for (let page = 2; page <= STATS_MAX_PAGES; page++) {
-    let rows;
+    let detail;
 
     try {
-      rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+      detail = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v5.8] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v5.9] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
-    const added = addRows(rows);
+    const added = addRows(detail.orders);
 
-    // Stop if the endpoint ignores pageNumber and repeats the same page,
-    // or if the page is naturally shorter than the requested size.
-    if (!added || rows.length < STATS_PAGE_SIZE) break;
-
+    if (!added || detail.rawCount < STATS_PAGE_SIZE) break;
     await new Promise(resolve => setTimeout(resolve, 180));
   }
 
@@ -467,17 +638,64 @@ async function fetchOfficialPositions(traderId) {
 
   try {
     const r = await fetch(url, { headers: commonHeaders(traderId) });
-    if (!r.ok) return { ok: false, positions: [] };
+    const text = await r.text();
 
-    const json = await r.json();
-    if (json?.success === false) return { ok: false, positions: [] };
+    if (!r.ok) {
+      return {
+        ok: false,
+        positions: [],
+        rawCount: 0,
+        parsedCount: 0,
+        path: null,
+        error: `positions HTTP ${r.status}: ${text.slice(0, 120)}`,
+      };
+    }
+
+    let json;
+    try { json = JSON.parse(text); }
+    catch {
+      return {
+        ok: false,
+        positions: [],
+        rawCount: 0,
+        parsedCount: 0,
+        path: null,
+        error: 'positions non-JSON',
+      };
+    }
+
+    if (json?.success === false) {
+      return {
+        ok: false,
+        positions: [],
+        rawCount: 0,
+        parsedCount: 0,
+        path: null,
+        error: json?.message || 'positions success=false',
+      };
+    }
+
+    const extracted = extractBestRows(json, 'position');
+    const positions = extracted.rows.map(normalizePosition).filter(Boolean);
 
     return {
       ok: true,
-      positions: getList(json).map(normalizePosition).filter(Boolean),
+      positions,
+      rawCount: extracted.rawCount,
+      parsedCount: positions.length,
+      path: extracted.path,
+      score: extracted.score,
+      error: null,
     };
-  } catch {
-    return { ok: false, positions: [] };
+  } catch (e) {
+    return {
+      ok: false,
+      positions: [],
+      rawCount: 0,
+      parsedCount: 0,
+      path: null,
+      error: String(e?.message || e),
+    };
   }
 }
 
@@ -509,9 +727,230 @@ function mergeOfficial(reconstructed, officialResult) {
   return merged;
 }
 
+
+function stripHtml(html) {
+  return String(html || '')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&minus;|&#8722;/gi, '-')
+    .replace(/&mdash;|&#8212;/gi, '—')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function numericMatch(text, regex) {
+  const m = String(text || '').match(regex);
+  if (!m) return null;
+  const x = Number(String(m[1]).replace(/,/g, ''));
+  return Number.isFinite(x) ? x : null;
+}
+
+function parseCompactNumber(value, suffix) {
+  let x = Number(String(value || '').replace(/,/g, ''));
+  if (!Number.isFinite(x)) return null;
+
+  const s = String(suffix || '').toUpperCase();
+  if (s === 'K') x *= 1e3;
+  if (s === 'M') x *= 1e6;
+  if (s === 'B') x *= 1e9;
+  return x;
+}
+
+function parseCopyRadarHtml(html) {
+  const text = stripHtml(html);
+
+  const qualityScore = numericMatch(text, /(\d{1,3})\s+Quality score\s*\/\s*100/i);
+  const winRate = numericMatch(text, /Actual win rate\s+(-?\d+(?:\.\d+)?)%/i);
+  const sample = numericMatch(text, /Closed trades \(sample\)\s+([\d,]+)\s+trades/i);
+  const profitFactor = numericMatch(text, /Profit factor\s+(-?\d+(?:\.\d+)?)/i);
+
+  const hold = text.match(/Median holding time\s+(-?\d+(?:\.\d+)?)\s*([mhd])/i);
+  let medianDurationMin = null;
+  if (hold) {
+    const x = Number(hold[1]);
+    const unit = hold[2].toLowerCase();
+    if (Number.isFinite(x)) {
+      medianDurationMin = unit === 'd' ? x * 1440 : unit === 'h' ? x * 60 : x;
+    }
+  }
+
+  const reportedRoi = numericMatch(text, /Reported ROI[\s\S]{0,40}?(-?\d+(?:\.\d+)?)%/i);
+  const reportedMdd = numericMatch(text, /Reported MDD[\s\S]{0,40}?(-?\d+(?:\.\d+)?)%/i);
+  const maxLeverage = numericMatch(text, /Max leverage\s+(\d+(?:\.\d+)?)x/i);
+
+  const followersMatch = text.match(/Current followers[\s\S]{0,35}?([\d,]+)(?![\d])/i);
+  const followers = followersMatch
+    ? Number(String(followersMatch[1]).replace(/,/g, ''))
+    : null;
+
+  const copier = text.match(/Copier realized P&L[\s\S]{0,35}?\$?\s*([+-]?[\d,.]+)\s*([KMB]?)/i);
+  const copierPnl = copier ? parseCompactNumber(copier[1], copier[2]) : null;
+
+  const out = {
+    source: 'CopyRadar',
+    fetchedAt: new Date().toISOString(),
+    qualityScore,
+    winRate,
+    sample,
+    profitFactor,
+    medianDurationMin,
+    reportedRoi,
+    reportedMdd,
+    maxLeverage,
+    followers,
+    copierPnl,
+  };
+
+  return Object.fromEntries(
+    Object.entries(out).filter(([, v]) => v !== null && v !== undefined)
+  );
+}
+
+function seedReference(trader) {
+  const seed = trader?.referenceSeed || {};
+  return {
+    source: seed.source || 'CopyRadar',
+    sourceType: 'SEED',
+    fetchedAt: null,
+    ...seed,
+  };
+}
+
+function mergeReference(base, incoming) {
+  return {
+    ...(base || {}),
+    ...(incoming || {}),
+    source: incoming?.source || base?.source || 'CopyRadar',
+  };
+}
+
+function referenceConfidence(ref) {
+  const sample = Number(ref?.sample || 0);
+  const quality = Number(ref?.qualityScore || 0);
+
+  if (sample >= 100 && quality >= 90) return { confidence: 'HIGH', confidenceScore: 90 };
+  if (sample >= 50 || quality >= 85) return { confidence: 'MEDIUM', confidenceScore: 72 };
+  if (quality > 0) return { confidence: 'LOW', confidenceScore: 50 };
+  return { confidence: 'LOW', confidenceScore: 20 };
+}
+
+function displayStatsFor(s) {
+  const live = s.recentStats || {};
+  const liveSample = Number(live.sample || 0);
+  const liveOrders = Number(s.statsOrderCount || 0);
+  const ref = s.referenceStats || seedReference(s.trader);
+  const hasMetric = v =>
+    v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
+
+  const liveUsable =
+    liveOrders > 0 &&
+    (
+      liveSample >= 3 ||
+      hasMetric(live.winRate) ||
+      hasMetric(live.profitFactor) ||
+      hasMetric(live.medianRoi) ||
+      hasMetric(live.avgRoi)
+    );
+
+  if (liveUsable) {
+    return {
+      available: true,
+      sourceType: 'LIVE',
+      sourceLabel: '近期重建',
+      updatedAt: s.statsUpdatedAt,
+      orderCount: liveOrders,
+      ...live,
+    };
+  }
+
+  const refHasMetrics = [
+    ref?.winRate,
+    ref?.profitFactor,
+    ref?.qualityScore,
+    ref?.reportedRoi,
+    ref?.sample,
+  ].some(v => v !== null && v !== undefined && v !== '');
+
+  if (refHasMetrics) {
+    const c = referenceConfidence(ref);
+    return {
+      available: true,
+      sourceType: 'PUBLIC',
+      sourceLabel: ref?.fetchedAt ? '公開基準' : '公開基準快照',
+      updatedAt: ref?.fetchedAt || ref?.asOf || null,
+      orderCount: 0,
+      avgProfit: null,
+      avgRoi: null,
+      medianRoi: null,
+      avgDurationMin: ref?.medianDurationMin ?? null,
+      profitFactor: ref?.profitFactor ?? null,
+      winRate: ref?.winRate ?? null,
+      sample: Number(ref?.sample || 0),
+      qualityScore: ref?.qualityScore ?? null,
+      reportedRoi: ref?.reportedRoi ?? null,
+      followers: ref?.followers ?? null,
+      reportedMdd: ref?.reportedMdd ?? null,
+      maxLeverage: ref?.maxLeverage ?? null,
+      copierPnl: ref?.copierPnl ?? null,
+      riskFlags: ref?.riskFlags || [],
+      confidence: c.confidence,
+      confidenceScore: c.confidenceScore,
+    };
+  }
+
+  return {
+    available: false,
+    sourceType: 'NONE',
+    sourceLabel: '等待資料',
+    updatedAt: null,
+    sample: 0,
+    confidence: 'LOW',
+    confidenceScore: 0,
+  };
+}
+
+async function fetchReferenceStats(trader) {
+  if (!trader?.referenceUrl) throw new Error('NO_REFERENCE_URL');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const r = await fetch(trader.referenceUrl, {
+      headers: {
+        accept: 'text/html,application/xhtml+xml',
+        'user-agent': 'Mozilla/5.0 PositionAlert/5.9',
+      },
+      signal: controller.signal,
+    });
+
+    if (!r.ok) throw new Error(`reference HTTP ${r.status}`);
+
+    const html = await r.text();
+    const parsed = parseCopyRadarHtml(html);
+
+    if (
+      parsed.qualityScore == null &&
+      parsed.winRate == null &&
+      parsed.sample == null &&
+      parsed.profitFactor == null
+    ) {
+      throw new Error('REFERENCE_PARSE_EMPTY');
+    }
+
+    return parsed;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const persistedState = loadJson(STATE_FILE, {});
 const persistedSeen = loadJson(SEEN_FILE, {});
 const persistedStats = loadJson(STATS_FILE, {});
+const persistedReference = loadJson(REFERENCE_FILE, {});
 const states = new Map();
 
 for (const trader of TRADERS) {
@@ -523,8 +962,22 @@ for (const trader of TRADERS) {
     positions: new Map(persistedPositions.map(p => [positionKey(p.symbol, p.side), p])),
     seen: new Set(persistedSeenKeys),
     baselineReady: persistedSeenKeys.length > 0,
+    officialBaselineReady: false,
+    emptyOfficialStreak: 0,
+    missingOfficialCounts: new Map(),
+    lastOrderChangeAt: 0,
     lastFetch: null,
     lastError: null,
+    historyStatus: 'WAITING',
+    historyError: null,
+    orderRawCount: 0,
+    orderParseCount: 0,
+    orderPath: null,
+    positionStatus: 'WAITING',
+    positionError: null,
+    positionRawCount: 0,
+    positionParseCount: 0,
+    positionPath: null,
     lastPositionRefresh: 0,
     lastDeepStatsRefresh: 0,
     lastStatsAttempt: 0,
@@ -532,6 +985,13 @@ for (const trader of TRADERS) {
     statsOrderCount: Number(persistedStats[trader.id]?.statsOrderCount || 0),
     statsSource: persistedStats[trader.id]?.statsSource || null,
     statsError: persistedStats[trader.id]?.statsError || null,
+    referenceStats: mergeReference(
+      seedReference(trader),
+      persistedReference[trader.id]?.referenceStats || null
+    ),
+    referenceUpdatedAt: persistedReference[trader.id]?.referenceUpdatedAt || null,
+    referenceError: persistedReference[trader.id]?.referenceError || null,
+    lastReferenceAttempt: 0,
     latestOrders: [],
     recentStats: persistedStats[trader.id]?.recentStats || {
       sample: 0, wins: 0, winRate: null, avgProfit: null,
@@ -579,6 +1039,21 @@ function persistStats() {
 
   saveJson(STATS_FILE, out);
 }
+
+function persistReference() {
+  const out = {};
+
+  for (const [id, s] of states) {
+    out[id] = {
+      referenceStats: s.referenceStats,
+      referenceUpdatedAt: s.referenceUpdatedAt,
+      referenceError: s.referenceError,
+    };
+  }
+
+  saveJson(REFERENCE_FILE, out);
+}
+
 
 function applyQuickStats(s, orders) {
   // Fast fallback using the already successful live 100-order page.
@@ -737,9 +1212,13 @@ function eventPushText(event) {
     };
   }
 
+  const bodyValue = event.priceLabel
+    ? event.priceLabel
+    : fmtPrice(event.tradePrice || event.entryPrice);
+
   return {
     title: `${event.traderName}｜${eventAction(event)}`,
-    body: `${event.symbol}｜${fmtPrice(event.tradePrice || event.entryPrice)}`,
+    body: `${event.symbol}｜${bodyValue}`,
   };
 }
 
@@ -762,6 +1241,179 @@ async function emitEvent(event) {
     : { traderIds: event.traderIds, eventType: 'CONSENSUS' }
   );
 }
+
+function quantityChanged(a, b) {
+  const x = Math.abs(Number(a || 0));
+  const y = Math.abs(Number(b || 0));
+  const base = Math.max(x, y, 1e-12);
+  return Math.abs(x - y) / base > 0.001;
+}
+
+function makeSnapshotEvent(type, s, current, previous = null) {
+  const p = current || previous || {};
+  const hasReliablePrice = type === 'OPEN' || type === 'ADD';
+
+  return {
+    id: `${Date.now()}-${s.trader.id}-snapshot-${type}-${p.symbol || 'NA'}-${p.side || 'NA'}`,
+    ts: new Date().toISOString(),
+    kind: 'TRADER',
+    source: 'official_snapshot',
+    traderId: s.trader.id,
+    traderName: s.trader.name,
+    type,
+    symbol: p.symbol,
+    side: p.side,
+    direction: sideZh(p.side),
+    entryPrice: current?.entryPrice || previous?.entryPrice || null,
+    tradePrice: hasReliablePrice ? (current?.entryPrice || null) : null,
+    priceLabel: hasReliablePrice ? null : '官方倉位變化',
+  };
+}
+
+async function syncOfficialSnapshot(s, result, { emitChanges = true } = {}) {
+  s.positionRawCount = Number(result?.rawCount || 0);
+  s.positionParseCount = Number(result?.parsedCount || 0);
+  s.positionPath = result?.path || null;
+  s.positionError = result?.error || null;
+
+  if (!result?.ok) {
+    s.positionStatus = 'ERROR';
+    return false;
+  }
+
+  // If Binance returned rows but none matched our position schema, this is a parser
+  // warning, not proof that the trader is flat.
+  if (result.rawCount > 0 && result.positions.length === 0) {
+    s.positionStatus = 'PARSE_ERROR';
+    return false;
+  }
+
+  const official = result.positions || [];
+
+  // First valid snapshot after every deploy is baseline-only: never fire historical alerts.
+  if (!s.officialBaselineReady) {
+    s.officialBaselineReady = true;
+    s.emptyOfficialStreak = official.length ? 0 : 1;
+    s.positionStatus = official.length ? 'OK' : 'EMPTY_CONFIRMING';
+
+    if (official.length) {
+      const merged = new Map(s.positions);
+
+      for (const p of official) {
+        const key = positionKey(p.symbol, p.side);
+        const old = merged.get(key);
+        merged.set(key, {
+          ...old,
+          ...p,
+          openTime: old?.openTime || p.openTime || null,
+          source: old ? 'both' : 'positions',
+        });
+      }
+
+      s.positions = merged;
+      persistStates();
+    }
+
+    return true;
+  }
+
+  // Orders are faster than position snapshots. During a short grace period after an
+  // order event, don't let a stale position snapshot undo the newer order state.
+  if (s.lastOrderChangeAt && Date.now() - s.lastOrderChangeAt < 20000) {
+    s.positionStatus = official.length ? 'OK' : 'EMPTY_CONFIRMING';
+    return true;
+  }
+
+  if (!official.length) {
+    s.emptyOfficialStreak += 1;
+    s.positionStatus = s.emptyOfficialStreak >= 3 ? 'EMPTY' : 'EMPTY_CONFIRMING';
+
+    // Three consecutive valid empty snapshots are required before clearing positions.
+    if (s.emptyOfficialStreak < 3 || s.positions.size === 0) {
+      return true;
+    }
+
+    const closing = [...s.positions.values()];
+    s.positions.clear();
+    s.missingOfficialCounts.clear();
+    persistStates();
+
+    if (emitChanges) {
+      for (const old of closing) {
+        await emitEvent(makeSnapshotEvent('CLOSE', s, null, old));
+      }
+    }
+
+    return true;
+  }
+
+  s.emptyOfficialStreak = 0;
+  s.positionStatus = 'OK';
+
+  const officialMap = new Map();
+  for (const p of official) {
+    officialMap.set(positionKey(p.symbol, p.side), p);
+  }
+
+  const next = new Map(s.positions);
+  const pendingEvents = [];
+
+  for (const [key, p] of officialMap) {
+    const old = s.positions.get(key);
+
+    if (!old) {
+      next.set(key, { ...p, source: 'positions' });
+      s.missingOfficialCounts.delete(key);
+      pendingEvents.push(makeSnapshotEvent('OPEN', s, p, null));
+      continue;
+    }
+
+    const merged = {
+      ...old,
+      ...p,
+      openTime: old.openTime || p.openTime || null,
+      source: 'both',
+    };
+
+    if (quantityChanged(old.amount, p.amount)) {
+      const type = p.amount > old.amount ? 'ADD' : 'REDUCE';
+      pendingEvents.push(makeSnapshotEvent(type, s, merged, old));
+    }
+
+    next.set(key, merged);
+    s.missingOfficialCounts.delete(key);
+  }
+
+  // A single missing item can be a transient/partial Binance response.
+  // Require two consecutive valid non-empty snapshots before calling it closed.
+  for (const [key, old] of s.positions) {
+    if (officialMap.has(key)) continue;
+
+    const misses = Number(s.missingOfficialCounts.get(key) || 0) + 1;
+    s.missingOfficialCounts.set(key, misses);
+
+    if (misses >= 2) {
+      next.delete(key);
+      s.missingOfficialCounts.delete(key);
+      pendingEvents.push(makeSnapshotEvent('CLOSE', s, null, old));
+    }
+  }
+
+  s.positions = next;
+  persistStates();
+
+  if (emitChanges) {
+    for (const event of pendingEvents) {
+      await emitEvent(event);
+      if (event.type === 'OPEN' || event.type === 'ADD') {
+        await maybeEmitConsensus(event.symbol, event.side);
+      }
+    }
+  }
+
+  return true;
+}
+
 
 function currentConsensus(symbol, side) {
   const ids = [];
@@ -805,16 +1457,13 @@ async function maybeEmitConsensus(symbol, side) {
 
 async function establishBaseline(s, orders) {
   s.positions = reconstruct(orders);
-
-  const officialResult = await fetchOfficialPositions(s.trader.id);
-  s.positions = mergeOfficial(s.positions, officialResult);
-
   s.seen = new Set(orders.map(o => o.key));
   s.baselineReady = true;
-  s.lastPositionRefresh = Date.now();
-
   persistStates();
-  console.log(`[baseline-v5.7] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
+
+  console.log(
+    `[baseline-v5.9] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
+  );
 }
 
 async function processNewOrders(s, orders) {
@@ -828,23 +1477,37 @@ async function processNewOrders(s, orders) {
 
     if (!result) continue;
 
+    s.lastOrderChangeAt = Date.now();
+
     await emitEvent(makeTraderEvent(result.type, s.trader, o, result));
     await maybeEmitConsensus(o.symbol, o.positionSide);
-  }
-
-  if (Date.now() - s.lastPositionRefresh >= POSITION_REFRESH_MS) {
-    const officialResult = await fetchOfficialPositions(s.trader.id);
-    s.positions = mergeOfficial(s.positions, officialResult);
-    s.lastPositionRefresh = Date.now();
   }
 
   persistStates();
 }
 
 async function pollTrader(s) {
+  let orderSuccess = false;
+  let positionSuccess = false;
+  const errors = [];
+
   try {
-    const orders = await fetchOrders(s.trader.id);
+    const detail = await fetchOrders(s.trader.id);
+    const orders = detail.orders;
+
     s.latestOrders = orders;
+    s.orderRawCount = detail.rawCount;
+    s.orderParseCount = detail.parsedCount;
+    s.orderPath = detail.path;
+    s.historyError = null;
+
+    if (detail.rawCount > 0 && detail.parsedCount === 0) {
+      s.historyStatus = 'PARSE_ERROR';
+    } else if (orders.length > 0) {
+      s.historyStatus = 'OK';
+    } else {
+      s.historyStatus = 'NO_HISTORY';
+    }
 
     if (!s.baselineReady) {
       await establishBaseline(s, orders);
@@ -853,16 +1516,40 @@ async function pollTrader(s) {
       await processNewOrders(s, orders);
     }
 
-    // Immediate no-extra-request statistics, so cards never sit blank after deploy.
     if (!s.statsUpdatedAt || !s.statsOrderCount) {
       applyQuickStats(s, orders);
     }
 
+    orderSuccess = true;
+  } catch (e) {
+    s.historyStatus = 'ERROR';
+    s.historyError = String(e?.message || e);
+    errors.push(`orders: ${s.historyError}`);
+    console.error(`[poll-orders-v5.9] ${s.trader.name}: ${s.historyError}`);
+  }
+
+  if (Date.now() - s.lastPositionRefresh >= POSITION_REFRESH_MS) {
+    const result = await fetchOfficialPositions(s.trader.id);
+    s.lastPositionRefresh = Date.now();
+
+    if (result.ok) {
+      await syncOfficialSnapshot(s, result, { emitChanges: true });
+      positionSuccess = true;
+    } else {
+      s.positionStatus = 'ERROR';
+      s.positionError = result.error || 'positions unavailable';
+      errors.push(`positions: ${s.positionError}`);
+      console.error(`[poll-positions-v5.9] ${s.trader.name}: ${s.positionError}`);
+    }
+  } else {
+    positionSuccess = s.positionStatus !== 'ERROR';
+  }
+
+  if (orderSuccess || positionSuccess) {
     s.lastFetch = new Date().toISOString();
     s.lastError = null;
-  } catch (e) {
-    s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.8] ${s.trader.name}: ${s.lastError}`);
+  } else {
+    s.lastError = errors.join(' | ') || 'ALL_SOURCES_FAILED';
   }
 }
 
@@ -901,6 +1588,7 @@ async function runNextDeepStats() {
 
     if (!rows.length) {
       s.statsError = 'EMPTY_ORDER_HISTORY';
+      s.lastDeepStatsRefresh = Date.now();
       return;
     }
 
@@ -915,12 +1603,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v5.8] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v5.9] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v5.8] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v5.9] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -930,6 +1618,56 @@ function statsLoop() {
   void runNextDeepStats();
   statsTimer = setTimeout(statsLoop, 12000);
 }
+
+let referenceTimer = null;
+let referenceCursor = 0;
+let referenceRunning = false;
+
+async function runNextReferenceRefresh() {
+  if (referenceRunning) return;
+
+  const list = [...states.values()];
+  if (!list.length) return;
+
+  const s = list[referenceCursor % list.length];
+  referenceCursor = (referenceCursor + 1) % list.length;
+
+  const lastGood = s.referenceUpdatedAt
+    ? new Date(s.referenceUpdatedAt).getTime()
+    : 0;
+
+  if (lastGood && Date.now() - lastGood < REFERENCE_REFRESH_MS) return;
+  if (s.lastReferenceAttempt && Date.now() - s.lastReferenceAttempt < 5 * 60 * 1000) return;
+
+  referenceRunning = true;
+  s.lastReferenceAttempt = Date.now();
+
+  try {
+    const remote = await fetchReferenceStats(s.trader);
+    s.referenceStats = mergeReference(s.referenceStats, {
+      ...remote,
+      sourceType: 'REMOTE',
+    });
+    s.referenceUpdatedAt = remote.fetchedAt || new Date().toISOString();
+    s.referenceError = null;
+    persistReference();
+
+    console.log(
+      `[reference-v5.9] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
+    );
+  } catch (e) {
+    s.referenceError = String(e?.message || e);
+    console.warn(`[reference-v5.9] ${s.trader.name}: ${s.referenceError}`);
+  } finally {
+    referenceRunning = false;
+  }
+}
+
+function referenceLoop() {
+  void runNextReferenceRefresh();
+  referenceTimer = setTimeout(referenceLoop, 15000);
+}
+
 
 
 function latestTraderEvent(traderId) {
@@ -954,25 +1692,24 @@ function traderActivity(s) {
 
 function signalValue(s) {
   const positions = s.positions.size;
-  const st = s.recentStats || {};
+  const st = displayStatsFor(s);
   const sample = Number(st.sample || 0);
   const pf = st.profitFactor == null ? null : Number(st.profitFactor);
   const medianRoi = st.medianRoi == null ? null : Number(st.medianRoi);
   const winRate = st.winRate == null ? null : Number(st.winRate);
+  const quality = st.qualityScore == null ? null : Number(st.qualityScore);
 
   if (positions <= 0) {
     return {
       score: null,
       level: 'WAIT',
-      label: '待訊號',
-      reason: '目前空倉',
+      label: '空倉',
+      reason: st.available ? `等待建倉 · ${st.sourceLabel}` : '等待建倉',
     };
   }
 
   let score = 32;
 
-  // Concentration is the biggest factor for this radar: fewer simultaneous positions
-  // means a new action carries more information.
   if (positions <= 2) score += 36;
   else if (positions <= 4) score += 30;
   else if (positions <= 6) score += 23;
@@ -981,8 +1718,9 @@ function signalValue(s) {
   else if (positions <= 20) score -= 5;
   else score -= 25;
 
-  if (sample >= 20) score += 10;
-  else if (sample >= 8) score += 7;
+  if (sample >= 100) score += 10;
+  else if (sample >= 20) score += 8;
+  else if (sample >= 8) score += 6;
   else if (sample >= 3) score += 3;
 
   if (Number.isFinite(pf)) {
@@ -1002,10 +1740,15 @@ function signalValue(s) {
     else if (winRate < 40) score -= 4;
   }
 
+  if (Number.isFinite(quality)) {
+    if (quality >= 95) score += 6;
+    else if (quality >= 85) score += 4;
+    else if (quality < 65) score -= 5;
+  }
+
   if (st.confidence === 'HIGH') score += 5;
   else if (st.confidence === 'MEDIUM') score += 2;
 
-  // Hard caps prevent a 20+ position basket from looking like a high-value signal.
   if (positions > 20) score = Math.min(score, 32);
   else if (positions > 12) score = Math.min(score, 55);
 
@@ -1094,7 +1837,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_8_SIGNAL_RADAR',
+    mode: 'V5_9_TOTAL_FIX',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
@@ -1120,6 +1863,18 @@ app.get('/api/status', (_req, res) => {
       statsSource: s.statsSource,
       statsError: s.statsError,
       recentStats: s.recentStats,
+      referenceStats: s.referenceStats,
+      referenceUpdatedAt: s.referenceUpdatedAt,
+      referenceError: s.referenceError,
+      displayStats: displayStatsFor(s),
+      historyStatus: s.historyStatus,
+      historyError: s.historyError,
+      orderRawCount: s.orderRawCount,
+      orderParseCount: s.orderParseCount,
+      positionStatus: s.positionStatus,
+      positionError: s.positionError,
+      positionRawCount: s.positionRawCount,
+      positionParseCount: s.positionParseCount,
       activity: traderActivity(s),
       signalValue: signalValue(s),
       lastAction: lastAction ? {
@@ -1145,14 +1900,14 @@ app.get('/api/status', (_req, res) => {
     traders: traderRows,
     consensus: buildConsensusRows(),
     events: recentEvents.slice(0, 40),
-    healthy: traderRows.filter(t => !t.lastError).length,
+    healthy: traderRows.filter(t => Boolean(t.lastFetch)).length,
     total: traderRows.length,
   });
 });
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V5.8',
+    mode: 'V5.9',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -1164,12 +1919,26 @@ app.get('/api/diagnostics', (_req, res) => {
       lastFetch: s.lastFetch,
       lastError: s.lastError,
       liveOrders: Array.isArray(s.latestOrders) ? s.latestOrders.length : 0,
+      historyStatus: s.historyStatus,
+      historyError: s.historyError,
+      orderRawCount: s.orderRawCount,
+      orderParseCount: s.orderParseCount,
+      orderPath: s.orderPath,
+      positionStatus: s.positionStatus,
+      positionError: s.positionError,
+      positionRawCount: s.positionRawCount,
+      positionParseCount: s.positionParseCount,
+      positionPath: s.positionPath,
       statsOrderCount: s.statsOrderCount,
       statsSource: s.statsSource,
       statsUpdatedAt: s.statsUpdatedAt,
       statsError: s.statsError,
       statsSample: Number(s.recentStats?.sample || 0),
-      confidence: s.recentStats?.confidence || 'LOW',
+      confidence: displayStatsFor(s)?.confidence || 'LOW',
+      displayStats: displayStatsFor(s),
+      referenceStats: s.referenceStats,
+      referenceUpdatedAt: s.referenceUpdatedAt,
+      referenceError: s.referenceError,
       signalValue: signalValue(s),
     })),
   });
@@ -1268,23 +2037,38 @@ app.get('/healthz', (_req, res) => {
   const rows = [...states.values()];
 
   res.json({
-    ok: rows.some(s => !s.lastError),
-    healthy: rows.filter(s => !s.lastError).length,
+    ok: rows.some(s => Boolean(s.lastFetch)),
+    healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V5.8',
+    mode: 'V5.9',
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Position Alert V5.8 started on ${PORT}`);
-  console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
-  loop();
-  // Give the live page-1 poll a head start, then deepen stats one trader at a time.
-  statsTimer = setTimeout(statsLoop, 8000);
-});
+if (process.env.UNIT_TEST !== '1') {
+  app.listen(PORT, () => {
+    console.log(`Position Alert V5.9 started on ${PORT}`);
+    console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
+    loop();
+    statsTimer = setTimeout(statsLoop, 8000);
+    referenceTimer = setTimeout(referenceLoop, 12000);
+  });
+}
 
 process.on('SIGTERM', () => {
   if (timer) clearTimeout(timer);
   if (statsTimer) clearTimeout(statsTimer);
+  if (referenceTimer) clearTimeout(referenceTimer);
   process.exit(0);
 });
+
+export {
+  extractBestRows,
+  normalizeOrder,
+  normalizePosition,
+  calculateRecentStats,
+  parseCopyRadarHtml,
+  displayStatsFor,
+  signalValue,
+  syncOfficialSnapshot,
+  positionKey,
+};
