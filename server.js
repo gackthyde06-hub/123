@@ -19,10 +19,10 @@ const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH |
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const TRADERS = [
-  { id: '5075281354358777856', name: '熬鷹資本' },
-  { id: '4112815248716815105', name: 'SaGoCrypto' },
-  { id: '4855144495762648832', name: '小新交易員' },
-  { id: '4556315195316581632', name: '人生到處知何似' },
+  { id: '5075281354358777856', name: '熬鷹資本', defaultTag: '主核心', priority: 1 },
+  { id: '5082904357337048064', name: 'HK大叔D', defaultTag: '人氣', priority: 2 },
+  { id: '4855144495762648832', name: '小新交易員', defaultTag: '數據', priority: 3 },
+  { id: '4556315195316581632', name: '人生到處知何似', defaultTag: '穩健', priority: 4 },
 ];
 
 const TRADER_IDS = new Set(TRADERS.map(t => t.id));
@@ -377,7 +377,7 @@ function recoverPositionsFromRecent(s, orders) {
   }
 
   if (recovered > 0) {
-    console.log(`[recover-v5.7.4] ${s.trader.name}: restored ${recovered} positions`);
+    console.log(`[recover-v5.8] ${s.trader.name}: restored ${recovered} positions`);
     persistStates();
   }
 
@@ -446,7 +446,7 @@ async function fetchStatsOrders(traderId, firstPage = []) {
     try {
       rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v5.7.4] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v5.8] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
@@ -541,7 +541,11 @@ for (const trader of TRADERS) {
   });
 }
 
-let recentEvents = loadJson(EVENT_FILE, []).slice(0, 80);
+let recentEvents = loadJson(EVENT_FILE, [])
+  .filter(e => e?.kind === 'CONSENSUS'
+    ? Array.isArray(e.traderIds) && e.traderIds.some(id => TRADER_IDS.has(id))
+    : TRADER_IDS.has(e?.traderId))
+  .slice(0, 80);
 let consensusSent = loadJson(CONSENSUS_FILE, {});
 let timer = null;
 
@@ -858,7 +862,7 @@ async function pollTrader(s) {
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.7.4] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.8] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -911,12 +915,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v5.7.4] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v5.8] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v5.7.4] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v5.8] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -946,6 +950,76 @@ function traderActivity(s) {
   if (s.positions.size > 0) return { code: 'HOLDING', label: '持倉中', ts: e?.ts || null };
   if (ageMs != null && ageMs >= 12 * 60 * 60 * 1000) return { code: 'QUIET', label: '低活躍', ts: e.ts };
   return { code: 'FLAT', label: '空倉', ts: e?.ts || null };
+}
+
+function signalValue(s) {
+  const positions = s.positions.size;
+  const st = s.recentStats || {};
+  const sample = Number(st.sample || 0);
+  const pf = st.profitFactor == null ? null : Number(st.profitFactor);
+  const medianRoi = st.medianRoi == null ? null : Number(st.medianRoi);
+  const winRate = st.winRate == null ? null : Number(st.winRate);
+
+  if (positions <= 0) {
+    return {
+      score: null,
+      level: 'WAIT',
+      label: '待訊號',
+      reason: '目前空倉',
+    };
+  }
+
+  let score = 32;
+
+  // Concentration is the biggest factor for this radar: fewer simultaneous positions
+  // means a new action carries more information.
+  if (positions <= 2) score += 36;
+  else if (positions <= 4) score += 30;
+  else if (positions <= 6) score += 23;
+  else if (positions <= 8) score += 15;
+  else if (positions <= 12) score += 7;
+  else if (positions <= 20) score -= 5;
+  else score -= 25;
+
+  if (sample >= 20) score += 10;
+  else if (sample >= 8) score += 7;
+  else if (sample >= 3) score += 3;
+
+  if (Number.isFinite(pf)) {
+    if (pf >= 2.5) score += 8;
+    else if (pf >= 1.5) score += 5;
+    else if (pf < 1) score -= 7;
+  }
+
+  if (Number.isFinite(medianRoi)) {
+    if (medianRoi > 0.5) score += 7;
+    else if (medianRoi > 0) score += 4;
+    else if (medianRoi < 0) score -= 5;
+  }
+
+  if (Number.isFinite(winRate)) {
+    if (winRate >= 60) score += 5;
+    else if (winRate < 40) score -= 4;
+  }
+
+  if (st.confidence === 'HIGH') score += 5;
+  else if (st.confidence === 'MEDIUM') score += 2;
+
+  // Hard caps prevent a 20+ position basket from looking like a high-value signal.
+  if (positions > 20) score = Math.min(score, 32);
+  else if (positions > 12) score = Math.min(score, 55);
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  const level = score >= 80 ? 'HIGH' : score >= 60 ? 'MEDIUM' : 'LOW';
+  const label = score >= 80 ? '高價值' : score >= 60 ? '可參考' : '低訊號';
+  const reason = positions <= 4
+    ? `集中持倉 ${positions}`
+    : positions <= 8
+      ? `持倉 ${positions}`
+      : `持倉偏多 ${positions}`;
+
+  return { score, level, label, reason };
 }
 
 function buildConsensusRows() {
@@ -1020,7 +1094,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_7_4_STABLE_STATS',
+    mode: 'V5_8_SIGNAL_RADAR',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
@@ -1047,6 +1121,7 @@ app.get('/api/status', (_req, res) => {
       statsError: s.statsError,
       recentStats: s.recentStats,
       activity: traderActivity(s),
+      signalValue: signalValue(s),
       lastAction: lastAction ? {
         ts: lastAction.ts,
         type: lastAction.type,
@@ -1077,7 +1152,7 @@ app.get('/api/status', (_req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V5.7.4',
+    mode: 'V5.8',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -1095,6 +1170,7 @@ app.get('/api/diagnostics', (_req, res) => {
       statsError: s.statsError,
       statsSample: Number(s.recentStats?.sample || 0),
       confidence: s.recentStats?.confidence || 'LOW',
+      signalValue: signalValue(s),
     })),
   });
 });
@@ -1195,12 +1271,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.7.4',
+    mode: 'V5.8',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.7.4 started on ${PORT}`);
+  console.log(`Position Alert V5.8 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
   // Give the live page-1 poll a head start, then deepen stats one trader at a time.
