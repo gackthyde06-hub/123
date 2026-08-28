@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=572">
-<link rel="apple-touch-icon" href="/app-icon-180.png?v=572">
+<link rel="manifest" href="/manifest.webmanifest?v=573">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=573">
 <title>倉位</title>
 <style>
 :root{
@@ -31,7 +31,6 @@ button,input{font:inherit}
 
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:5px 2px 13px}
 .brandTitle{font-size:23px;font-weight:900;color:#e3be70;letter-spacing:.2px}
-.brandSub{font-size:11px;color:#77736b;margin-top:3px}
 .sync{text-align:right}
 .syncMain{font-size:11px;color:#b0aa9f}
 .syncSub{font-size:9px;color:#706b63;margin-top:3px}
@@ -160,10 +159,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 <body>
 <div class="wrap">
   <div class="top">
-    <div>
-      <div class="brandTitle">交易監控</div>
-      <div class="brandSub">即時倉位 · 深度統計</div>
-    </div>
+    <div class="brandTitle">交易監控</div>
     <div class="sync">
       <div class="syncMain"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
       <div id="syncAge" class="syncSub">同步中</div>
@@ -190,7 +186,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
       <div id="msg" class="msg"></div>
-      <div class="note">即時動作約每 3 秒檢查；統計先沿用最新成功的 100 筆，再嘗試補到最多 500 筆、約每 5 分鐘重算。統計會排除每個幣種/方向的第一個邊界交易，降低歷史截斷造成的誤差。PF、ROI 與 PnL 均不含手續費與資金費。</div>
+      <div class="note">即時動作約每 3 秒檢查；統計最多讀取 500 筆訂單、約每 5 分鐘重算。統計會排除每個幣種/方向的第一個邊界交易，降低歷史截斷造成的誤差。PF、ROI 與 PnL 均不含手續費與資金費。</div>
     </div>
   </details>
 </div>
@@ -207,6 +203,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=572"></script>
+<script src="/app.js?v=573"></script>
 </body>
 </html>

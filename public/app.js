@@ -148,6 +148,7 @@ function traderCard(t,events){
   if(rest.length)positions+=`<button class="moreBtn" data-pos-id="${esc(t.id)}" data-count="${rest.length}">${openPos?'收合':`查看其餘 ${rest.length} 筆`}</button>`;
 
   const sample=Number(s.sample||0);
+  const statsReady=Boolean(t.statsReady||t.statsUpdatedAt||Number(t.statsOrderCount)>0);
   const confidence=s.confidence||'LOW';
   const staleness=t.lastFetch?ageText(t.lastFetch):'未同步';
 
@@ -160,7 +161,9 @@ function traderCard(t,events){
         </div>
         <div class="stateLine">
           <span class="statusBadge ${activityClass(a)}">${esc(a.label||'監控中')}</span>
-          <span class="confidenceBadge ${confidenceClass(confidence)}">可信 ${confidenceLabel(confidence)}</span>
+          ${statsReady
+            ? `<span class="confidenceBadge ${confidenceClass(confidence)}">可信 ${confidenceLabel(confidence)}</span>`
+            : `<span class="confidenceBadge low">統計準備中</span>`}
           <span class="stateInfo">${list.length?`持倉 ${list.length}`:'空倉'} · ${staleness}</span>
         </div>
       </div>
@@ -168,11 +171,11 @@ function traderCard(t,events){
     </div>
 
     <div class="metrics">
-      <div class="metric"><div class="metricLabel">近期勝率 · ${sample}筆</div><div class="metricValue ${sample?Number(s.winRate)>=50?'up':'down':'muted'}">${sample?pct(s.winRate):'—'}</div></div>
+      <div class="metric"><div class="metricLabel">近期勝率 · ${statsReady?sample:'—'}筆</div><div class="metricValue ${statsReady&&Number(s.winRate)>=50?'up':'down'}">${statsReady?pct(s.winRate):'—'}</div></div>
       <div class="metric"><div class="metricLabel">中位 ROI</div><div class="metricValue ${metricClass(s.medianRoi)}">${signedPct(s.medianRoi)}</div></div>
       <div class="metric"><div class="metricLabel">Profit Factor</div><div class="metricValue gold">${pfText(s)}</div></div>
     </div>
-    <div class="statFoot"><span>平均 ${pnl(s.avgProfit)}</span><span>Avg ROI ${signedPct(s.avgRoi)}</span><span>統計 ${Number(t.statsOrderCount||s.orderCount||0)} orders</span></div>
+    <div class="statFoot"><span>平均 ${statsReady?pnl(s.avgProfit):'—'}</span><span>Avg ROI ${statsReady?signedPct(s.avgRoi):'—'}</span><span>${statsReady?`統計 ${Number(t.statsOrderCount||s.orderCount||0)} orders`:'統計資料準備中'}</span></div>
 
     <div class="positionBox">${positions}</div>
 
@@ -240,7 +243,7 @@ $('subscribe').onclick=async()=>{
     if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());
     if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');
     if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');
-    const reg=await navigator.serviceWorker.register('/sw.js?v=572'),permission=await Notification.requestPermission();
+    const reg=await navigator.serviceWorker.register('/sw.js?v=573'),permission=await Notification.requestPermission();
     if(permission!=='granted')throw new Error('你沒有允許通知');
     const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});
     const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes()})});
