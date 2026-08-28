@@ -391,46 +391,25 @@ async function fetchOrders(traderId) {
   return fetchOrderPage(traderId, 1, 100);
 }
 
-async function fetchStatsOrders(traderId, firstPage = []) {
-  // Reuse the already successful hot-path page 1.
-  // This avoids immediately requesting page 1 twice, which can produce
-  // empty responses from Binance's internal BAPI.
+async function fetchStatsOrders(traderId) {
+  // Cold path: deeper history every few minutes for better statistics.
   const all = [];
   const seen = new Set();
 
-  for (const row of firstPage || []) {
-    if (!seen.has(row.key)) {
-      seen.add(row.key);
-      all.push(row);
-    }
-  }
+  for (let page = 1; page <= STATS_MAX_PAGES; page++) {
+    const rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
 
-  for (let page = 2; page <= STATS_MAX_PAGES; page++) {
-    await new Promise(resolve => setTimeout(resolve, 140));
-
-    let rows = [];
-    try {
-      rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
-    } catch (e) {
-      // Keep the data we already have. Deep history is optional;
-      // live signals must never fail because page 2+ failed.
-      break;
-    }
-
-    if (!rows.length) break;
-
-    let newCount = 0;
     for (const row of rows) {
       if (!seen.has(row.key)) {
         seen.add(row.key);
         all.push(row);
-        newCount += 1;
       }
     }
 
-    // API may ignore pageNumber and return the same page repeatedly.
-    if (newCount === 0) break;
     if (rows.length < STATS_PAGE_SIZE) break;
+
+    // Gentle spacing: this is an internal Binance endpoint.
+    await new Promise(resolve => setTimeout(resolve, 90));
   }
 
   return all;
@@ -446,9 +425,11 @@ async function fetchOfficialPositions(traderId) {
     const json = await r.json();
     if (json?.success === false) return { ok: false, positions: [] };
 
+    const rawList = getList(json);
     return {
       ok: true,
-      positions: getList(json).map(normalizePosition).filter(Boolean),
+      positions: rawList.map(normalizePosition).filter(Boolean),
+      parsedCount: rawList.length,
     };
   } catch {
     return { ok: false, positions: [] };
@@ -456,17 +437,27 @@ async function fetchOfficialPositions(traderId) {
 }
 
 function mergeOfficial(reconstructed, officialResult) {
-  // Binance's internal positions endpoint can return a valid-looking but empty
-  // or partial list. Therefore it is NOT safe to use absence as proof of flat.
-  // We only overlay positions that Binance explicitly returns.
+  // Binance Copy-Trading uses an internal BAPI whose response shape is not stable.
+  // A "successful" response that parses to [] is NOT trustworthy enough to prove flat.
+  // Never erase reconstructed positions solely because the parsed official list is empty.
   if (!officialResult?.ok) return reconstructed;
 
+  const official = Array.isArray(officialResult.positions)
+    ? officialResult.positions
+    : [];
+
+  if (!official.length) {
+    return reconstructed;
+  }
+
+  // When the official snapshot contains actual positions, use those as authoritative
+  // for the returned symbols/sides, while preserving any reconstructed position not
+  // represented in the snapshot as a fallback rather than silently deleting it.
   const merged = new Map(reconstructed);
-  const official = officialResult.positions || [];
 
   for (const p of official) {
     const key = positionKey(p.symbol, p.side);
-    const old = merged.get(key);
+    const old = reconstructed.get(key);
 
     merged.set(key, {
       ...old,
@@ -776,15 +767,13 @@ async function pollTrader(s) {
     // Deep statistics are intentionally refreshed much less often than live signals.
     if (!s.lastStatsRefresh || Date.now() - s.lastStatsRefresh >= STATS_REFRESH_MS) {
       try {
-        const statsOrders = await fetchStatsOrders(s.trader.id, orders);
-        if (statsOrders.length > 0) {
-          s.recentStats = calculateRecentStats(statsOrders);
-          s.statsOrderCount = statsOrders.length;
-          s.statsUpdatedAt = new Date().toISOString();
-        }
+        const statsOrders = await fetchStatsOrders(s.trader.id);
+        s.recentStats = calculateRecentStats(statsOrders);
+        s.statsOrderCount = statsOrders.length;
+        s.statsUpdatedAt = new Date().toISOString();
         s.lastStatsRefresh = Date.now();
       } catch (statsError) {
-        console.error(`[stats-v5.7.2] ${s.trader.name}: ${String(statsError?.message || statsError)}`);
+        console.error(`[stats-v5.7] ${s.trader.name}: ${String(statsError?.message || statsError)}`);
       }
     }
 
@@ -792,7 +781,7 @@ async function pollTrader(s) {
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.7.2] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.7] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -815,28 +804,14 @@ function traderActivity(s) {
     : null;
 
   if (ageMs != null && ageMs <= 10 * 60 * 1000) {
-    if (e.type === 'OPEN') {
-      return { code: 'JUST_OPENED', label: '剛建倉', ts: e.ts };
-    }
-    if (e.type === 'ADD') {
-      return { code: 'ADDING', label: '正在加碼', ts: e.ts };
-    }
-    if (e.type === 'REDUCE') {
-      return { code: 'REDUCING', label: '正在減碼', ts: e.ts };
-    }
-    if (e.type === 'CLOSE') {
-      return { code: 'JUST_CLOSED', label: '剛平倉', ts: e.ts };
-    }
+    if (e.type === 'OPEN') return { code: 'JUST_OPENED', label: '剛建倉', ts: e.ts };
+    if (e.type === 'ADD') return { code: 'ADDING', label: '正在加碼', ts: e.ts };
+    if (e.type === 'REDUCE') return { code: 'REDUCING', label: '正在減碼', ts: e.ts };
+    if (e.type === 'CLOSE') return { code: 'JUST_CLOSED', label: '剛平倉', ts: e.ts };
   }
 
-  if (s.positions.size > 0) {
-    return { code: 'HOLDING', label: '持倉中', ts: e?.ts || null };
-  }
-
-  if (ageMs != null && ageMs >= 12 * 60 * 60 * 1000) {
-    return { code: 'QUIET', label: '低活躍', ts: e.ts };
-  }
-
+  if (s.positions.size > 0) return { code: 'HOLDING', label: '持倉中', ts: e?.ts || null };
+  if (ageMs != null && ageMs >= 12 * 60 * 60 * 1000) return { code: 'QUIET', label: '低活躍', ts: e.ts };
   return { code: 'FLAT', label: '空倉', ts: e?.ts || null };
 }
 
@@ -846,9 +821,7 @@ function buildConsensusRows() {
   for (const [traderId, s] of states) {
     for (const p of s.positions.values()) {
       const key = `${p.symbol}|${p.side}`;
-
       if (!buckets.has(key)) buckets.set(key, []);
-
       buckets.get(key).push({
         traderId,
         traderName: s.trader.name,
@@ -864,32 +837,20 @@ function buildConsensusRows() {
     if (members.length < 2) continue;
 
     const [symbol, side] = key.split('|');
-
-    const prices = members
-      .map(x => x.entryPrice)
-      .filter(x => Number.isFinite(x) && x > 0);
-
-    const times = members
-      .map(x => x.openTime ? new Date(x.openTime).getTime() : null)
-      .filter(Number.isFinite);
+    const prices = members.map(x => x.entryPrice).filter(x => Number.isFinite(x) && x > 0);
+    const times = members.map(x => x.openTime ? new Date(x.openTime).getTime() : null).filter(Number.isFinite);
 
     let entrySpreadPct = null;
-
     if (prices.length >= 2) {
       const min = Math.min(...prices);
       const max = Math.max(...prices);
       const mid = prices.reduce((a, b) => a + b, 0) / prices.length;
-
-      entrySpreadPct = mid > 0
-        ? ((max - min) / mid) * 100
-        : null;
+      entrySpreadPct = mid > 0 ? ((max - min) / mid) * 100 : null;
     }
 
     let timeSpreadMin = null;
-
     if (times.length >= 2) {
-      timeSpreadMin =
-        (Math.max(...times) - Math.min(...times)) / 60000;
+      timeSpreadMin = (Math.max(...times) - Math.min(...times)) / 60000;
     }
 
     let score = (members.length / TRADERS.length) * 50;
@@ -928,14 +889,12 @@ function buildConsensusRows() {
     });
   }
 
-  return rows.sort(
-    (a, b) => b.score - a.score || b.count - a.count
-  );
+  return rows.sort((a, b) => b.score - a.score || b.count - a.count);
 }
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_7_2_DECISION',
+    mode: 'V5_7_DECISION',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
