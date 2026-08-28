@@ -11,6 +11,9 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Math.max(2000, Number(process.env.POLL_MS || 3000));
 const POSITION_REFRESH_MS = Math.max(15000, Number(process.env.POSITION_REFRESH_MS || 30000));
+const STATS_REFRESH_MS = Math.max(60000, Number(process.env.STATS_REFRESH_MS || 300000));
+const STATS_MAX_PAGES = Math.min(8, Math.max(2, Number(process.env.STATS_MAX_PAGES || 5)));
+const STATS_PAGE_SIZE = 100;
 const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -191,14 +194,27 @@ function applyOrder(map, o) {
 }
 
 
+function median(values) {
+  const a = values.filter(Number.isFinite).sort((x, y) => x - y);
+  if (!a.length) return null;
+  const m = Math.floor(a.length / 2);
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+
 function calculateRecentStats(orders) {
-  // More conservative stats:
-  // 1 completed round-trip (flat -> position -> flat) = 1 trade.
-  // Partial reductions belong to the same trade and are not counted separately.
-  // Any sequence that begins with a reduction (opening leg likely outside last 100 orders)
-  // is marked incomplete and excluded from win rate / average profit.
+  // Conservative methodology:
+  // - One complete flat -> position -> flat cycle = one trade.
+  // - Partial reductions are merged into that same trade.
+  // - The FIRST reconstructed cycle for every symbol+side is deliberately
+  //   excluded because its true opening may pre-date our history window.
+  // - Unmatched reductions are ignored.
+  // This sacrifices sample size to reduce false precision.
   const states = new Map();
+  const firstCycleConsumed = new Set();
   const completed = [];
+
+  let skippedBoundary = 0;
+  let unmatchedReductions = 0;
 
   const sorted = [...orders]
     .filter(o => o && o.symbol && o.positionSide && Number(o.qty) > 0 && Number(o.price) > 0)
@@ -206,28 +222,15 @@ function calculateRecentStats(orders) {
 
   for (const o of sorted) {
     const key = positionKey(o.symbol, o.positionSide);
-    let s = states.get(key) || {
-      amount: 0,
-      entryPrice: 0,
-      entryNotional: 0,
-      realizedPnl: 0,
-      realizedQty: 0,
-      startedInsideWindow: false,
-      incomplete: false,
-      startTime: null,
-      endTime: null,
-    };
+    let s = states.get(key);
 
     if (isIncrease(o)) {
-      if (s.amount <= 1e-12) {
+      if (!s) {
         s = {
           amount: 0,
           entryPrice: 0,
-          entryNotional: 0,
+          grossEntryNotional: 0,
           realizedPnl: 0,
-          realizedQty: 0,
-          startedInsideWindow: true,
-          incomplete: false,
           startTime: Number(o.time || 0),
           endTime: null,
         };
@@ -235,20 +238,20 @@ function calculateRecentStats(orders) {
 
       const oldQty = s.amount;
       const newQty = oldQty + o.qty;
+
       s.entryPrice = oldQty > 0
         ? ((oldQty * s.entryPrice) + (o.qty * o.price)) / newQty
         : o.price;
+
       s.amount = newQty;
-      s.entryNotional += o.qty * o.price;
+      s.grossEntryNotional += o.qty * o.price;
       states.set(key, s);
       continue;
     }
 
     if (isDecrease(o)) {
-      // If the window starts with a reduction, we don't know the original entry cost.
-      if (s.amount <= 1e-12) {
-        s.incomplete = true;
-        states.set(key, s);
+      if (!s || s.amount <= 1e-12) {
+        unmatchedReductions += 1;
         continue;
       }
 
@@ -257,24 +260,28 @@ function calculateRecentStats(orders) {
         ? (o.price - s.entryPrice) * closeQty
         : (s.entryPrice - o.price) * closeQty;
 
-      if (Number.isFinite(pnl)) {
-        s.realizedPnl += pnl;
-        s.realizedQty += closeQty;
-      }
+      if (Number.isFinite(pnl)) s.realizedPnl += pnl;
 
       s.amount = Math.max(0, s.amount - closeQty);
       s.endTime = Number(o.time || 0);
 
       if (s.amount <= 1e-12) {
-        if (s.startedInsideWindow && !s.incomplete && s.realizedQty > 0) {
-          const roi = s.entryNotional > 0 ? (s.realizedPnl / s.entryNotional) * 100 : null;
+        const roi = s.grossEntryNotional > 0
+          ? (s.realizedPnl / s.grossEntryNotional) * 100
+          : null;
+
+        if (!firstCycleConsumed.has(key)) {
+          // Deliberately throw away the boundary cycle.
+          firstCycleConsumed.add(key);
+          skippedBoundary += 1;
+        } else {
           completed.push({
             pnl: s.realizedPnl,
             roi,
-            startTime: s.startTime,
-            endTime: s.endTime,
+            durationMs: Math.max(0, (s.endTime || 0) - (s.startTime || 0)),
           });
         }
+
         states.delete(key);
       } else {
         states.set(key, s);
@@ -282,31 +289,69 @@ function calculateRecentStats(orders) {
     }
   }
 
-  if (!completed.length) {
+  const sample = completed.length;
+  const orderCount = sorted.length;
+  const grossProfit = completed.filter(x => x.pnl > 0).reduce((a, x) => a + x.pnl, 0);
+  const grossLoss = Math.abs(completed.filter(x => x.pnl < 0).reduce((a, x) => a + x.pnl, 0));
+  const roiValues = completed.map(x => x.roi).filter(Number.isFinite);
+
+  if (!sample) {
     return {
       sample: 0,
       wins: 0,
       winRate: null,
       avgProfit: null,
       avgRoi: null,
-      method: 'completed_round_trip',
+      medianRoi: null,
+      profitFactor: null,
+      pfNoLosses: false,
+      avgDurationMin: null,
+      confidence: 'LOW',
+      confidenceScore: 15,
+      orderCount,
+      skippedBoundary,
+      unmatchedReductions,
+      method: 'deep_completed_round_trip',
     };
   }
 
   const wins = completed.filter(x => x.pnl > 0).length;
-  const avgProfit = completed.reduce((a, x) => a + x.pnl, 0) / completed.length;
-  const roiValues = completed.map(x => x.roi).filter(Number.isFinite);
-  const avgRoi = roiValues.length
-    ? roiValues.reduce((a, x) => a + x, 0) / roiValues.length
-    : null;
+  const avgProfit = completed.reduce((a, x) => a + x.pnl, 0) / sample;
+  const avgRoi = roiValues.length ? roiValues.reduce((a, x) => a + x, 0) / roiValues.length : null;
+  const medianRoi = median(roiValues);
+  const avgDurationMin = completed.reduce((a, x) => a + x.durationMs, 0) / sample / 60000;
+
+  const pfNoLosses = grossProfit > 0 && grossLoss <= 1e-12;
+  const profitFactor = grossLoss > 1e-12 ? grossProfit / grossLoss : (pfNoLosses ? 9.99 : null);
+
+  // Confidence is about data quality/sample size, NOT probability of profit.
+  let confidenceScore = 20;
+  confidenceScore += Math.min(45, sample * 2.25);
+  confidenceScore += orderCount >= 400 ? 20 : orderCount >= 250 ? 14 : orderCount >= 150 ? 8 : 3;
+  confidenceScore += skippedBoundary <= Math.max(2, sample * 0.4) ? 10 : 4;
+  confidenceScore = Math.max(0, Math.min(100, Math.round(confidenceScore)));
+
+  const confidence =
+    sample >= 20 && confidenceScore >= 75 ? 'HIGH' :
+    sample >= 8 && confidenceScore >= 50 ? 'MEDIUM' :
+    'LOW';
 
   return {
-    sample: completed.length,
+    sample,
     wins,
-    winRate: (wins / completed.length) * 100,
+    winRate: (wins / sample) * 100,
     avgProfit,
     avgRoi,
-    method: 'completed_round_trip',
+    medianRoi,
+    profitFactor,
+    pfNoLosses,
+    avgDurationMin,
+    confidence,
+    confidenceScore,
+    orderCount,
+    skippedBoundary,
+    unmatchedReductions,
+    method: 'deep_completed_round_trip',
   };
 }
 
@@ -316,14 +361,14 @@ function reconstruct(orders) {
   return map;
 }
 
-async function fetchOrders(traderId) {
+async function fetchOrderPage(traderId, pageNumber = 1, pageSize = 100) {
   const r = await fetch(ORDER_URL, {
     method: 'POST',
     headers: commonHeaders(traderId),
     body: JSON.stringify({
       portfolioId: traderId,
-      pageNumber: 1,
-      pageSize: 100,
+      pageNumber,
+      pageSize,
     }),
   });
 
@@ -341,40 +386,71 @@ async function fetchOrders(traderId) {
   return getList(json).map(normalizeOrder).filter(Boolean);
 }
 
+async function fetchOrders(traderId) {
+  // Hot path: only the newest page for fast 3-second signal detection.
+  return fetchOrderPage(traderId, 1, 100);
+}
+
+async function fetchStatsOrders(traderId) {
+  // Cold path: deeper history every few minutes for better statistics.
+  const all = [];
+  const seen = new Set();
+
+  for (let page = 1; page <= STATS_MAX_PAGES; page++) {
+    const rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+
+    for (const row of rows) {
+      if (!seen.has(row.key)) {
+        seen.add(row.key);
+        all.push(row);
+      }
+    }
+
+    if (rows.length < STATS_PAGE_SIZE) break;
+
+    // Gentle spacing: this is an internal Binance endpoint.
+    await new Promise(resolve => setTimeout(resolve, 90));
+  }
+
+  return all;
+}
+
 async function fetchOfficialPositions(traderId) {
   const url = `${BASE}/friendly/future/copy-trade/lead-data/positions?portfolioId=${encodeURIComponent(traderId)}`;
 
   try {
     const r = await fetch(url, { headers: commonHeaders(traderId) });
-    if (!r.ok) return [];
+    if (!r.ok) return { ok: false, positions: [] };
 
     const json = await r.json();
-    if (json?.success === false) return [];
+    if (json?.success === false) return { ok: false, positions: [] };
 
-    return getList(json).map(normalizePosition).filter(Boolean);
+    return {
+      ok: true,
+      positions: getList(json).map(normalizePosition).filter(Boolean),
+    };
   } catch {
-    return [];
+    return { ok: false, positions: [] };
   }
 }
 
-function mergeOfficial(reconstructed, official) {
-  if (!official.length) return reconstructed;
+function mergeOfficial(reconstructed, officialResult) {
+  // When Binance gives us a valid snapshot, it is authoritative:
+  // positions absent from that snapshot are removed, preventing ghost positions.
+  if (!officialResult?.ok) return reconstructed;
 
-  const merged = new Map(reconstructed);
+  const merged = new Map();
+  const official = officialResult.positions || [];
 
   for (const p of official) {
     const key = positionKey(p.symbol, p.side);
-    const old = merged.get(key);
+    const old = reconstructed.get(key);
 
-    merged.set(key, old
-      ? {
-          ...old,
-          amount: p.amount || old.amount,
-          entryPrice: p.entryPrice || old.entryPrice,
-          source: 'both',
-        }
-      : p
-    );
+    merged.set(key, {
+      ...p,
+      openTime: old?.openTime || p.openTime || null,
+      source: old ? 'both' : 'positions',
+    });
   }
 
   return merged;
@@ -396,7 +472,14 @@ for (const trader of TRADERS) {
     lastFetch: null,
     lastError: null,
     lastPositionRefresh: 0,
-    recentStats: { sample: 0, wins: 0, winRate: null, avgProfit: null },
+    lastStatsRefresh: 0,
+    statsUpdatedAt: null,
+    statsOrderCount: 0,
+    recentStats: {
+      sample: 0, wins: 0, winRate: null, avgProfit: null,
+      avgRoi: null, medianRoi: null, profitFactor: null,
+      confidence: 'LOW', confidenceScore: 15, orderCount: 0
+    },
   });
 }
 
@@ -602,6 +685,7 @@ async function maybeEmitConsensus(symbol, side) {
   saveJson(CONSENSUS_FILE, consensusSent);
 
   const names = ids.map(id => TRADER_BY_ID.get(id)?.name || id);
+  const meta = buildConsensusRows().find(x => x.symbol === symbol && x.side === side);
 
   await emitEvent({
     id: `${Date.now()}-consensus-${key}`,
@@ -613,21 +697,23 @@ async function maybeEmitConsensus(symbol, side) {
     direction: sideZh(side),
     traderIds: ids,
     traderNames: names,
+    consensusScore: meta?.score ?? null,
+    consensusLevel: meta?.level ?? null,
   });
 }
 
 async function establishBaseline(s, orders) {
   s.positions = reconstruct(orders);
 
-  const official = await fetchOfficialPositions(s.trader.id);
-  s.positions = mergeOfficial(s.positions, official);
+  const officialResult = await fetchOfficialPositions(s.trader.id);
+  s.positions = mergeOfficial(s.positions, officialResult);
 
   s.seen = new Set(orders.map(o => o.key));
   s.baselineReady = true;
   s.lastPositionRefresh = Date.now();
 
   persistStates();
-  console.log(`[baseline-v5.6] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
+  console.log(`[baseline-v5.7] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
 }
 
 async function processNewOrders(s, orders) {
@@ -646,8 +732,8 @@ async function processNewOrders(s, orders) {
   }
 
   if (Date.now() - s.lastPositionRefresh >= POSITION_REFRESH_MS) {
-    const official = await fetchOfficialPositions(s.trader.id);
-    s.positions = mergeOfficial(s.positions, official);
+    const officialResult = await fetchOfficialPositions(s.trader.id);
+    s.positions = mergeOfficial(s.positions, officialResult);
     s.lastPositionRefresh = Date.now();
   }
 
@@ -657,7 +743,6 @@ async function processNewOrders(s, orders) {
 async function pollTrader(s) {
   try {
     const orders = await fetchOrders(s.trader.id);
-    s.recentStats = calculateRecentStats(orders);
 
     if (!s.baselineReady) {
       await establishBaseline(s, orders);
@@ -665,11 +750,24 @@ async function pollTrader(s) {
       await processNewOrders(s, orders);
     }
 
+    // Deep statistics are intentionally refreshed much less often than live signals.
+    if (!s.lastStatsRefresh || Date.now() - s.lastStatsRefresh >= STATS_REFRESH_MS) {
+      try {
+        const statsOrders = await fetchStatsOrders(s.trader.id);
+        s.recentStats = calculateRecentStats(statsOrders);
+        s.statsOrderCount = statsOrders.length;
+        s.statsUpdatedAt = new Date().toISOString();
+        s.lastStatsRefresh = Date.now();
+      } catch (statsError) {
+        console.error(`[stats-v5.7] ${s.trader.name}: ${String(statsError?.message || statsError)}`);
+      }
+    }
+
     s.lastFetch = new Date().toISOString();
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.6] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.7] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -680,8 +778,10 @@ async function loop() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_6_ACCURATE_STATS',
+    mode: 'V5_7_DECISION',
     pollMs: POLL_MS,
+    statsRefreshMs: STATS_REFRESH_MS,
+    statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
     traders: TRADERS,
@@ -692,13 +792,25 @@ app.get('/api/config', (_req, res) => {
 app.get('/api/status', (_req, res) => {
   const traderRows = TRADERS.map(t => {
     const s = states.get(t.id);
+    const lastAction = latestTraderEvent(t.id);
 
     return {
       ...t,
       baselineReady: s.baselineReady,
       lastFetch: s.lastFetch,
       lastError: s.lastError,
+      statsUpdatedAt: s.statsUpdatedAt,
+      statsOrderCount: s.statsOrderCount,
       recentStats: s.recentStats,
+      activity: traderActivity(s),
+      lastAction: lastAction ? {
+        ts: lastAction.ts,
+        type: lastAction.type,
+        symbol: lastAction.symbol,
+        side: lastAction.side,
+        direction: lastAction.direction,
+        tradePrice: lastAction.tradePrice,
+      } : null,
       positions: [...s.positions.values()].map(p => ({
         symbol: p.symbol,
         side: p.side,
@@ -710,8 +822,10 @@ app.get('/api/status', (_req, res) => {
   });
 
   res.json({
+    serverNow: new Date().toISOString(),
     traders: traderRows,
-    events: recentEvents.slice(0, 30),
+    consensus: buildConsensusRows(),
+    events: recentEvents.slice(0, 40),
     healthy: traderRows.filter(t => !t.lastError).length,
     total: traderRows.length,
   });
@@ -813,12 +927,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.6',
+    mode: 'V5.7',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.6 started on ${PORT}`);
+  console.log(`Position Alert V5.7 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
