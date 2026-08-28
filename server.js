@@ -190,6 +190,60 @@ function applyOrder(map, o) {
   return null;
 }
 
+
+function calculateRecentStats(orders) {
+  const map = new Map();
+  const realized = [];
+
+  for (const o of [...orders].sort((a, b) => a.time - b.time)) {
+    const key = positionKey(o.symbol, o.positionSide);
+    const old = map.get(key) || {
+      symbol: o.symbol,
+      side: o.positionSide,
+      amount: 0,
+      entryPrice: 0,
+    };
+
+    if (isIncrease(o)) {
+      const oldQty = old.amount;
+      const newQty = oldQty + o.qty;
+      const newEntry = oldQty > 0
+        ? ((oldQty * old.entryPrice) + (o.qty * o.price)) / newQty
+        : o.price;
+
+      map.set(key, { ...old, amount: newQty, entryPrice: newEntry });
+      continue;
+    }
+
+    if (isDecrease(o) && old.amount > 0 && old.entryPrice > 0) {
+      const closeQty = Math.min(old.amount, o.qty);
+      const pnl = o.positionSide === 'LONG'
+        ? (o.price - old.entryPrice) * closeQty
+        : (old.entryPrice - o.price) * closeQty;
+
+      if (Number.isFinite(pnl)) realized.push(pnl);
+
+      const remaining = Math.max(0, old.amount - closeQty);
+      if (remaining <= 1e-12) map.delete(key);
+      else map.set(key, { ...old, amount: remaining });
+    }
+  }
+
+  if (!realized.length) {
+    return { sample: 0, wins: 0, winRate: null, avgProfit: null };
+  }
+
+  const wins = realized.filter(x => x > 0).length;
+  const total = realized.reduce((a, b) => a + b, 0);
+
+  return {
+    sample: realized.length,
+    wins,
+    winRate: (wins / realized.length) * 100,
+    avgProfit: total / realized.length,
+  };
+}
+
 function reconstruct(orders) {
   const map = new Map();
   [...orders].sort((a, b) => a.time - b.time).forEach(o => applyOrder(map, o));
@@ -276,6 +330,7 @@ for (const trader of TRADERS) {
     lastFetch: null,
     lastError: null,
     lastPositionRefresh: 0,
+    recentStats: { sample: 0, wins: 0, winRate: null, avgProfit: null },
   });
 }
 
@@ -506,7 +561,7 @@ async function establishBaseline(s, orders) {
   s.lastPositionRefresh = Date.now();
 
   persistStates();
-  console.log(`[baseline-v5.4] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
+  console.log(`[baseline-v5.5] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
 }
 
 async function processNewOrders(s, orders) {
@@ -536,6 +591,7 @@ async function processNewOrders(s, orders) {
 async function pollTrader(s) {
   try {
     const orders = await fetchOrders(s.trader.id);
+    s.recentStats = calculateRecentStats(orders);
 
     if (!s.baselineReady) {
       await establishBaseline(s, orders);
@@ -547,7 +603,7 @@ async function pollTrader(s) {
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.4] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.5] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -558,7 +614,7 @@ async function loop() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_4_LUXURY_UI',
+    mode: 'V5_5_STABLE_UI',
     pollMs: POLL_MS,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
@@ -576,6 +632,7 @@ app.get('/api/status', (_req, res) => {
       baselineReady: s.baselineReady,
       lastFetch: s.lastFetch,
       lastError: s.lastError,
+      recentStats: s.recentStats,
       positions: [...s.positions.values()].map(p => ({
         symbol: p.symbol,
         side: p.side,
@@ -690,12 +747,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.4',
+    mode: 'V5.5',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.4 started on ${PORT}`);
+  console.log(`Position Alert V5.5 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
