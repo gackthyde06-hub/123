@@ -14,7 +14,7 @@ const POSITION_REFRESH_MS = Math.max(15000, Number(process.env.POSITION_REFRESH_
 const STATS_REFRESH_MS = Math.max(60000, Number(process.env.STATS_REFRESH_MS || 300000));
 const STATS_MAX_PAGES = Math.min(8, Math.max(2, Number(process.env.STATS_MAX_PAGES || 5)));
 const STATS_PAGE_SIZE = 100;
-const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || __dirname;
+const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || (fs.existsSync('/data') ? '/data' : __dirname);
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -39,6 +39,7 @@ const SEEN_FILE = path.join(DATA_DIR, 'seen-v5.json');
 const EVENT_FILE = path.join(DATA_DIR, 'events-v5.json');
 const CONSENSUS_FILE = path.join(DATA_DIR, 'consensus-v5.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
+const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -361,6 +362,30 @@ function reconstruct(orders) {
   return map;
 }
 
+function recoverPositionsFromRecent(s, orders) {
+  // Critical recovery path:
+  // A previous deployment may have persisted an empty position map while keeping
+  // the "seen orders" set. In that state processNewOrders() can never recreate
+  // already-seen open positions. Reconstruct the newest order window every poll
+  // and restore only positions that are currently missing.
+  const rebuilt = reconstruct(orders);
+  let recovered = 0;
+
+  for (const [key, p] of rebuilt) {
+    if (!s.positions.has(key)) {
+      s.positions.set(key, p);
+      recovered += 1;
+    }
+  }
+
+  if (recovered > 0) {
+    console.log(`[recover-v5.7.3] ${s.trader.name}: restored ${recovered} positions from recent orders`);
+    persistStates();
+  }
+
+  return recovered;
+}
+
 async function fetchOrderPage(traderId, pageNumber = 1, pageSize = 100) {
   const r = await fetch(ORDER_URL, {
     method: 'POST',
@@ -392,12 +417,24 @@ async function fetchOrders(traderId) {
 }
 
 async function fetchStatsOrders(traderId) {
-  // Cold path: deeper history every few minutes for better statistics.
+  // Statistics must never break the live monitor.
+  // Page 1 is mandatory. Later pages are best-effort:
+  // if Binance rejects a deeper page, keep the valid rows already collected.
   const all = [];
   const seen = new Set();
 
   for (let page = 1; page <= STATS_MAX_PAGES; page++) {
-    const rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+    let rows;
+
+    try {
+      rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+    } catch (e) {
+      if (page === 1) throw e;
+      console.warn(`[stats-page-v5.7.3] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      break;
+    }
+
+    const before = all.length;
 
     for (const row of rows) {
       if (!seen.has(row.key)) {
@@ -406,10 +443,10 @@ async function fetchStatsOrders(traderId) {
       }
     }
 
-    if (rows.length < STATS_PAGE_SIZE) break;
+    // Stop on a short page OR if Binance ignored pageNumber and returned duplicates.
+    if (rows.length < STATS_PAGE_SIZE || all.length === before) break;
 
-    // Gentle spacing: this is an internal Binance endpoint.
-    await new Promise(resolve => setTimeout(resolve, 90));
+    await new Promise(resolve => setTimeout(resolve, 140));
   }
 
   return all;
@@ -472,6 +509,7 @@ function mergeOfficial(reconstructed, officialResult) {
 
 const persistedState = loadJson(STATE_FILE, {});
 const persistedSeen = loadJson(SEEN_FILE, {});
+const persistedStats = loadJson(STATS_FILE, {});
 const states = new Map();
 
 for (const trader of TRADERS) {
@@ -486,10 +524,13 @@ for (const trader of TRADERS) {
     lastFetch: null,
     lastError: null,
     lastPositionRefresh: 0,
-    lastStatsRefresh: 0,
-    statsUpdatedAt: null,
-    statsOrderCount: 0,
-    recentStats: {
+    lastStatsRefresh: persistedStats[trader.id]?.statsUpdatedAt
+      ? new Date(persistedStats[trader.id].statsUpdatedAt).getTime()
+      : 0,
+    statsUpdatedAt: persistedStats[trader.id]?.statsUpdatedAt || null,
+    statsOrderCount: Number(persistedStats[trader.id]?.statsOrderCount || 0),
+    statsError: null,
+    recentStats: persistedStats[trader.id]?.recentStats || {
       sample: 0, wins: 0, winRate: null, avgProfit: null,
       avgRoi: null, medianRoi: null, profitFactor: null,
       confidence: 'LOW', confidenceScore: 15, orderCount: 0
@@ -512,6 +553,59 @@ function persistStates() {
 
   saveJson(STATE_FILE, stateObj);
   saveJson(SEEN_FILE, seenObj);
+}
+
+function persistStats() {
+  const out = {};
+
+  for (const [id, s] of states) {
+    if (!s.statsUpdatedAt) continue;
+
+    out[id] = {
+      statsUpdatedAt: s.statsUpdatedAt,
+      statsOrderCount: s.statsOrderCount,
+      statsReady: Boolean(s.statsUpdatedAt),
+      statsError: s.statsError,
+      recentStats: s.recentStats,
+    };
+  }
+
+  saveJson(STATS_FILE, out);
+}
+
+let statsBusy = false;
+
+async function refreshStatsIfDue(s) {
+  if (statsBusy) return;
+  if (s.lastStatsRefresh && Date.now() - s.lastStatsRefresh < STATS_REFRESH_MS) return;
+
+  statsBusy = true;
+
+  try {
+    const statsOrders = await fetchStatsOrders(s.trader.id);
+
+    // Never replace a previously valid statistic set with an unexplained empty result.
+    if (!statsOrders.length) {
+      s.statsError = 'EMPTY_ORDER_HISTORY';
+      return;
+    }
+
+    s.recentStats = calculateRecentStats(statsOrders);
+    s.statsOrderCount = statsOrders.length;
+    s.statsUpdatedAt = new Date().toISOString();
+    s.lastStatsRefresh = Date.now();
+    s.statsError = null;
+    persistStats();
+
+    console.log(
+      `[stats-v5.7.3] ${s.trader.name}: ${s.statsOrderCount} orders / ${s.recentStats.sample || 0} completed trades`
+    );
+  } catch (e) {
+    s.statsError = String(e?.message || e);
+    console.error(`[stats-v5.7.3] ${s.trader.name}: ${s.statsError}`);
+  } finally {
+    statsBusy = false;
+  }
 }
 
 function getVapidKeys() {
@@ -761,27 +855,18 @@ async function pollTrader(s) {
     if (!s.baselineReady) {
       await establishBaseline(s, orders);
     } else {
+      recoverPositionsFromRecent(s, orders);
       await processNewOrders(s, orders);
-    }
-
-    // Deep statistics are intentionally refreshed much less often than live signals.
-    if (!s.lastStatsRefresh || Date.now() - s.lastStatsRefresh >= STATS_REFRESH_MS) {
-      try {
-        const statsOrders = await fetchStatsOrders(s.trader.id);
-        s.recentStats = calculateRecentStats(statsOrders);
-        s.statsOrderCount = statsOrders.length;
-        s.statsUpdatedAt = new Date().toISOString();
-        s.lastStatsRefresh = Date.now();
-      } catch (statsError) {
-        console.error(`[stats-v5.7] ${s.trader.name}: ${String(statsError?.message || statsError)}`);
-      }
     }
 
     s.lastFetch = new Date().toISOString();
     s.lastError = null;
+
+    // Do not await this. Live signal polling remains fast.
+    void refreshStatsIfDue(s);
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.7] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.7.3] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -1043,12 +1128,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.7.2',
+    mode: 'V5.7.3',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.7.2 started on ${PORT}`);
+  console.log(`Position Alert V5.7.3 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
