@@ -363,11 +363,9 @@ function reconstruct(orders) {
 }
 
 function recoverPositionsFromRecent(s, orders) {
-  // Critical recovery path:
-  // A previous deployment may have persisted an empty position map while keeping
-  // the "seen orders" set. In that state processNewOrders() can never recreate
-  // already-seen open positions. Reconstruct the newest order window every poll
-  // and restore only positions that are currently missing.
+  // If an older deployment persisted an empty map while the seen-order set survived,
+  // already-seen open positions would never be recreated. Rebuild the recent window
+  // every poll and restore only currently missing positions.
   const rebuilt = reconstruct(orders);
   let recovered = 0;
 
@@ -379,7 +377,7 @@ function recoverPositionsFromRecent(s, orders) {
   }
 
   if (recovered > 0) {
-    console.log(`[recover-v5.7.3] ${s.trader.name}: restored ${recovered} positions from recent orders`);
+    console.log(`[recover-v5.7.4] ${s.trader.name}: restored ${recovered} positions`);
     persistStates();
   }
 
@@ -416,37 +414,49 @@ async function fetchOrders(traderId) {
   return fetchOrderPage(traderId, 1, 100);
 }
 
-async function fetchStatsOrders(traderId) {
-  // Statistics must never break the live monitor.
-  // Page 1 is mandatory. Later pages are best-effort:
-  // if Binance rejects a deeper page, keep the valid rows already collected.
+async function fetchStatsOrders(traderId, firstPage = []) {
+  // Never make statistics an all-or-nothing dependency.
+  // Reuse the live page-1 data that already succeeded, then try deeper pages.
   const all = [];
   const seen = new Set();
 
-  for (let page = 1; page <= STATS_MAX_PAGES; page++) {
-    let rows;
-
-    try {
-      rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
-    } catch (e) {
-      if (page === 1) throw e;
-      console.warn(`[stats-page-v5.7.3] ${traderId} page ${page}: ${String(e?.message || e)}`);
-      break;
-    }
-
+  const addRows = rows => {
     const before = all.length;
-
-    for (const row of rows) {
+    for (const row of rows || []) {
       if (!seen.has(row.key)) {
         seen.add(row.key);
         all.push(row);
       }
     }
+    return all.length - before;
+  };
 
-    // Stop on a short page OR if Binance ignored pageNumber and returned duplicates.
-    if (rows.length < STATS_PAGE_SIZE || all.length === before) break;
+  addRows(firstPage);
 
-    await new Promise(resolve => setTimeout(resolve, 140));
+  // If no cached first page is available, fetch it once.
+  if (!all.length) {
+    const rows = await fetchOrderPage(traderId, 1, STATS_PAGE_SIZE);
+    addRows(rows);
+  }
+
+  // Page 1 alone is already useful and must be retained if any deeper page fails.
+  for (let page = 2; page <= STATS_MAX_PAGES; page++) {
+    let rows;
+
+    try {
+      rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+    } catch (e) {
+      console.warn(`[stats-page-v5.7.4] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      break;
+    }
+
+    const added = addRows(rows);
+
+    // Stop if the endpoint ignores pageNumber and repeats the same page,
+    // or if the page is naturally shorter than the requested size.
+    if (!added || rows.length < STATS_PAGE_SIZE) break;
+
+    await new Promise(resolve => setTimeout(resolve, 180));
   }
 
   return all;
@@ -462,11 +472,9 @@ async function fetchOfficialPositions(traderId) {
     const json = await r.json();
     if (json?.success === false) return { ok: false, positions: [] };
 
-    const rawList = getList(json);
     return {
       ok: true,
-      positions: rawList.map(normalizePosition).filter(Boolean),
-      parsedCount: rawList.length,
+      positions: getList(json).map(normalizePosition).filter(Boolean),
     };
   } catch {
     return { ok: false, positions: [] };
@@ -474,22 +482,16 @@ async function fetchOfficialPositions(traderId) {
 }
 
 function mergeOfficial(reconstructed, officialResult) {
-  // Binance Copy-Trading uses an internal BAPI whose response shape is not stable.
-  // A "successful" response that parses to [] is NOT trustworthy enough to prove flat.
-  // Never erase reconstructed positions solely because the parsed official list is empty.
+  // Binance Copy-Trading BAPI is internal and its response shape can change.
+  // A parsed empty list is not strong enough evidence to erase reconstructed positions.
   if (!officialResult?.ok) return reconstructed;
 
   const official = Array.isArray(officialResult.positions)
     ? officialResult.positions
     : [];
 
-  if (!official.length) {
-    return reconstructed;
-  }
+  if (!official.length) return reconstructed;
 
-  // When the official snapshot contains actual positions, use those as authoritative
-  // for the returned symbols/sides, while preserving any reconstructed position not
-  // represented in the snapshot as a fallback rather than silently deleting it.
   const merged = new Map(reconstructed);
 
   for (const p of official) {
@@ -524,12 +526,13 @@ for (const trader of TRADERS) {
     lastFetch: null,
     lastError: null,
     lastPositionRefresh: 0,
-    lastStatsRefresh: persistedStats[trader.id]?.statsUpdatedAt
-      ? new Date(persistedStats[trader.id].statsUpdatedAt).getTime()
-      : 0,
+    lastDeepStatsRefresh: 0,
+    lastStatsAttempt: 0,
     statsUpdatedAt: persistedStats[trader.id]?.statsUpdatedAt || null,
     statsOrderCount: Number(persistedStats[trader.id]?.statsOrderCount || 0),
-    statsError: null,
+    statsSource: persistedStats[trader.id]?.statsSource || null,
+    statsError: persistedStats[trader.id]?.statsError || null,
+    latestOrders: [],
     recentStats: persistedStats[trader.id]?.recentStats || {
       sample: 0, wins: 0, winRate: null, avgProfit: null,
       avgRoi: null, medianRoi: null, profitFactor: null,
@@ -564,7 +567,7 @@ function persistStats() {
     out[id] = {
       statsUpdatedAt: s.statsUpdatedAt,
       statsOrderCount: s.statsOrderCount,
-      statsReady: Boolean(s.statsUpdatedAt),
+      statsSource: s.statsSource,
       statsError: s.statsError,
       recentStats: s.recentStats,
     };
@@ -573,39 +576,25 @@ function persistStats() {
   saveJson(STATS_FILE, out);
 }
 
-let statsBusy = false;
+function applyQuickStats(s, orders) {
+  // Fast fallback using the already successful live 100-order page.
+  // It gives the UI useful reference data within one poll without extra Binance calls.
+  if (!Array.isArray(orders) || !orders.length) return;
 
-async function refreshStatsIfDue(s) {
-  if (statsBusy) return;
-  if (s.lastStatsRefresh && Date.now() - s.lastStatsRefresh < STATS_REFRESH_MS) return;
+  const quick = calculateRecentStats(orders);
 
-  statsBusy = true;
+  // Do not downgrade a valid deep result every 3 seconds.
+  const hasDeep = String(s.statsSource || '').startsWith('deep_');
+  if (hasDeep && s.statsUpdatedAt) return;
 
-  try {
-    const statsOrders = await fetchStatsOrders(s.trader.id);
-
-    // Never replace a previously valid statistic set with an unexplained empty result.
-    if (!statsOrders.length) {
-      s.statsError = 'EMPTY_ORDER_HISTORY';
-      return;
-    }
-
-    s.recentStats = calculateRecentStats(statsOrders);
-    s.statsOrderCount = statsOrders.length;
-    s.statsUpdatedAt = new Date().toISOString();
-    s.lastStatsRefresh = Date.now();
-    s.statsError = null;
-    persistStats();
-
-    console.log(
-      `[stats-v5.7.3] ${s.trader.name}: ${s.statsOrderCount} orders / ${s.recentStats.sample || 0} completed trades`
-    );
-  } catch (e) {
-    s.statsError = String(e?.message || e);
-    console.error(`[stats-v5.7.3] ${s.trader.name}: ${s.statsError}`);
-  } finally {
-    statsBusy = false;
-  }
+  // Even when there are 0 completed cycles, "100 orders examined" is still
+  // better and more truthful than showing "0 orders / preparing forever".
+  s.recentStats = quick;
+  s.statsOrderCount = orders.length;
+  s.statsUpdatedAt = new Date().toISOString();
+  s.statsSource = `quick_${orders.length}`;
+  s.statsError = null;
+  persistStats();
 }
 
 function getVapidKeys() {
@@ -851,6 +840,7 @@ async function processNewOrders(s, orders) {
 async function pollTrader(s) {
   try {
     const orders = await fetchOrders(s.trader.id);
+    s.latestOrders = orders;
 
     if (!s.baselineReady) {
       await establishBaseline(s, orders);
@@ -859,14 +849,16 @@ async function pollTrader(s) {
       await processNewOrders(s, orders);
     }
 
+    // Immediate no-extra-request statistics, so cards never sit blank after deploy.
+    if (!s.statsUpdatedAt || !s.statsOrderCount) {
+      applyQuickStats(s, orders);
+    }
+
     s.lastFetch = new Date().toISOString();
     s.lastError = null;
-
-    // Do not await this. Live signal polling remains fast.
-    void refreshStatsIfDue(s);
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.7.3] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.7.4] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -875,18 +867,74 @@ async function loop() {
   timer = setTimeout(loop, POLL_MS);
 }
 
+let statsTimer = null;
+let statsCursor = 0;
+let statsRunning = false;
+
+async function runNextDeepStats() {
+  if (statsRunning) return;
+
+  const list = [...states.values()];
+  if (!list.length) return;
+
+  const s = list[statsCursor % list.length];
+  statsCursor = (statsCursor + 1) % list.length;
+
+  const due = !s.lastDeepStatsRefresh ||
+    Date.now() - s.lastDeepStatsRefresh >= STATS_REFRESH_MS;
+
+  if (!due) return;
+
+  // Back off attempts for the same trader even when Binance rejects a page.
+  if (s.lastStatsAttempt && Date.now() - s.lastStatsAttempt < 30000) return;
+
+  statsRunning = true;
+  s.lastStatsAttempt = Date.now();
+
+  try {
+    const firstPage = Array.isArray(s.latestOrders) ? s.latestOrders : [];
+    const rows = await fetchStatsOrders(s.trader.id, firstPage);
+
+    if (!rows.length) {
+      s.statsError = 'EMPTY_ORDER_HISTORY';
+      return;
+    }
+
+    const result = calculateRecentStats(rows);
+
+    s.recentStats = result;
+    s.statsOrderCount = rows.length;
+    s.statsUpdatedAt = new Date().toISOString();
+    s.statsSource = `deep_${rows.length}`;
+    s.statsError = null;
+    s.lastDeepStatsRefresh = Date.now();
+    persistStats();
+
+    console.log(
+      `[stats-v5.7.4] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+    );
+  } catch (e) {
+    // Preserve the last valid quick/deep stats. Never blank the card on an error.
+    s.statsError = String(e?.message || e);
+    console.error(`[stats-v5.7.4] ${s.trader.name}: ${s.statsError}`);
+  } finally {
+    statsRunning = false;
+  }
+}
+
+function statsLoop() {
+  void runNextDeepStats();
+  statsTimer = setTimeout(statsLoop, 12000);
+}
+
 
 function latestTraderEvent(traderId) {
-  return recentEvents.find(
-    e => e?.kind === 'TRADER' && e?.traderId === traderId
-  ) || null;
+  return recentEvents.find(e => e?.kind === 'TRADER' && e?.traderId === traderId) || null;
 }
 
 function traderActivity(s) {
   const e = latestTraderEvent(s.trader.id);
-  const ageMs = e?.ts
-    ? Math.max(0, Date.now() - new Date(e.ts).getTime())
-    : null;
+  const ageMs = e?.ts ? Math.max(0, Date.now() - new Date(e.ts).getTime()) : null;
 
   if (ageMs != null && ageMs <= 10 * 60 * 1000) {
     if (e.type === 'OPEN') return { code: 'JUST_OPENED', label: '剛建倉', ts: e.ts };
@@ -939,7 +987,6 @@ function buildConsensusRows() {
     }
 
     let score = (members.length / TRADERS.length) * 50;
-
     if (entrySpreadPct == null) score += 8;
     else if (entrySpreadPct <= 0.35) score += 25;
     else if (entrySpreadPct <= 0.8) score += 20;
@@ -960,15 +1007,9 @@ function buildConsensusRows() {
       'LOW';
 
     rows.push({
-      symbol,
-      side,
-      direction: sideZh(side),
-      count: members.length,
-      total: TRADERS.length,
-      score,
-      level,
-      entrySpreadPct,
-      timeSpreadMin,
+      symbol, side, direction: sideZh(side),
+      count: members.length, total: TRADERS.length,
+      score, level, entrySpreadPct, timeSpreadMin,
       traderIds: members.map(x => x.traderId),
       traderNames: members.map(x => x.traderName),
     });
@@ -979,7 +1020,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_7_DECISION',
+    mode: 'V5_7_4_STABLE_STATS',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
@@ -1002,6 +1043,8 @@ app.get('/api/status', (_req, res) => {
       lastError: s.lastError,
       statsUpdatedAt: s.statsUpdatedAt,
       statsOrderCount: s.statsOrderCount,
+      statsSource: s.statsSource,
+      statsError: s.statsError,
       recentStats: s.recentStats,
       activity: traderActivity(s),
       lastAction: lastAction ? {
@@ -1029,6 +1072,30 @@ app.get('/api/status', (_req, res) => {
     events: recentEvents.slice(0, 40),
     healthy: traderRows.filter(t => !t.lastError).length,
     total: traderRows.length,
+  });
+});
+
+app.get('/api/diagnostics', (_req, res) => {
+  res.json({
+    mode: 'V5.7.4',
+    dataDir: DATA_DIR,
+    statsRunning,
+    statsCursor,
+    traders: [...states.values()].map(s => ({
+      id: s.trader.id,
+      name: s.trader.name,
+      positions: s.positions.size,
+      baselineReady: s.baselineReady,
+      lastFetch: s.lastFetch,
+      lastError: s.lastError,
+      liveOrders: Array.isArray(s.latestOrders) ? s.latestOrders.length : 0,
+      statsOrderCount: s.statsOrderCount,
+      statsSource: s.statsSource,
+      statsUpdatedAt: s.statsUpdatedAt,
+      statsError: s.statsError,
+      statsSample: Number(s.recentStats?.sample || 0),
+      confidence: s.recentStats?.confidence || 'LOW',
+    })),
   });
 });
 
@@ -1128,17 +1195,20 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.7.3',
+    mode: 'V5.7.4',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.7.3 started on ${PORT}`);
+  console.log(`Position Alert V5.7.4 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
+  // Give the live page-1 poll a head start, then deepen stats one trader at a time.
+  statsTimer = setTimeout(statsLoop, 8000);
 });
 
 process.on('SIGTERM', () => {
   if (timer) clearTimeout(timer);
+  if (statsTimer) clearTimeout(statsTimer);
   process.exit(0);
 });
