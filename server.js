@@ -192,55 +192,121 @@ function applyOrder(map, o) {
 
 
 function calculateRecentStats(orders) {
-  const map = new Map();
-  const realized = [];
+  // More conservative stats:
+  // 1 completed round-trip (flat -> position -> flat) = 1 trade.
+  // Partial reductions belong to the same trade and are not counted separately.
+  // Any sequence that begins with a reduction (opening leg likely outside last 100 orders)
+  // is marked incomplete and excluded from win rate / average profit.
+  const states = new Map();
+  const completed = [];
 
-  for (const o of [...orders].sort((a, b) => a.time - b.time)) {
+  const sorted = [...orders]
+    .filter(o => o && o.symbol && o.positionSide && Number(o.qty) > 0 && Number(o.price) > 0)
+    .sort((a, b) => Number(a.time || 0) - Number(b.time || 0));
+
+  for (const o of sorted) {
     const key = positionKey(o.symbol, o.positionSide);
-    const old = map.get(key) || {
-      symbol: o.symbol,
-      side: o.positionSide,
+    let s = states.get(key) || {
       amount: 0,
       entryPrice: 0,
+      entryNotional: 0,
+      realizedPnl: 0,
+      realizedQty: 0,
+      startedInsideWindow: false,
+      incomplete: false,
+      startTime: null,
+      endTime: null,
     };
 
     if (isIncrease(o)) {
-      const oldQty = old.amount;
-      const newQty = oldQty + o.qty;
-      const newEntry = oldQty > 0
-        ? ((oldQty * old.entryPrice) + (o.qty * o.price)) / newQty
-        : o.price;
+      if (s.amount <= 1e-12) {
+        s = {
+          amount: 0,
+          entryPrice: 0,
+          entryNotional: 0,
+          realizedPnl: 0,
+          realizedQty: 0,
+          startedInsideWindow: true,
+          incomplete: false,
+          startTime: Number(o.time || 0),
+          endTime: null,
+        };
+      }
 
-      map.set(key, { ...old, amount: newQty, entryPrice: newEntry });
+      const oldQty = s.amount;
+      const newQty = oldQty + o.qty;
+      s.entryPrice = oldQty > 0
+        ? ((oldQty * s.entryPrice) + (o.qty * o.price)) / newQty
+        : o.price;
+      s.amount = newQty;
+      s.entryNotional += o.qty * o.price;
+      states.set(key, s);
       continue;
     }
 
-    if (isDecrease(o) && old.amount > 0 && old.entryPrice > 0) {
-      const closeQty = Math.min(old.amount, o.qty);
+    if (isDecrease(o)) {
+      // If the window starts with a reduction, we don't know the original entry cost.
+      if (s.amount <= 1e-12) {
+        s.incomplete = true;
+        states.set(key, s);
+        continue;
+      }
+
+      const closeQty = Math.min(s.amount, o.qty);
       const pnl = o.positionSide === 'LONG'
-        ? (o.price - old.entryPrice) * closeQty
-        : (old.entryPrice - o.price) * closeQty;
+        ? (o.price - s.entryPrice) * closeQty
+        : (s.entryPrice - o.price) * closeQty;
 
-      if (Number.isFinite(pnl)) realized.push(pnl);
+      if (Number.isFinite(pnl)) {
+        s.realizedPnl += pnl;
+        s.realizedQty += closeQty;
+      }
 
-      const remaining = Math.max(0, old.amount - closeQty);
-      if (remaining <= 1e-12) map.delete(key);
-      else map.set(key, { ...old, amount: remaining });
+      s.amount = Math.max(0, s.amount - closeQty);
+      s.endTime = Number(o.time || 0);
+
+      if (s.amount <= 1e-12) {
+        if (s.startedInsideWindow && !s.incomplete && s.realizedQty > 0) {
+          const roi = s.entryNotional > 0 ? (s.realizedPnl / s.entryNotional) * 100 : null;
+          completed.push({
+            pnl: s.realizedPnl,
+            roi,
+            startTime: s.startTime,
+            endTime: s.endTime,
+          });
+        }
+        states.delete(key);
+      } else {
+        states.set(key, s);
+      }
     }
   }
 
-  if (!realized.length) {
-    return { sample: 0, wins: 0, winRate: null, avgProfit: null };
+  if (!completed.length) {
+    return {
+      sample: 0,
+      wins: 0,
+      winRate: null,
+      avgProfit: null,
+      avgRoi: null,
+      method: 'completed_round_trip',
+    };
   }
 
-  const wins = realized.filter(x => x > 0).length;
-  const total = realized.reduce((a, b) => a + b, 0);
+  const wins = completed.filter(x => x.pnl > 0).length;
+  const avgProfit = completed.reduce((a, x) => a + x.pnl, 0) / completed.length;
+  const roiValues = completed.map(x => x.roi).filter(Number.isFinite);
+  const avgRoi = roiValues.length
+    ? roiValues.reduce((a, x) => a + x, 0) / roiValues.length
+    : null;
 
   return {
-    sample: realized.length,
+    sample: completed.length,
     wins,
-    winRate: (wins / realized.length) * 100,
-    avgProfit: total / realized.length,
+    winRate: (wins / completed.length) * 100,
+    avgProfit,
+    avgRoi,
+    method: 'completed_round_trip',
   };
 }
 
@@ -561,7 +627,7 @@ async function establishBaseline(s, orders) {
   s.lastPositionRefresh = Date.now();
 
   persistStates();
-  console.log(`[baseline-v5.5] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
+  console.log(`[baseline-v5.6] ${s.trader.name}: ${s.positions.size} positions / ${orders.length} orders`);
 }
 
 async function processNewOrders(s, orders) {
@@ -603,7 +669,7 @@ async function pollTrader(s) {
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.5] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.6] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -614,7 +680,7 @@ async function loop() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_5_STABLE_UI',
+    mode: 'V5_6_ACCURATE_STATS',
     pollMs: POLL_MS,
     vapidPublicKey: vapid.publicKey,
     pushReady: true,
@@ -747,12 +813,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.5',
+    mode: 'V5.6',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.5 started on ${PORT}`);
+  console.log(`Position Alert V5.6 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
