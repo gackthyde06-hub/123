@@ -391,25 +391,46 @@ async function fetchOrders(traderId) {
   return fetchOrderPage(traderId, 1, 100);
 }
 
-async function fetchStatsOrders(traderId) {
-  // Cold path: deeper history every few minutes for better statistics.
+async function fetchStatsOrders(traderId, firstPage = []) {
+  // Reuse the already successful hot-path page 1.
+  // This avoids immediately requesting page 1 twice, which can produce
+  // empty responses from Binance's internal BAPI.
   const all = [];
   const seen = new Set();
 
-  for (let page = 1; page <= STATS_MAX_PAGES; page++) {
-    const rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+  for (const row of firstPage || []) {
+    if (!seen.has(row.key)) {
+      seen.add(row.key);
+      all.push(row);
+    }
+  }
 
+  for (let page = 2; page <= STATS_MAX_PAGES; page++) {
+    await new Promise(resolve => setTimeout(resolve, 140));
+
+    let rows = [];
+    try {
+      rows = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
+    } catch (e) {
+      // Keep the data we already have. Deep history is optional;
+      // live signals must never fail because page 2+ failed.
+      break;
+    }
+
+    if (!rows.length) break;
+
+    let newCount = 0;
     for (const row of rows) {
       if (!seen.has(row.key)) {
         seen.add(row.key);
         all.push(row);
+        newCount += 1;
       }
     }
 
+    // API may ignore pageNumber and return the same page repeatedly.
+    if (newCount === 0) break;
     if (rows.length < STATS_PAGE_SIZE) break;
-
-    // Gentle spacing: this is an internal Binance endpoint.
-    await new Promise(resolve => setTimeout(resolve, 90));
   }
 
   return all;
@@ -435,18 +456,20 @@ async function fetchOfficialPositions(traderId) {
 }
 
 function mergeOfficial(reconstructed, officialResult) {
-  // When Binance gives us a valid snapshot, it is authoritative:
-  // positions absent from that snapshot are removed, preventing ghost positions.
+  // Binance's internal positions endpoint can return a valid-looking but empty
+  // or partial list. Therefore it is NOT safe to use absence as proof of flat.
+  // We only overlay positions that Binance explicitly returns.
   if (!officialResult?.ok) return reconstructed;
 
-  const merged = new Map();
+  const merged = new Map(reconstructed);
   const official = officialResult.positions || [];
 
   for (const p of official) {
     const key = positionKey(p.symbol, p.side);
-    const old = reconstructed.get(key);
+    const old = merged.get(key);
 
     merged.set(key, {
+      ...old,
       ...p,
       openTime: old?.openTime || p.openTime || null,
       source: old ? 'both' : 'positions',
@@ -753,13 +776,15 @@ async function pollTrader(s) {
     // Deep statistics are intentionally refreshed much less often than live signals.
     if (!s.lastStatsRefresh || Date.now() - s.lastStatsRefresh >= STATS_REFRESH_MS) {
       try {
-        const statsOrders = await fetchStatsOrders(s.trader.id);
-        s.recentStats = calculateRecentStats(statsOrders);
-        s.statsOrderCount = statsOrders.length;
-        s.statsUpdatedAt = new Date().toISOString();
+        const statsOrders = await fetchStatsOrders(s.trader.id, orders);
+        if (statsOrders.length > 0) {
+          s.recentStats = calculateRecentStats(statsOrders);
+          s.statsOrderCount = statsOrders.length;
+          s.statsUpdatedAt = new Date().toISOString();
+        }
         s.lastStatsRefresh = Date.now();
       } catch (statsError) {
-        console.error(`[stats-v5.7] ${s.trader.name}: ${String(statsError?.message || statsError)}`);
+        console.error(`[stats-v5.7.2] ${s.trader.name}: ${String(statsError?.message || statsError)}`);
       }
     }
 
@@ -767,7 +792,7 @@ async function pollTrader(s) {
     s.lastError = null;
   } catch (e) {
     s.lastError = String(e?.message || e);
-    console.error(`[poll-v5.7] ${s.trader.name}: ${s.lastError}`);
+    console.error(`[poll-v5.7.2] ${s.trader.name}: ${s.lastError}`);
   }
 }
 
@@ -910,7 +935,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V5_7_DECISION',
+    mode: 'V5_7_2_DECISION',
     pollMs: POLL_MS,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
@@ -1059,12 +1084,12 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => !s.lastError),
     healthy: rows.filter(s => !s.lastError).length,
     total: rows.length,
-    mode: 'V5.7.1',
+    mode: 'V5.7.2',
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Position Alert V5.7.1 started on ${PORT}`);
+  console.log(`Position Alert V5.7.2 started on ${PORT}`);
   console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
   loop();
 });
