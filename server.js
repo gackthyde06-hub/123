@@ -9,95 +9,84 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
-const POLL_MS = Math.max(2000, Number(process.env.POLL_MS || 3000));
-const POSITION_REFRESH_MS = Math.max(5000, Number(process.env.POSITION_REFRESH_MS || 8000));
+const POLL_MS = Math.max(1000, Number(process.env.POLL_MS || 1500));
+const CORE_ORDER_POLL_MS = Math.max(2500, Number(process.env.CORE_ORDER_POLL_MS || 3000));
+const SECONDARY_ORDER_POLL_MS = Math.max(6000, Number(process.env.SECONDARY_ORDER_POLL_MS || 9000));
+const POSITION_REFRESH_MS = Math.max(30000, Number(process.env.POSITION_REFRESH_MS || 60000));
 const MARK_PRICE_REFRESH_MS = Math.max(3000, Number(process.env.MARK_PRICE_REFRESH_MS || 5000));
-const STATS_REFRESH_MS = Math.max(60000, Number(process.env.STATS_REFRESH_MS || 300000));
+const STATS_REFRESH_MS = Math.max(300000, Number(process.env.STATS_REFRESH_MS || 900000));
 const STATS_MAX_PAGES = Math.min(8, Math.max(2, Number(process.env.STATS_MAX_PAGES || 5)));
 const STATS_PAGE_SIZE = 100;
 const REFERENCE_REFRESH_MS = Math.max(15 * 60 * 1000, Number(process.env.REFERENCE_REFRESH_MS || 60 * 60 * 1000));
+const SCREEN_REFRESH_MS = Math.max(30 * 60 * 1000, Number(process.env.SCREEN_REFRESH_MS || 60 * 60 * 1000));
+const COPY_BAPI_BUDGET_PER_MIN = Math.max(60, Math.min(110, Number(process.env.COPY_BAPI_BUDGET_PER_MIN || 100)));
+const COPY_BAPI_MIN_GAP_MS = Math.max(400, Number(process.env.COPY_BAPI_MIN_GAP_MS || 560));
+const CONSENSUS_REARM_MS = Math.max(10 * 60 * 1000, Number(process.env.CONSENSUS_REARM_MS || 30 * 60 * 1000));
 const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || (fs.existsSync('/data') ? '/data' : __dirname);
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
+const CORE_TRADER_ID = '5075281354358777856';
 const TRADERS = [
   {
-    id: '5075281354358777856',
+    id: CORE_TRADER_ID,
     name: '熬鷹資本',
     defaultTag: '主核心',
     priority: 1,
+    core: true,
     referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5075281354358777856/',
     referenceSeed: {
-      source: 'CopyRadar',
-      asOf: '2026-08-28',
-      qualityScore: 70,
-      winRate: 65.5,
-      sample: 110,
-      profitFactor: 2.19,
-      medianDurationMin: 9.3 * 60,
-      reportedRoi: 5572,
-      followers: 1000,
-      maxLeverage: 50,
-      reportedMdd: 68.3,
-      riskFlags: ['高槓桿', '深回撤'],
+      source: 'CopyRadar', asOf: '2026-08-28', qualityScore: 70,
+      winRate: 65.5, sample: 110, profitFactor: 2.19,
+      medianDurationMin: 9.3 * 60, reportedRoi: 5572, followers: 1000,
+      maxLeverage: 50, reportedMdd: 68.3, profitConcentration: 16.2,
+      copierPnl: 5982385, riskFlags: ['高槓桿', '深回撤'],
     },
   },
   {
-    id: '5082904357337048064',
-    name: 'HK大叔D',
-    defaultTag: '人氣',
-    priority: 2,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5082904357337048064/',
-    referenceSeed: {
-      source: 'CopyRadar',
-      asOf: '2026-08-28',
-      qualityScore: 86,
-      reportedRoi: 990,
-      followers: 688,
-      riskFlags: ['高槓桿'],
-    },
+    id: '4520644381136785152', name: 'CuanBot', defaultTag: '低回撤候選', priority: 2,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4520644381136785152/',
+    referenceSeed: { source:'CopyRadar/SmartCopyTrade', asOf:'2026-08-28', qualityScore:100, reportedRoi:9, reportedMdd:12.48, followers:58, riskFlags:[] },
   },
   {
-    id: '4855144495762648832',
-    name: '小新交易員',
-    defaultTag: '數據',
-    priority: 3,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4855144495762648832/',
-    referenceSeed: {
-      source: 'CopyRadar',
-      asOf: '2026-08-29',
-      qualityScore: 100,
-      winRate: 49.7,
-      sample: 304,
-      profitFactor: 1.74,
-      medianDurationMin: 6.6 * 60,
-      reportedRoi: 165,
-      followers: 201,
-      maxLeverage: 20,
-      reportedMdd: 24.0,
-      riskFlags: [],
-    },
+    id: '5048921197418366208', name: 'ALL KILL OUT', defaultTag: '穩健候選', priority: 3,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5048921197418366208/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, winRate:64.8, sample:477, profitFactor:1.80, medianDurationMin:5.8*60, reportedRoi:66, followers:43, maxLeverage:5, reportedMdd:16.9, profitConcentration:2.7, copierPnl:5885, riskFlags:[] },
   },
   {
-    id: '4556315195316581632',
-    name: '人生到處知何似',
-    defaultTag: '穩健',
-    priority: 4,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4556315195316581632/',
-    referenceSeed: {
-      source: 'CopyRadar',
-      asOf: '2026-08-28',
-      qualityScore: 96,
-      winRate: 93.3,
-      sample: 313,
-      profitFactor: 113.58,
-      medianDurationMin: 1.5 * 60,
-      reportedRoi: 37,
-      followers: 20,
-      maxLeverage: 5,
-      reportedMdd: 26.4,
-      riskFlags: [],
-    },
+    id: '3848411987859099392', name: 'GridMaster', defaultTag: '低回撤候選', priority: 4,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/3848411987859099392/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-24', qualityScore:98, winRate:98.9, sample:654, profitFactor:1.86, medianDurationMin:2.1*60, reportedRoi:10, followers:11, maxLeverage:10, reportedMdd:10.3, profitConcentration:14.2, copierPnl:1285, riskFlags:[] },
+  },
+  {
+    id: '5072318291936552192', name: 'R博士', defaultTag: 'A級候選', priority: 5,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5072318291936552192/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:329, followers:39, riskFlags:[] },
+  },
+  {
+    id: '5031454375430644481', name: 'GoldRush', defaultTag: 'A級候選', priority: 6,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5031454375430644481/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:133, followers:12, riskFlags:[] },
+  },
+  {
+    id: '4916453009605013505', name: 'iiTrader', defaultTag: 'A級候選', priority: 7,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4916453009605013505/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:96, reportedRoi:75, followers:29, riskFlags:[] },
+  },
+  {
+    id: '4187364380033162753', name: '量化金城武QuantAniki', defaultTag: '低槓桿候選', priority: 8,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4187364380033162753/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-08', qualityScore:90, winRate:72.4, sample:98, profitFactor:1.76, medianDurationMin:1.6*60, reportedRoi:2, followers:11, maxLeverage:5, reportedMdd:0.6, profitConcentration:5.9, copierPnl:349, riskFlags:[] },
+  },
+  {
+    id: '4112815248716815105', name: 'SaGoCrypto', defaultTag: '低回撤候選', priority: 9,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4112815248716815105/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:100, winRate:99.8, sample:1929, profitFactor:323.70, medianDurationMin:17.3*60, reportedRoi:27, followers:18, maxLeverage:3, reportedMdd:10.1, profitConcentration:4.1, copierPnl:1362, riskFlags:[] },
+  },
+  {
+    id: '5121749078299654657', name: '富一次就足够', defaultTag: 'A級候選', priority: 10,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5121749078299654657/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:95, reportedRoi:183, followers:167, riskFlags:[] },
   },
 ];
 
@@ -108,6 +97,7 @@ const EVENT_TYPE_SET = new Set(EVENT_TYPES);
 
 const BASE = 'https://www.binance.com/bapi/futures/v1';
 const ORDER_URL = `${BASE}/friendly/future/copy-trade/lead-portfolio/order-history`;
+const LEADERBOARD_URL = `${BASE}/friendly/future/copy-trade/home-page/query-list`;
 const MARK_PRICE_URL = 'https://fapi.binance.com/fapi/v1/premiumIndex';
 const KLINE_URL = 'https://fapi.binance.com/fapi/v1/klines';
 const LEVEL_INTERVAL = '15m';
@@ -122,6 +112,8 @@ const CONSENSUS_FILE = path.join(DATA_DIR, 'consensus-v5.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
 const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
+const SCREEN_FILE = path.join(DATA_DIR, 'screen-v62.json');
+const CONSENSUS_EPISODE_FILE = path.join(DATA_DIR, 'consensus-episodes-v62.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -233,6 +225,92 @@ function commonHeaders(portfolioId) {
   };
   if (process.env.BINANCE_COOKIE) h.cookie = process.env.BINANCE_COOKIE;
   return h;
+}
+
+
+const copyRate = {
+  queue: [], running: false, requestTimes: [], lastRequestAt: 0,
+  pauseUntil: 0, total: 0, status429: 0, status403: 0, status418: 0,
+  lastStatus: null, lastError: null, lastRateEventAt: null,
+};
+
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, Math.max(0, ms))); }
+function pruneCopyRequestTimes(now = Date.now()) {
+  copyRate.requestTimes = copyRate.requestTimes.filter(t => now - t < 60000);
+}
+function retryAfterMs(response, fallbackMs) {
+  const raw = response?.headers?.get?.('retry-after');
+  const sec = Number(raw);
+  return Number.isFinite(sec) && sec >= 0 ? Math.max(1000, sec * 1000) : fallbackMs;
+}
+async function pumpCopyQueue() {
+  if (copyRate.running) return;
+  copyRate.running = true;
+  try {
+    while (copyRate.queue.length) {
+      copyRate.queue.sort((a,b) => a.priority - b.priority || a.seq - b.seq);
+      const job = copyRate.queue.shift();
+      let now = Date.now();
+      if (copyRate.pauseUntil > now) await sleep(copyRate.pauseUntil - now);
+      now = Date.now();
+      pruneCopyRequestTimes(now);
+      if (copyRate.requestTimes.length >= COPY_BAPI_BUDGET_PER_MIN) {
+        const wait = Math.max(50, copyRate.requestTimes[0] + 60000 - now);
+        await sleep(wait);
+      }
+      now = Date.now();
+      const gap = COPY_BAPI_MIN_GAP_MS - (now - copyRate.lastRequestAt);
+      if (gap > 0) await sleep(gap);
+      try {
+        const response = await fetch(job.url, job.options);
+        const sentAt = Date.now();
+        copyRate.lastRequestAt = sentAt;
+        copyRate.requestTimes.push(sentAt);
+        copyRate.total += 1;
+        copyRate.lastStatus = response.status;
+        pruneCopyRequestTimes(sentAt);
+        if (response.status === 429) {
+          copyRate.status429 += 1;
+          copyRate.lastRateEventAt = new Date().toISOString();
+          copyRate.pauseUntil = Math.max(copyRate.pauseUntil, sentAt + retryAfterMs(response, 60000));
+        } else if (response.status === 418) {
+          copyRate.status418 += 1;
+          copyRate.lastRateEventAt = new Date().toISOString();
+          copyRate.pauseUntil = Math.max(copyRate.pauseUntil, sentAt + retryAfterMs(response, 30 * 60 * 1000));
+        } else if (response.status === 403) {
+          copyRate.status403 += 1;
+          copyRate.lastRateEventAt = new Date().toISOString();
+          copyRate.pauseUntil = Math.max(copyRate.pauseUntil, sentAt + 15 * 60 * 1000);
+        }
+        job.resolve(response);
+      } catch (e) {
+        copyRate.lastError = String(e?.message || e);
+        job.reject(e);
+      }
+    }
+  } finally {
+    copyRate.running = false;
+    if (copyRate.queue.length) void pumpCopyQueue();
+  }
+}
+let copyQueueSeq = 0;
+function copyFetch(url, options = {}, { priority = 3, label = 'copy-bapi' } = {}) {
+  return new Promise((resolve, reject) => {
+    copyRate.queue.push({ url, options, priority, label, seq: ++copyQueueSeq, resolve, reject });
+    void pumpCopyQueue();
+  });
+}
+function copyRateSnapshot() {
+  pruneCopyRequestTimes();
+  return {
+    budgetPerMin: COPY_BAPI_BUDGET_PER_MIN,
+    usedLast60s: copyRate.requestTimes.length,
+    queued: copyRate.queue.length,
+    minGapMs: COPY_BAPI_MIN_GAP_MS,
+    pausedUntil: copyRate.pauseUntil > Date.now() ? new Date(copyRate.pauseUntil).toISOString() : null,
+    total: copyRate.total, status429: copyRate.status429, status403: copyRate.status403, status418: copyRate.status418,
+    lastStatus: copyRate.lastStatus, lastError: copyRate.lastError, lastRateEventAt: copyRate.lastRateEventAt,
+  };
 }
 
 function normalizeOrder(raw) {
@@ -572,7 +650,7 @@ function recoverPositionsFromRecent(s, orders) {
 }
 
 async function fetchOrderPage(traderId, pageNumber = 1, pageSize = 100) {
-  const r = await fetch(ORDER_URL, {
+  const r = await copyFetch(ORDER_URL, {
     method: 'POST',
     headers: commonHeaders(traderId),
     body: JSON.stringify({
@@ -580,7 +658,7 @@ async function fetchOrderPage(traderId, pageNumber = 1, pageSize = 100) {
       pageNumber,
       pageSize,
     }),
-  });
+  }, { priority: pageNumber === 1 ? (traderId === CORE_TRADER_ID ? 0 : 2) : 5, label: `orders:${traderId}:p${pageNumber}` });
 
   const text = await r.text();
   if (!r.ok) throw new Error(`order-history HTTP ${r.status}: ${text.slice(0, 120)}`);
@@ -637,7 +715,7 @@ async function fetchStatsOrders(traderId, firstPage = []) {
     try {
       detail = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v5.9.1] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v6.2] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
@@ -654,7 +732,7 @@ async function fetchOfficialPositions(traderId) {
   const url = `${BASE}/friendly/future/copy-trade/lead-data/positions?portfolioId=${encodeURIComponent(traderId)}`;
 
   try {
-    const r = await fetch(url, { headers: commonHeaders(traderId) });
+    const r = await copyFetch(url, { headers: commonHeaders(traderId) }, { priority: 3, label: `positions:${traderId}` });
     const text = await r.text();
 
     if (!r.ok) {
@@ -939,7 +1017,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.1',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.2',
       },
       signal: controller.signal,
     });
@@ -997,7 +1075,7 @@ async function fetchLevelCandles(symbol) {
   try {
     const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${LEVEL_INTERVAL}&limit=${LEVEL_LIMIT}`;
     const r = await fetch(url, {
-      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.1' },
+      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.2' },
       signal: controller.signal,
     });
     if (!r.ok) throw new Error(`kline HTTP ${r.status}`);
@@ -1182,7 +1260,7 @@ async function refreshMarkPrices(force = false) {
     const r = await fetch(MARK_PRICE_URL, {
       headers: {
         accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.1',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.2',
       },
     });
 
@@ -1207,7 +1285,7 @@ async function refreshMarkPrices(force = false) {
     return true;
   } catch (e) {
     markPriceError = String(e?.message || e);
-    console.warn(`[mark-price-v5.9.2] ${markPriceError}`);
+    console.warn(`[mark-price-v6.2] ${markPriceError}`);
     return false;
   } finally {
     markPriceBusy = false;
@@ -1254,10 +1332,78 @@ function positionPnlView(p) {
   };
 }
 
+
+function pctNumber(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const x = Number(v);
+  if (!Number.isFinite(x)) return null;
+  if (x !== 0 && Math.abs(x) <= 1) return x * 100;
+  return x;
+}
+function findLeaderboardProfile(json, trader) {
+  const arrays = collectArrays(json).map(x => x.rows).filter(Array.isArray);
+  const rows = arrays.flat().filter(x => x && typeof x === 'object');
+  return rows.find(x => String(x.leadPortfolioId ?? x.portfolioId ?? '') === trader.id)
+    || rows.find(x => String(x.nickname ?? x.nickName ?? '').trim() === trader.name)
+    || null;
+}
+async function fetchScreenRange(trader, timeRange) {
+  const r = await copyFetch(LEADERBOARD_URL, {
+    method: 'POST', headers: commonHeaders(trader.id),
+    body: JSON.stringify({
+      pageNumber: 1, pageSize: 18, timeRange, dataType: 'ROI',
+      favoriteOnly: false, hideFull: false, nickname: trader.name,
+      order: 'DESC', apiKeyOnly: false,
+    }),
+  }, { priority: 6, label: `screen:${trader.id}:${timeRange}` });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`screen ${timeRange} HTTP ${r.status}: ${text.slice(0,120)}`);
+  let json; try { json = JSON.parse(text); } catch { throw new Error(`screen ${timeRange} non-JSON`); }
+  if (json?.success === false) throw new Error(json?.message || `screen ${timeRange} success=false`);
+  const row = findLeaderboardProfile(json, trader);
+  if (!row) throw new Error(`screen ${timeRange} profile not found`);
+  return {
+    roi: pctNumber(row.roi ?? row.roiRate ?? row.returnRate ?? row.return),
+    mdd: pctNumber(row.mdd ?? row.maxDrawdown ?? row.maxDrawDown),
+    winRate: pctNumber(row.winRate ?? row.winningRate),
+    apiKeyOnly: row.apiKeyOnly ?? row.isApiKey ?? true,
+  };
+}
+function strictQualification(s) {
+  if (s.trader.core) return { qualified: true, status: 'CORE', reasons: ['核心固定監控'] };
+  const screen = s.screening || {};
+  const st = displayStatsFor(s) || {};
+  const ref = s.referenceStats || {};
+  const reasons = [];
+  const roi7 = Number(screen.roi7d), roi30 = Number(screen.roi30d);
+  if (!(roi7 > 0)) reasons.push('7D未正獲利');
+  if (!(roi30 > 0)) reasons.push('30D未正獲利');
+  if (s.historyStatus !== 'OK') reasons.push('訂單API不可讀');
+  const activePositions = Number(s.positions?.size || 0);
+  if (activePositions > 8) reasons.push('同時持倉>8，訊號過度分散');
+
+  const sample = Number(st.sample || ref.sample || 0);
+  if (!(sample >= 50)) reasons.push('樣本<50');
+  const pf = Number(st.profitFactor ?? ref.profitFactor);
+  if (!(pf >= 1.5)) reasons.push('PF<1.5/未知');
+  const hold = Number(st.avgDurationMin ?? ref.medianDurationMin);
+  if (!(hold >= 60 && hold <= 18 * 60)) reasons.push('持倉不在1–18h');
+  const mdd = Number.isFinite(Number(screen.mdd30d)) ? Number(screen.mdd30d) : Number(ref.reportedMdd);
+  if (!(Number.isFinite(mdd) && mdd <= 20)) reasons.push('MDD>20%/未知');
+  const maxLev = Number(ref.maxLeverage);
+  if (!(Number.isFinite(maxLev) && maxLev <= 20)) reasons.push('槓桿>20x/未知');
+  const concentration = Number(ref.profitConcentration);
+  if (Number.isFinite(concentration) && concentration > 40) reasons.push('盈利過度集中');
+  const copierPnl = Number(ref.copierPnl);
+  if (Number.isFinite(copierPnl) && copierPnl < 0) reasons.push('跟單者累計虧損');
+  return { qualified: reasons.length === 0, status: reasons.length ? 'WATCH' : 'QUALIFIED', reasons };
+}
+
 const persistedState = loadJson(STATE_FILE, {});
 const persistedSeen = loadJson(SEEN_FILE, {});
 const persistedStats = loadJson(STATS_FILE, {});
 const persistedReference = loadJson(REFERENCE_FILE, {});
+const persistedScreen = loadJson(SCREEN_FILE, {});
 const states = new Map();
 
 for (const trader of TRADERS) {
@@ -1299,6 +1445,9 @@ for (const trader of TRADERS) {
     referenceUpdatedAt: persistedReference[trader.id]?.referenceUpdatedAt || null,
     referenceError: persistedReference[trader.id]?.referenceError || null,
     lastReferenceAttempt: 0,
+    lastOrderPollAt: 0,
+    screening: persistedScreen[trader.id]?.screening || { roi7d:null, roi30d:null, mdd30d:null, updatedAt:null, status:'WAITING', error:null },
+    lastScreenAttempt: 0,
     latestOrders: [],
     recentStats: persistedStats[trader.id]?.recentStats || {
       sample: 0, wins: 0, winRate: null, avgProfit: null,
@@ -1317,7 +1466,8 @@ let recentEvents = loadJson(EVENT_FILE, [])
   .filter(e => !(e?.source === 'official_snapshot' && e?.type === 'CLOSE'))
   .slice(0, 80);
 saveJson(EVENT_FILE, recentEvents);
-let consensusSent = loadJson(CONSENSUS_FILE, {});
+let consensusSent = loadJson(CONSENSUS_FILE, {}); // legacy, kept for migration compatibility
+let consensusEpisodes = loadJson(CONSENSUS_EPISODE_FILE, {});
 let timer = null;
 
 function persistStates() {
@@ -1363,6 +1513,12 @@ function persistReference() {
   }
 
   saveJson(REFERENCE_FILE, out);
+}
+
+function persistScreen() {
+  const out = {};
+  for (const [id, s] of states) out[id] = { screening: s.screening };
+  saveJson(SCREEN_FILE, out);
 }
 
 
@@ -1428,6 +1584,7 @@ function normalizeSubRecord(x) {
       subscription: x.subscription,
       enabledTraders: cleanTraderIds(x.enabledTraders, true),
       enabledTypes: cleanEventTypes(x.enabledTypes, true),
+      consensusEnabled: x.consensusEnabled !== false,
     };
   }
 
@@ -1437,6 +1594,7 @@ function normalizeSubRecord(x) {
       subscription: x,
       enabledTraders: TRADERS.map(t => t.id),
       enabledTypes: [...EVENT_TYPES],
+      consensusEnabled: true,
     };
   }
 
@@ -1450,25 +1608,33 @@ function saveSubRecords(records) {
   saveJson(SUB_FILE, records);
 }
 
+function subscriptionAllows(rec, target = {}) {
+  const enabledTraders = new Set(rec?.enabledTraders || []);
+  const enabledTypes = new Set(rec?.enabledTypes || EVENT_TYPES);
+  const isConsensus = target.eventType === 'CONSENSUS';
+
+  // Consensus is deliberately independent from per-trader notification toggles.
+  // This lets the user keep only the core trader's individual alerts enabled while
+  // still receiving one >=2 same-symbol/same-direction confirmation alert.
+  if (isConsensus) return rec?.consensusEnabled !== false;
+
+  const traderAllowed = target.traderId
+    ? enabledTraders.has(target.traderId)
+    : Array.isArray(target.traderIds)
+      ? target.traderIds.some(id => enabledTraders.has(id))
+      : true;
+  const typeAllowed = target.eventType
+    ? enabledTypes.has(target.eventType)
+    : true;
+  return traderAllowed && typeAllowed;
+}
+
 async function sendPush(payload, target = {}) {
   const records = loadSubRecords();
   const keep = [];
 
   for (const rec of records) {
-    const enabledTraders = new Set(rec.enabledTraders || []);
-    const enabledTypes = new Set(rec.enabledTypes || EVENT_TYPES);
-
-    const traderAllowed = target.traderId
-      ? enabledTraders.has(target.traderId)
-      : Array.isArray(target.traderIds)
-        ? target.traderIds.some(id => enabledTraders.has(id))
-        : true;
-
-    const typeAllowed = target.eventType
-      ? enabledTypes.has(target.eventType)
-      : true;
-
-    if (!traderAllowed || !typeAllowed) {
+    if (!subscriptionAllows(rec, target)) {
       keep.push(rec);
       continue;
     }
@@ -1638,45 +1804,60 @@ async function syncOfficialSnapshot(s, result, { emitChanges = true } = {}) {
   return true;
 }
 
+function consensusEligibleState(s) {
+  const q = strictQualification(s);
+  if (!q.qualified) return false;
+  if (s.historyStatus !== 'OK') return false;
+  if (!s.lastFetch) return false;
+  const age = Date.now() - new Date(s.lastFetch).getTime();
+  return Number.isFinite(age) && age < 5 * 60 * 1000;
+}
 function currentConsensus(symbol, side) {
   const ids = [];
-
   for (const [id, s] of states) {
+    if (!consensusEligibleState(s)) continue;
     if (s.positions.has(positionKey(symbol, side))) ids.push(id);
   }
-
   return ids.sort();
 }
-
+function consensusEpisodeTransition(input, count, now = Date.now()) {
+  const ep = { active:false, belowSince:0, lastSentAt:0, lastCount:0, ...(input || {}) };
+  let shouldNotify = false;
+  if (count < 2) {
+    if (ep.active && !ep.belowSince) ep.belowSince = now;
+    ep.lastCount = count;
+    return { episode: ep, shouldNotify };
+  }
+  const rearmed = ep.active && ep.belowSince && now - ep.belowSince >= CONSENSUS_REARM_MS;
+  if (rearmed) ep.active = false;
+  ep.belowSince = 0;
+  ep.lastCount = count;
+  if (!ep.active) {
+    ep.active = true;
+    ep.lastSentAt = now;
+    shouldNotify = true;
+  }
+  return { episode: ep, shouldNotify };
+}
 async function maybeEmitConsensus(symbol, side) {
   const ids = currentConsensus(symbol, side);
-  if (ids.length < 2) return;
-
-  const key = `${symbol}|${side}|${ids.join(',')}`;
-  const last = Number(consensusSent[key] || 0);
-
-  if (Date.now() - last < 6 * 60 * 60 * 1000) return;
-
-  consensusSent[key] = Date.now();
-  saveJson(CONSENSUS_FILE, consensusSent);
+  const key = `${symbol}|${side}`;
+  const now = Date.now();
+  const transitioned = consensusEpisodeTransition(consensusEpisodes[key], ids.length, now);
+  consensusEpisodes[key] = transitioned.episode;
+  saveJson(CONSENSUS_EPISODE_FILE, consensusEpisodes);
+  if (!transitioned.shouldNotify) return; // 2 -> 3 -> 4 remains one alert.
 
   const names = ids.map(id => TRADER_BY_ID.get(id)?.name || id);
   const meta = buildConsensusRows().find(x => x.symbol === symbol && x.side === side);
-
   await emitEvent({
     id: `${Date.now()}-consensus-${key}`,
-    ts: new Date().toISOString(),
-    kind: 'CONSENSUS',
-    type: 'CONSENSUS',
-    symbol,
-    side,
-    direction: sideZh(side),
-    traderIds: ids,
-    traderNames: names,
-    consensusScore: meta?.score ?? null,
-    consensusLevel: meta?.level ?? null,
+    ts: new Date().toISOString(), kind: 'CONSENSUS', type: 'CONSENSUS',
+    symbol, side, direction: sideZh(side), traderIds: ids, traderNames: names,
+    consensusScore: meta?.score ?? null, consensusLevel: meta?.level ?? null,
   });
 }
+
 
 async function establishBaseline(s, orders) {
   s.positions = reconstruct(orders);
@@ -1685,7 +1866,7 @@ async function establishBaseline(s, orders) {
   persistStates();
 
   console.log(
-    `[baseline-v5.9.1] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
+    `[baseline-v6.2] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
   );
 }
 
@@ -1713,68 +1894,42 @@ async function pollTrader(s) {
   let orderSuccess = false;
   let positionSuccess = false;
   const errors = [];
+  const now = Date.now();
+  const orderEvery = s.trader.core ? CORE_ORDER_POLL_MS : SECONDARY_ORDER_POLL_MS;
+  const orderDue = !s.lastOrderPollAt || now - s.lastOrderPollAt >= orderEvery;
+  const positionDue = !s.lastPositionRefresh || now - s.lastPositionRefresh >= POSITION_REFRESH_MS;
+  if (!orderDue && !positionDue) return;
 
-  try {
-    const detail = await fetchOrders(s.trader.id);
-    const orders = detail.orders;
-
-    s.latestOrders = orders;
-    s.orderRawCount = detail.rawCount;
-    s.orderParseCount = detail.parsedCount;
-    s.orderPath = detail.path;
-    s.historyError = null;
-
-    if (detail.rawCount > 0 && detail.parsedCount === 0) {
-      s.historyStatus = 'PARSE_ERROR';
-    } else if (orders.length > 0) {
-      s.historyStatus = 'OK';
-    } else {
-      s.historyStatus = 'NO_HISTORY';
+  if (orderDue) {
+    s.lastOrderPollAt = Date.now();
+    try {
+      const detail = await fetchOrders(s.trader.id);
+      const orders = detail.orders;
+      s.latestOrders = orders; s.orderRawCount = detail.rawCount; s.orderParseCount = detail.parsedCount; s.orderPath = detail.path; s.historyError = null;
+      if (detail.rawCount > 0 && detail.parsedCount === 0) s.historyStatus = 'PARSE_ERROR';
+      else if (orders.length > 0) s.historyStatus = 'OK';
+      else s.historyStatus = 'NO_HISTORY';
+      if (!s.baselineReady) await establishBaseline(s, orders);
+      else { recoverPositionsFromRecent(s, orders); await processNewOrders(s, orders); }
+      if (!s.statsUpdatedAt || !s.statsOrderCount) applyQuickStats(s, orders);
+      orderSuccess = true;
+    } catch (e) {
+      s.historyStatus = 'ERROR'; s.historyError = String(e?.message || e); errors.push(`orders: ${s.historyError}`);
+      console.error(`[poll-orders-v6.2] ${s.trader.name}: ${s.historyError}`);
     }
+  } else orderSuccess = s.historyStatus === 'OK';
 
-    if (!s.baselineReady) {
-      await establishBaseline(s, orders);
-    } else {
-      recoverPositionsFromRecent(s, orders);
-      await processNewOrders(s, orders);
-    }
-
-    if (!s.statsUpdatedAt || !s.statsOrderCount) {
-      applyQuickStats(s, orders);
-    }
-
-    orderSuccess = true;
-  } catch (e) {
-    s.historyStatus = 'ERROR';
-    s.historyError = String(e?.message || e);
-    errors.push(`orders: ${s.historyError}`);
-    console.error(`[poll-orders-v5.9.1] ${s.trader.name}: ${s.historyError}`);
-  }
-
-  if (Date.now() - s.lastPositionRefresh >= POSITION_REFRESH_MS) {
-    const result = await fetchOfficialPositions(s.trader.id);
+  if (positionDue) {
     s.lastPositionRefresh = Date.now();
+    const result = await fetchOfficialPositions(s.trader.id);
+    if (result.ok) { await syncOfficialSnapshot(s, result, { emitChanges: true }); positionSuccess = true; }
+    else { s.positionStatus='ERROR'; s.positionError=result.error||'positions unavailable'; errors.push(`positions: ${s.positionError}`); }
+  } else positionSuccess = s.positionStatus !== 'ERROR';
 
-    if (result.ok) {
-      await syncOfficialSnapshot(s, result, { emitChanges: true });
-      positionSuccess = true;
-    } else {
-      s.positionStatus = 'ERROR';
-      s.positionError = result.error || 'positions unavailable';
-      errors.push(`positions: ${s.positionError}`);
-      console.error(`[poll-positions-v5.9.1] ${s.trader.name}: ${s.positionError}`);
-    }
-  } else {
-    positionSuccess = s.positionStatus !== 'ERROR';
-  }
-
-  if (orderSuccess || positionSuccess) {
-    s.lastFetch = new Date().toISOString();
-    s.lastError = null;
-  } else {
-    s.lastError = errors.join(' | ') || 'ALL_SOURCES_FAILED';
-  }
+  if (orderSuccess || positionSuccess) { s.lastFetch = new Date().toISOString(); s.lastError = null; }
+  else s.lastError = errors.join(' | ') || 'ALL_SOURCES_FAILED';
 }
+
 
 async function loop() {
   void refreshMarkPrices();
@@ -1827,12 +1982,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v6.1] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v6.2] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v6.1] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v6.2] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -1840,7 +1995,7 @@ async function runNextDeepStats() {
 
 function statsLoop() {
   void runNextDeepStats();
-  statsTimer = setTimeout(statsLoop, 12000);
+  statsTimer = setTimeout(statsLoop, 20000);
 }
 
 let referenceTimer = null;
@@ -1877,11 +2032,11 @@ async function runNextReferenceRefresh() {
     persistReference();
 
     console.log(
-      `[reference-v5.9.1] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
+      `[reference-v6.2] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
     );
   } catch (e) {
     s.referenceError = String(e?.message || e);
-    console.warn(`[reference-v5.9.1] ${s.trader.name}: ${s.referenceError}`);
+    console.warn(`[reference-v6.2] ${s.trader.name}: ${s.referenceError}`);
   } finally {
     referenceRunning = false;
   }
@@ -1893,6 +2048,42 @@ function referenceLoop() {
 }
 
 
+
+
+let screenTimer = null;
+let screenCursor = 0;
+let screenRunning = false;
+async function runNextScreen() {
+  if (screenRunning) return;
+  const list = [...states.values()].filter(s => !s.trader.core);
+  if (!list.length) return;
+  const s = list[screenCursor % list.length];
+  screenCursor = (screenCursor + 1) % list.length;
+  const updated = s.screening?.updatedAt ? new Date(s.screening.updatedAt).getTime() : 0;
+  if (updated && Date.now() - updated < SCREEN_REFRESH_MS) return;
+  if (s.lastScreenAttempt && Date.now() - s.lastScreenAttempt < 5 * 60 * 1000) return;
+  screenRunning = true; s.lastScreenAttempt = Date.now();
+  try {
+    const seven = await fetchScreenRange(s.trader, '7D');
+    const thirty = await fetchScreenRange(s.trader, '30D');
+    s.screening = {
+      roi7d: seven.roi, roi30d: thirty.roi,
+      mdd30d: Number.isFinite(Number(thirty.mdd)) ? Number(thirty.mdd) : null,
+      winRate30d: Number.isFinite(Number(thirty.winRate)) ? Number(thirty.winRate) : null,
+      apiKeyOnly: seven.apiKeyOnly !== false && thirty.apiKeyOnly !== false,
+      updatedAt: new Date().toISOString(), status: 'OK', error: null,
+    };
+    persistScreen();
+  } catch (e) {
+    s.screening = { ...(s.screening||{}), status:'ERROR', error:String(e?.message||e), updatedAt:s.screening?.updatedAt||null };
+    persistScreen();
+    console.warn(`[screen-v6.2] ${s.trader.name}: ${s.screening.error}`);
+  } finally { screenRunning = false; }
+}
+function screenLoop() {
+  void runNextScreen();
+  screenTimer = setTimeout(screenLoop, 45000);
+}
 
 function latestTraderEvent(traderId) {
   return recentEvents.find(e => e?.kind === 'TRADER' && e?.traderId === traderId) || null;
@@ -1999,6 +2190,7 @@ function buildConsensusRows() {
   const buckets = new Map();
 
   for (const [traderId, s] of states) {
+    if (!consensusEligibleState(s)) continue;
     for (const p of s.positions.values()) {
       const key = `${p.symbol}|${p.side}`;
       if (!buckets.has(key)) buckets.set(key, []);
@@ -2033,7 +2225,8 @@ function buildConsensusRows() {
       timeSpreadMin = (Math.max(...times) - Math.min(...times)) / 60000;
     }
 
-    let score = (members.length / TRADERS.length) * 50;
+    const eligibleTotal = Math.max(2, [...states.values()].filter(consensusEligibleState).length);
+    let score = (members.length / eligibleTotal) * 50;
     if (entrySpreadPct == null) score += 8;
     else if (entrySpreadPct <= 0.35) score += 25;
     else if (entrySpreadPct <= 0.8) score += 20;
@@ -2055,7 +2248,7 @@ function buildConsensusRows() {
 
     rows.push({
       symbol, side, direction: sideZh(side),
-      count: members.length, total: TRADERS.length,
+      count: members.length, total: Math.max(2, [...states.values()].filter(consensusEligibleState).length),
       score, level, entrySpreadPct, timeSpreadMin,
       traderIds: members.map(x => x.traderId),
       traderNames: members.map(x => x.traderName),
@@ -2067,8 +2260,12 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_1_SMART_CALC',
+    mode: 'V6_2_SAFE_RADAR',
     pollMs: POLL_MS,
+    coreOrderPollMs: CORE_ORDER_POLL_MS,
+    secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
+    positionRefreshMs: POSITION_REFRESH_MS,
+    copyBapiBudgetPerMin: COPY_BAPI_BUDGET_PER_MIN,
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
@@ -2097,6 +2294,8 @@ app.get('/api/status', (_req, res) => {
       referenceUpdatedAt: s.referenceUpdatedAt,
       referenceError: s.referenceError,
       displayStats: displayStatsFor(s),
+      screening: s.screening,
+      qualification: strictQualification(s),
       historyStatus: s.historyStatus,
       historyError: s.historyError,
       orderRawCount: s.orderRawCount,
@@ -2146,6 +2345,8 @@ app.get('/api/status', (_req, res) => {
     },
     healthy: traderRows.filter(t => Boolean(t.lastFetch)).length,
     total: traderRows.length,
+    qualified: traderRows.filter(t => t.qualification?.qualified).length,
+    copyRate: copyRateSnapshot(),
   });
 });
 
@@ -2172,20 +2373,23 @@ app.get('/api/reference-levels', async (req, res) => {
       ...levels,
     });
   } catch (e) {
-    console.warn(`[reference-levels-v6.1] ${symbol}: ${String(e?.message || e)}`);
+    console.warn(`[reference-levels-v6.2] ${symbol}: ${String(e?.message || e)}`);
     return res.status(502).json({ ok: false, error: String(e?.message || e) });
   }
 });
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V6.1',
+    mode: 'V6.2',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
     markPriceUpdatedAt,
     markPriceError,
     markPriceSymbols: markPrices.size,
+    copyRate: copyRateSnapshot(),
+    screenRunning,
+    screenCursor,
     traders: [...states.values()].map(s => ({
       id: s.trader.id,
       name: s.trader.name,
@@ -2215,6 +2419,8 @@ app.get('/api/diagnostics', (_req, res) => {
       referenceUpdatedAt: s.referenceUpdatedAt,
       referenceError: s.referenceError,
       signalValue: signalValue(s),
+      screening: s.screening,
+      qualification: strictQualification(s),
     })),
   });
 });
@@ -2229,6 +2435,7 @@ app.post('/api/subscribe', (req, res) => {
 
   const enabledTraders = cleanTraderIds(body.enabledTraders, true);
   const enabledTypes = cleanEventTypes(body.enabledTypes, true);
+  const consensusEnabled = body.consensusEnabled !== false;
 
   const records = loadSubRecords();
   const idx = records.findIndex(r => r.endpoint === subscription.endpoint);
@@ -2238,6 +2445,7 @@ app.post('/api/subscribe', (req, res) => {
     subscription,
     enabledTraders,
     enabledTypes,
+    consensusEnabled,
   };
 
   if (idx >= 0) records[idx] = next;
@@ -2249,6 +2457,7 @@ app.post('/api/subscribe', (req, res) => {
     ok: true,
     enabledTraders,
     enabledTypes,
+    consensusEnabled,
   });
 });
 
@@ -2273,6 +2482,7 @@ app.post('/api/preferences', (req, res) => {
   if (Array.isArray(req.body?.enabledTypes)) {
     rec.enabledTypes = cleanEventTypes(req.body.enabledTypes, false);
   }
+  if (typeof req.body?.consensusEnabled === 'boolean') rec.consensusEnabled = req.body.consensusEnabled;
 
   saveSubRecords(records);
 
@@ -2280,6 +2490,7 @@ app.post('/api/preferences', (req, res) => {
     ok: true,
     enabledTraders: rec.enabledTraders,
     enabledTypes: rec.enabledTypes,
+    consensusEnabled: rec.consensusEnabled !== false,
   });
 });
 
@@ -2315,17 +2526,18 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V6.1',
+    mode: 'V6.2',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V5.9.1 started on ${PORT}`);
+    console.log(`Position Alert V6.2 SAFE RADAR started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
     referenceTimer = setTimeout(referenceLoop, 12000);
+    screenTimer = setTimeout(screenLoop, 16000);
   });
 }
 
@@ -2333,6 +2545,7 @@ process.on('SIGTERM', () => {
   if (timer) clearTimeout(timer);
   if (statsTimer) clearTimeout(statsTimer);
   if (referenceTimer) clearTimeout(referenceTimer);
+  if (screenTimer) clearTimeout(screenTimer);
   process.exit(0);
 });
 
@@ -2346,4 +2559,8 @@ export {
   signalValue,
   syncOfficialSnapshot,
   positionKey,
+  strictQualification,
+  consensusEpisodeTransition,
+  pctNumber,
+  subscriptionAllows,
 };
