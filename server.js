@@ -70,9 +70,9 @@ const TRADERS = [
     referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:98, winRate:98.9, sample:654, profitFactor:1.86, medianDurationMin:2.1*60, reportedRoi:10, followers:11, maxLeverage:10, reportedMdd:10.3, profitConcentration:14.2, copierPnl:1285, riskFlags:[] },
   },
   {
-    id: '4556315195316581632', name: '人生到處知何似', defaultTag: '穩健', priority: 7, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4556315195316581632/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:96, winRate:93.3, sample:313, profitFactor:113.58, medianDurationMin:1.5*60, reportedRoi:36, followers:17, maxLeverage:5, reportedMdd:26.1, profitConcentration:34.2, copierPnl:2080, riskFlags:[] },
+    id: '4563197729960674304', name: '再也不做空了', defaultTag: '短持倉', priority: 7, apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4563197729960674304/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:70, winRate:76.3, sample:114, profitFactor:3.59, medianDurationMin:4.2*60, reportedRoi:114, followers:1, maxLeverage:20, reportedMdd:19.0, profitConcentration:13.0, copierPnl:0, riskFlags:[] },
   },
   {
     id: '4112815248716815105', name: 'SaGoCrypto', defaultTag: '分散型', priority: 8, apiConfirmed: true,
@@ -706,7 +706,7 @@ async function fetchStatsOrders(traderId, firstPage = []) {
     try {
       detail = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v6.3] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v6.4] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
@@ -1008,7 +1008,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.3',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.4',
       },
       signal: controller.signal,
     });
@@ -1066,7 +1066,7 @@ async function fetchLevelCandles(symbol) {
   try {
     const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${LEVEL_INTERVAL}&limit=${LEVEL_LIMIT}`;
     const r = await fetch(url, {
-      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.3' },
+      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.4' },
       signal: controller.signal,
     });
     if (!r.ok) throw new Error(`kline HTTP ${r.status}`);
@@ -1251,7 +1251,7 @@ async function refreshMarkPrices(force = false) {
     const r = await fetch(MARK_PRICE_URL, {
       headers: {
         accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.3',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.4',
       },
     });
 
@@ -1926,7 +1926,7 @@ async function pollTrader(s) {
       orderSuccess = true;
     } catch (e) {
       s.historyStatus = 'ERROR'; s.historyError = String(e?.message || e); errors.push(`orders: ${s.historyError}`);
-      console.error(`[poll-orders-v6.3] ${s.trader.name}: ${s.historyError}`);
+      console.error(`[poll-orders-v6.4] ${s.trader.name}: ${s.historyError}`);
     }
   } else orderSuccess = s.historyStatus === 'OK';
 
@@ -1993,12 +1993,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v6.3] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v6.4] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v6.3] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v6.4] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -2271,7 +2271,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_3_CLEAN_RADAR',
+    mode: 'V6_4_PNL_CLEAN_API',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
