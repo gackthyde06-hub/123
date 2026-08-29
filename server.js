@@ -34,6 +34,7 @@ const TRADERS = [
     defaultTag: '主核心',
     priority: 1,
     core: true,
+    apiConfirmed: true,
     referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5075281354358777856/',
     referenceSeed: {
       source: 'CopyRadar', asOf: '2026-08-28', qualityScore: 70,
@@ -44,49 +45,39 @@ const TRADERS = [
     },
   },
   {
-    id: '4520644381136785152', name: 'CuanBot', defaultTag: '低回撤候選', priority: 2,
+    id: '4520644381136785152', name: 'CuanBot', defaultTag: '低回撤', priority: 2, apiConfirmed: true,
     referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4520644381136785152/',
     referenceSeed: { source:'CopyRadar/SmartCopyTrade', asOf:'2026-08-28', qualityScore:100, reportedRoi:9, reportedMdd:12.48, followers:58, riskFlags:[] },
   },
   {
-    id: '5048921197418366208', name: 'ALL KILL OUT', defaultTag: '穩健候選', priority: 3,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5048921197418366208/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, winRate:64.8, sample:477, profitFactor:1.80, medianDurationMin:5.8*60, reportedRoi:66, followers:43, maxLeverage:5, reportedMdd:16.9, profitConcentration:2.7, copierPnl:5885, riskFlags:[] },
+    id: '4855144495762648832', name: '小新交易員', defaultTag: '數據', priority: 3, apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4855144495762648832/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:100, winRate:49.7, sample:304, profitFactor:1.74, medianDurationMin:6.6*60, reportedRoi:165, followers:201, maxLeverage:20, reportedMdd:24.0, profitConcentration:7.5, copierPnl:17117, riskFlags:[] },
   },
   {
-    id: '3848411987859099392', name: 'GridMaster', defaultTag: '低回撤候選', priority: 4,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/3848411987859099392/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-24', qualityScore:98, winRate:98.9, sample:654, profitFactor:1.86, medianDurationMin:2.1*60, reportedRoi:10, followers:11, maxLeverage:10, reportedMdd:10.3, profitConcentration:14.2, copierPnl:1285, riskFlags:[] },
-  },
-  {
-    id: '5072318291936552192', name: 'R博士', defaultTag: 'A級候選', priority: 5,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5072318291936552192/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:329, followers:39, riskFlags:[] },
-  },
-  {
-    id: '5031454375430644481', name: 'GoldRush', defaultTag: 'A級候選', priority: 6,
+    id: '5031454375430644481', name: 'GoldRush', defaultTag: 'A級', priority: 4, apiConfirmed: true,
     referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5031454375430644481/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:133, followers:12, riskFlags:[] },
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:134, followers:14, riskFlags:[] },
   },
   {
-    id: '4916453009605013505', name: 'iiTrader', defaultTag: 'A級候選', priority: 7,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4916453009605013505/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:96, reportedRoi:75, followers:29, riskFlags:[] },
+    id: '5072318291936552192', name: 'R博士', defaultTag: 'A級', priority: 5, apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5072318291936552192/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:315, followers:40, riskFlags:[] },
   },
   {
-    id: '4187364380033162753', name: '量化金城武QuantAniki', defaultTag: '低槓桿候選', priority: 8,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4187364380033162753/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-08', qualityScore:90, winRate:72.4, sample:98, profitFactor:1.76, medianDurationMin:1.6*60, reportedRoi:2, followers:11, maxLeverage:5, reportedMdd:0.6, profitConcentration:5.9, copierPnl:349, riskFlags:[] },
+    id: '3848411987859099392', name: 'GridMaster', defaultTag: '低回撤', priority: 6, apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/3848411987859099392/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:98, winRate:98.9, sample:654, profitFactor:1.86, medianDurationMin:2.1*60, reportedRoi:10, followers:11, maxLeverage:10, reportedMdd:10.3, profitConcentration:14.2, copierPnl:1285, riskFlags:[] },
   },
   {
-    id: '4112815248716815105', name: 'SaGoCrypto', defaultTag: '低回撤候選', priority: 9,
+    id: '4556315195316581632', name: '人生到處知何似', defaultTag: '穩健', priority: 7, apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4556315195316581632/',
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:96, winRate:93.3, sample:313, profitFactor:113.58, medianDurationMin:1.5*60, reportedRoi:36, followers:17, maxLeverage:5, reportedMdd:26.1, profitConcentration:34.2, copierPnl:2080, riskFlags:[] },
+  },
+  {
+    id: '4112815248716815105', name: 'SaGoCrypto', defaultTag: '分散型', priority: 8, apiConfirmed: true,
     referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4112815248716815105/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:100, winRate:99.8, sample:1929, profitFactor:323.70, medianDurationMin:17.3*60, reportedRoi:27, followers:18, maxLeverage:3, reportedMdd:10.1, profitConcentration:4.1, copierPnl:1362, riskFlags:[] },
-  },
-  {
-    id: '5121749078299654657', name: '富一次就足够', defaultTag: 'A級候選', priority: 10,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5121749078299654657/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:95, reportedRoi:183, followers:167, riskFlags:[] },
+    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:100, winRate:99.8, sample:1929, profitFactor:323.70, medianDurationMin:17.3*60, reportedRoi:26, followers:18, maxLeverage:3, reportedMdd:10.1, profitConcentration:4.1, copierPnl:1362, riskFlags:[] },
   },
 ];
 
@@ -715,7 +706,7 @@ async function fetchStatsOrders(traderId, firstPage = []) {
     try {
       detail = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v6.2] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v6.3] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
@@ -1017,7 +1008,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.2',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.3',
       },
       signal: controller.signal,
     });
@@ -1075,7 +1066,7 @@ async function fetchLevelCandles(symbol) {
   try {
     const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${LEVEL_INTERVAL}&limit=${LEVEL_LIMIT}`;
     const r = await fetch(url, {
-      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.2' },
+      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.3' },
       signal: controller.signal,
     });
     if (!r.ok) throw new Error(`kline HTTP ${r.status}`);
@@ -1260,7 +1251,7 @@ async function refreshMarkPrices(force = false) {
     const r = await fetch(MARK_PRICE_URL, {
       headers: {
         accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.2',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.3',
       },
     });
 
@@ -1285,7 +1276,7 @@ async function refreshMarkPrices(force = false) {
     return true;
   } catch (e) {
     markPriceError = String(e?.message || e);
-    console.warn(`[mark-price-v6.2] ${markPriceError}`);
+    console.warn(`[mark-price-v6.3] ${markPriceError}`);
     return false;
   } finally {
     markPriceBusy = false;
@@ -1656,6 +1647,21 @@ async function sendPush(payload, target = {}) {
 
 function makeTraderEvent(type, trader, o, result) {
   const direction = sideZh(o.positionSide);
+  const previous = result?.previous || null;
+  let realizedPnl = null;
+  let realizedPricePct = null;
+  let realizedQty = null;
+
+  if ((type === 'REDUCE' || type === 'CLOSE') && previous?.entryPrice > 0 && previous?.amount > 0) {
+    realizedQty = Math.min(Math.abs(Number(o.qty || 0)), Math.abs(Number(previous.amount || 0)));
+    if (realizedQty > 0) {
+      realizedPnl = o.positionSide === 'LONG'
+        ? (o.price - previous.entryPrice) * realizedQty
+        : (previous.entryPrice - o.price) * realizedQty;
+      const base = previous.entryPrice * realizedQty;
+      realizedPricePct = base > 0 ? (realizedPnl / base) * 100 : null;
+    }
+  }
 
   return {
     id: `${Date.now()}-${trader.id}-${o.key}`,
@@ -1668,8 +1674,13 @@ function makeTraderEvent(type, trader, o, result) {
     symbol: o.symbol,
     side: o.positionSide,
     direction,
-    entryPrice: result?.current?.entryPrice || o.price,
+    entryPrice: result?.current?.entryPrice || previous?.entryPrice || o.price,
     tradePrice: o.price,
+    realizedPnl,
+    realizedPricePct,
+    realizedQty,
+    // Order-reconstructed PnL excludes fees/funding and can be approximate at a history boundary.
+    realizedPnlEstimated: Boolean(previous?.source === 'orders'),
   };
 }
 
@@ -1866,7 +1877,7 @@ async function establishBaseline(s, orders) {
   persistStates();
 
   console.log(
-    `[baseline-v6.2] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
+    `[baseline-v6.3] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
   );
 }
 
@@ -1915,7 +1926,7 @@ async function pollTrader(s) {
       orderSuccess = true;
     } catch (e) {
       s.historyStatus = 'ERROR'; s.historyError = String(e?.message || e); errors.push(`orders: ${s.historyError}`);
-      console.error(`[poll-orders-v6.2] ${s.trader.name}: ${s.historyError}`);
+      console.error(`[poll-orders-v6.3] ${s.trader.name}: ${s.historyError}`);
     }
   } else orderSuccess = s.historyStatus === 'OK';
 
@@ -1982,12 +1993,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v6.2] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v6.3] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v6.2] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v6.3] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -2032,11 +2043,11 @@ async function runNextReferenceRefresh() {
     persistReference();
 
     console.log(
-      `[reference-v6.2] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
+      `[reference-v6.3] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
     );
   } catch (e) {
     s.referenceError = String(e?.message || e);
-    console.warn(`[reference-v6.2] ${s.trader.name}: ${s.referenceError}`);
+    console.warn(`[reference-v6.3] ${s.trader.name}: ${s.referenceError}`);
   } finally {
     referenceRunning = false;
   }
@@ -2077,7 +2088,7 @@ async function runNextScreen() {
   } catch (e) {
     s.screening = { ...(s.screening||{}), status:'ERROR', error:String(e?.message||e), updatedAt:s.screening?.updatedAt||null };
     persistScreen();
-    console.warn(`[screen-v6.2] ${s.trader.name}: ${s.screening.error}`);
+    console.warn(`[screen-v6.3] ${s.trader.name}: ${s.screening.error}`);
   } finally { screenRunning = false; }
 }
 function screenLoop() {
@@ -2260,7 +2271,7 @@ function buildConsensusRows() {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_2_SAFE_RADAR',
+    mode: 'V6_3_CLEAN_RADAR',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -2373,14 +2384,14 @@ app.get('/api/reference-levels', async (req, res) => {
       ...levels,
     });
   } catch (e) {
-    console.warn(`[reference-levels-v6.2] ${symbol}: ${String(e?.message || e)}`);
+    console.warn(`[reference-levels-v6.3] ${symbol}: ${String(e?.message || e)}`);
     return res.status(502).json({ ok: false, error: String(e?.message || e) });
   }
 });
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V6.2',
+    mode: 'V6.3',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -2526,13 +2537,13 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V6.2',
+    mode: 'V6.3',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V6.2 SAFE RADAR started on ${PORT}`);
+    console.log(`Position Alert V6.3 CLEAN RADAR started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);

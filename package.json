@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v620-safe-radar",
-  "version": "6.2.0",
+  "name": "position-alert-v63-clean-radar",
+  "version": "6.3.0",
   "private": true,
   "type": "module",
   "scripts": {
