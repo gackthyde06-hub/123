@@ -108,6 +108,9 @@ button,input{font:inherit}
 .confidenceBadge.high{background:#332a17;color:#e8c675}.confidenceBadge.medium{background:#25231d;color:#bdb189}.confidenceBadge.low{background:#221d1c;color:#a88672}
 .signalBadge{display:inline-block;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:900;border:1px solid #3d3528;background:#171613;color:#a99c82}.signalBadge.high{border-color:#8a6226;background:#2a2112;color:#f0c86c}.signalBadge.medium{border-color:#5b4b2b;background:#201d16;color:#d8bf83}.signalBadge.low{border-color:#433532;background:#1e1716;color:#b78d84}.signalBadge.wait{border-color:#343434;background:#171717;color:#888}
 .stateInfo{font-size:9px;color:#746f67}
+.qualBadge{display:inline-block;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:900;border:1px solid #3b362e}.qualBadge.core{color:#f0c66d;border-color:#765627;background:#2a2012}.qualBadge.qualified{color:#ff7a7c;border-color:#5b292a;background:#291617}.qualBadge.watch{color:#9a948a;border-color:#3b3b3b;background:#171818}
+.wideCell{grid-column:1/-1}.rateGuard{margin-top:8px;padding:8px 10px;border-radius:10px;background:#0b0c0c;border:1px solid #242526;color:#79746c;font-size:8px;line-height:1.35}.rateGuard.ok{color:#6fbf91}.rateGuard.warn{color:#e0b65d}.rateGuard.bad{color:#ff796e}.consensusSetting,.bottomMaster{margin-top:10px;border:1px solid #34302a;border-radius:13px;background:#111212;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.consensusSettingText,.bottomMasterText{min-width:0}.consensusSettingText b,.bottomMasterText b{display:block;font-size:11px;color:#d6c7aa}.consensusSettingText span,.bottomMasterText span{display:block;font-size:8px;color:#746f67;margin-top:3px;line-height:1.35}.radarCount{font-size:9px;color:#8a8277}.orderSettings{margin-top:10px;border:1px solid #2f302f;border-radius:13px;background:#0e0f0f}.orderSettings>summary{list-style:none;display:flex;justify-content:space-between;padding:11px 12px;color:#aaa398;font-size:10px;font-weight:800;cursor:pointer}.orderSettings>summary::-webkit-details-marker{display:none}.orderList{padding:0 10px 10px}.orderRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 2px;border-top:1px solid #232424;font-size:9px;color:#c4beb4}.orderRow b{display:inline-block;width:18px;color:#756e65}.orderRow em{font-style:normal;color:#d6aa50;font-size:8px}.orderBtns{display:flex;gap:5px}.orderBtns button{width:34px;height:30px;border:1px solid #3c3d3d;border-radius:8px;background:#1c1d1d;color:#d8d2c7;font-size:14px}
+
 .dataBadge{display:inline-block;border-radius:6px;padding:3px 6px;font-size:9px;font-weight:850;border:1px solid #3a352c;background:#171715;color:#989188}
 .dataBadge.live{border-color:#675027;background:#231d13;color:#dfbd73}
 .dataBadge.public{border-color:#4c4738;background:#1d1c18;color:#c5b88f}
@@ -159,7 +162,7 @@ button,input{font:inherit}
 .settings{margin-top:12px;border:1px solid #493820;border-radius:16px;background:linear-gradient(145deg,#181817,#0c0d0e)}
 .settings>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px;color:#d3c29f;font-size:12px;font-weight:820;cursor:pointer}
 .settings>summary::-webkit-details-marker{display:none}.settingsInner{padding:0 12px 12px}
-.types{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.typeChoice input{display:none}
+.types{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.typeChoice input{display:none}
 .typeChoice span{display:block;text-align:center;padding:8px 2px;border-radius:8px;border:1px solid #483720;color:#a18f6d;font-size:9px;font-weight:850;background:#111}
 .typeChoice input:checked+span{background:linear-gradient(90deg,#c68f32,#e3b95d);color:#161108;border-color:#e1b75a}
 button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px;font-size:12px;font-weight:850}
@@ -253,7 +256,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </details>
 
   <div class="sectionBar">
-    <div class="sectionTitle">核心交易員</div>
+    <div class="sectionTitle">高手雷達</div><div id="radarCount" class="radarCount">共識合格 —</div>
   </div>
 
   <div id="traders"><div class="emptyText">讀取中…</div></div>
@@ -262,17 +265,24 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
     <summary><span>🔔 通知設定</span><span>⌄</span></summary>
     <div class="settingsInner">
       <div id="typeOptions" class="types"></div>
+      <div class="consensusSetting"><div class="consensusSettingText"><b>2人以上同向通知</b><span>獨立於個別交易員開關；同幣種同方向達 2 人以上只提醒一次</span></div><label class="switch"><input id="consensusToggle" type="checkbox" checked><span class="slider"></span></label></div>
+      <div id="rateGuard" class="rateGuard">限流保護：讀取中…</div>
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
       <div id="msg" class="msg"></div>
-      <div class="note">即時動作約每 3 秒檢查；倉位同時用訂單紀錄＋官方倉位快照交叉監控。若 Binance 某位交易員的訂單歷史暫時不可讀，仍會持續監看目前倉位；歷史統計則改顯示有來源標記的公開基準，不再永久空白。公開基準與重建統計都屬參考資料，PF、ROI 與 PnL 不含手續費與資金費。</div>
+      <div class="note">熬鷹核心約 3 秒檢查；其他高手採安全錯峰輪詢。2 人以上同向通知只計入通過 7D/30D、API 可讀、回撤與持倉時間嚴選門檻的交易員。倉位同時用訂單紀錄＋官方倉位快照交叉監控。若 Binance 某位交易員的訂單歷史暫時不可讀，仍會持續監看目前倉位；歷史統計則改顯示有來源標記的公開基準，不再永久空白。公開基準與重建統計都屬參考資料，PF、ROI 與 PnL 不含手續費與資金費。</div>
     </div>
   </details>
 
   <div class="bottomMaster">
-    <div class="bottomMasterText"><b>高手通知總開關</b><span>控制全部 4 位交易員通知</span></div>
-    <div class="masterWrap"><span id="allCount" class="masterCount">4/4</span><label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label></div>
+    <div class="bottomMasterText"><b>高手通知總開關</b><span>只控制個別高手通知，不影響「2人以上同向通知」</span></div>
+    <div class="masterWrap"><span id="allCount" class="masterCount">1/10</span><label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label></div>
   </div>
+
+  <details class="orderSettings">
+    <summary><span>↕ 自訂高手顯示順序</span><span>熬鷹固定第一　⌄</span></summary>
+    <div id="orderList" class="orderList"></div>
+  </details>
 </div>
 
 <div id="labelModal" class="modalBackdrop" aria-hidden="true">
@@ -287,6 +297,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=610"></script>
+<script src="/app.js?v=620"></script>
 </body>
 </html>
