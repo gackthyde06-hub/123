@@ -139,7 +139,7 @@ button,input{font:inherit}
 .pos{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(72px,auto);gap:8px;align-items:center;padding:10px 11px;border-top:1px solid #202224}
 .pos:first-child{border-top:0}
 .symline{display:flex;align-items:center;gap:7px;min-width:0}.sym{font-size:13px;font-weight:800}
-.dirTag{font-size:9px;font-weight:900;padding:3px 6px;border-radius:6px;flex:0 0 auto}
+.dirTag{font-size:9px;font-weight:900;padding:3px 6px;border-radius:6px;flex:0 0 auto}.openAt{font-size:7px;color:#756f66;white-space:nowrap;flex:0 0 auto}
 .dirTag.long{background:#481c1d;color:#ff7778}.dirTag.short{background:#123823;color:#63e39c}
 .posPnl{min-width:62px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;line-height:1.08;transform:translateX(-18px)}
 .posPnl .pnlPct{font-size:11px;font-weight:900;white-space:nowrap}
@@ -152,7 +152,7 @@ button,input{font:inherit}
 .details{margin-top:7px;border-top:1px solid #28251f}
 .details summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:9px 2px 1px;color:#948e84;font-size:9px;cursor:pointer}
 .details summary::-webkit-details-marker{display:none}.details summary b{font-weight:780;color:#aaa399}
-.event{display:grid;grid-template-columns:40px 1fr auto;gap:6px;align-items:center;padding:7px 2px;border-top:1px solid #222;font-size:10px}
+.event{display:grid;grid-template-columns:40px 1fr auto;gap:6px;align-items:center;padding:7px 2px;border-top:1px solid #222;font-size:10px}.movementPnl{font-size:8px;font-weight:850;white-space:nowrap}.movementPnl.profit{color:var(--up)}.movementPnl.loss{color:var(--down)}.movementPnl.flat{color:var(--gold2)}.eventPnl{display:block;margin-top:2px;font-size:7px;font-weight:800}.details>summary b .movementPnl{margin-left:4px;font-size:8px}
 .eventTime{color:#716d66}.eventAct{font-weight:850}.eventCoin{color:#d5d0c7}.eventPx{color:#a49d92;text-align:right}
 .statsGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:8px 0 2px;border-top:1px solid #222}
 .statCell{background:#0c0e0f;border:1px solid #252628;border-radius:9px;padding:8px}
@@ -250,13 +250,13 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
         <div class="calcCell"><span>SL 預估虧損</span><b id="calcLoss" class="calcLoss">—</b></div>
         <div class="calcCell"><span>槓桿後 TP / SL</span><b id="calcLeveragedPct" class="calcGold">—</b></div>
       </div>
-      <div id="calcMsg" class="calcMsg">選一筆高手目前倉位開始試算。</div>
+      <div id="calcMsg" class="calcMsg">選一筆目前倉位開始試算。</div>
       <div class="calcNote">自動 TP/SL 是結構與波動參考，不代表必然有效；試算未含手續費、滑價、資金費與強平因素，也不會送出真實訂單。</div>
     </div>
   </details>
 
   <div class="sectionBar">
-    <div class="sectionTitle">高手雷達</div><div id="radarCount" class="radarCount">共識合格 —</div>
+    <div class="sectionTitle">雷達</div><div id="radarCount" class="radarCount">共識合格 —</div>
   </div>
 
   <div id="traders"><div class="emptyText">讀取中…</div></div>
@@ -270,17 +270,17 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
       <div id="msg" class="msg"></div>
-      <div class="note">熬鷹核心約 3 秒檢查；其他高手採安全錯峰輪詢。2 人以上同向通知只計入通過 7D/30D、API 可讀、回撤與持倉時間嚴選門檻的交易員。倉位同時用訂單紀錄＋官方倉位快照交叉監控。若 Binance 某位交易員的訂單歷史暫時不可讀，仍會持續監看目前倉位；歷史統計則改顯示有來源標記的公開基準，不再永久空白。公開基準與重建統計都屬參考資料，PF、ROI 與 PnL 不含手續費與資金費。</div>
+      <div class="note">熬鷹核心約 3 秒檢查；其他交易員採安全錯峰輪詢。2 人以上同向通知只計入通過 7D/30D、API 可讀、回撤與持倉時間嚴選門檻的交易員。倉位同時用訂單紀錄＋官方倉位快照交叉監控。若 Binance 某位交易員的訂單歷史暫時不可讀，仍會持續監看目前倉位；歷史統計則改顯示有來源標記的公開基準，不再永久空白。公開基準與重建統計都屬參考資料；「單筆價格報酬」是不乘槓桿的價格變動，不等於帳戶 ROI。PnL 不含手續費與資金費。</div>
     </div>
   </details>
 
   <div class="bottomMaster">
-    <div class="bottomMasterText"><b>高手通知總開關</b><span>只控制個別高手通知，不影響「2人以上同向通知」</span></div>
-    <div class="masterWrap"><span id="allCount" class="masterCount">1/10</span><label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label></div>
+    <div class="bottomMasterText"><b>通知開關</b><span>只控制個別交易員通知，不影響「2人以上同向通知」</span></div>
+    <div class="masterWrap"><span id="allCount" class="masterCount">1/8</span><label class="switch"><input id="allToggle" type="checkbox" checked><span class="slider"></span></label></div>
   </div>
 
   <details class="orderSettings">
-    <summary><span>↕ 自訂高手顯示順序</span><span>熬鷹固定第一　⌄</span></summary>
+    <summary><span>↕ 自訂顯示順序</span><span>熬鷹固定第一　⌄</span></summary>
     <div id="orderList" class="orderList"></div>
   </details>
 </div>
@@ -297,6 +297,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=620"></script>
+<script src="/app.js?v=630"></script>
 </body>
 </html>
