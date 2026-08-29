@@ -31,7 +31,8 @@ const TRADERS = [
   {
     id: CORE_TRADER_ID,
     name: '熬鷹資本',
-    defaultTag: '主核心',
+    screenName: '熬鹰资本',
+    defaultTag: '主訊號',
     priority: 1,
     core: true,
     apiConfirmed: true,
@@ -45,39 +46,34 @@ const TRADERS = [
     },
   },
   {
-    id: '4520644381136785152', name: 'CuanBot', defaultTag: '低回撤', priority: 2, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4520644381136785152/',
-    referenceSeed: { source:'CopyRadar/SmartCopyTrade', asOf:'2026-08-28', qualityScore:100, reportedRoi:9, reportedMdd:12.48, followers:58, riskFlags:[] },
+    id: '5010080316338276609',
+    name: '佛系撈金大隊長',
+    screenName: '佛系捞金大队长',
+    defaultTag: '強勢確認',
+    priority: 2,
+    apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5010080316338276609/',
+    referenceSeed: {
+      source:'CopyRadar/Binance', asOf:'2026-08-29', qualityScore:96,
+      winRate:94.3, sample:544, profitFactor:4.95, medianDurationMin:1.4*60,
+      reportedRoi:186, followers:40, maxLeverage:20, reportedMdd:37.3,
+      profitConcentration:12.9, copierPnl:2386, riskFlags:[],
+    },
   },
   {
-    id: '4855144495762648832', name: '小新交易員', defaultTag: '數據', priority: 3, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4855144495762648832/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:100, winRate:49.7, sample:304, profitFactor:1.74, medianDurationMin:6.6*60, reportedRoi:165, followers:201, maxLeverage:20, reportedMdd:24.0, profitConcentration:7.5, copierPnl:17117, riskFlags:[] },
-  },
-  {
-    id: '5031454375430644481', name: 'GoldRush', defaultTag: 'A級', priority: 4, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5031454375430644481/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:134, followers:14, riskFlags:[] },
-  },
-  {
-    id: '5072318291936552192', name: 'R博士', defaultTag: 'A級', priority: 5, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5072318291936552192/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-28', qualityScore:100, reportedRoi:315, followers:40, riskFlags:[] },
-  },
-  {
-    id: '3848411987859099392', name: 'GridMaster', defaultTag: '低回撤', priority: 6, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/3848411987859099392/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:98, winRate:98.9, sample:654, profitFactor:1.86, medianDurationMin:2.1*60, reportedRoi:10, followers:11, maxLeverage:10, reportedMdd:10.3, profitConcentration:14.2, copierPnl:1285, riskFlags:[] },
-  },
-  {
-    id: '4563197729960674304', name: '再也不做空了', defaultTag: '短持倉', priority: 7, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4563197729960674304/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:70, winRate:76.3, sample:114, profitFactor:3.59, medianDurationMin:4.2*60, reportedRoi:114, followers:1, maxLeverage:20, reportedMdd:19.0, profitConcentration:13.0, copierPnl:0, riskFlags:[] },
-  },
-  {
-    id: '4112815248716815105', name: 'SaGoCrypto', defaultTag: '分散型', priority: 8, apiConfirmed: true,
-    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/4112815248716815105/',
-    referenceSeed: { source:'CopyRadar', asOf:'2026-08-29', qualityScore:100, winRate:99.8, sample:1929, profitFactor:323.70, medianDurationMin:17.3*60, reportedRoi:26, followers:18, maxLeverage:3, reportedMdd:10.1, profitConcentration:4.1, copierPnl:1362, riskFlags:[] },
+    id: '5085948606825292289',
+    name: '知危',
+    screenName: '知危',
+    defaultTag: '強勢確認',
+    priority: 3,
+    apiConfirmed: true,
+    referenceUrl: 'https://copyradar.ljeay772.com/en/trader/5085948606825292289/',
+    referenceSeed: {
+      source:'CopyRadar/Binance', asOf:'2026-08-29', qualityScore:90,
+      winRate:92.0, sample:338, profitFactor:2.66, medianDurationMin:2.8*60,
+      reportedRoi:171, followers:82, maxLeverage:30, reportedMdd:39.5,
+      profitConcentration:18.3, copierPnl:13234, riskFlags:[],
+    },
   },
 ];
 
@@ -103,8 +99,8 @@ const CONSENSUS_FILE = path.join(DATA_DIR, 'consensus-v5.json');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
 const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
-const SCREEN_FILE = path.join(DATA_DIR, 'screen-v62.json');
-const CONSENSUS_EPISODE_FILE = path.join(DATA_DIR, 'consensus-episodes-v62.json');
+const SCREEN_FILE = path.join(DATA_DIR, 'screen-v65.json');
+const CONSENSUS_EPISODE_FILE = path.join(DATA_DIR, 'consensus-episodes-v65.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -134,6 +130,16 @@ function fmtPrice(v) {
 }
 function sideZh(side) { return side === 'LONG' ? '做多' : '做空'; }
 function positionKey(symbol, side) { return `${symbol}:${side}`; }
+function positionOpenMs(position) {
+  const value = position?.openTime ? new Date(position.openTime).getTime() : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+function newestPositions(values) {
+  return [...values].sort((a, b) =>
+    positionOpenMs(b) - positionOpenMs(a) ||
+    String(a?.symbol || '').localeCompare(String(b?.symbol || ''))
+  );
+}
 
 function collectArrays(value, path = 'root', depth = 0, out = []) {
   if (depth > 5 || value == null) return out;
@@ -706,7 +712,7 @@ async function fetchStatsOrders(traderId, firstPage = []) {
     try {
       detail = await fetchOrderPage(traderId, page, STATS_PAGE_SIZE);
     } catch (e) {
-      console.warn(`[stats-page-v6.4] ${traderId} page ${page}: ${String(e?.message || e)}`);
+      console.warn(`[stats-page-v6.5] ${traderId} page ${page}: ${String(e?.message || e)}`);
       break;
     }
 
@@ -1008,7 +1014,7 @@ async function fetchReferenceStats(trader) {
     const r = await fetch(trader.referenceUrl, {
       headers: {
         accept: 'text/html,application/xhtml+xml',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.4',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.5',
       },
       signal: controller.signal,
     });
@@ -1066,7 +1072,7 @@ async function fetchLevelCandles(symbol) {
   try {
     const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${LEVEL_INTERVAL}&limit=${LEVEL_LIMIT}`;
     const r = await fetch(url, {
-      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.4' },
+      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.5' },
       signal: controller.signal,
     });
     if (!r.ok) throw new Error(`kline HTTP ${r.status}`);
@@ -1251,7 +1257,7 @@ async function refreshMarkPrices(force = false) {
     const r = await fetch(MARK_PRICE_URL, {
       headers: {
         accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 PositionAlert/6.4',
+        'user-agent': 'Mozilla/5.0 PositionAlert/6.5',
       },
     });
 
@@ -1276,7 +1282,7 @@ async function refreshMarkPrices(force = false) {
     return true;
   } catch (e) {
     markPriceError = String(e?.message || e);
-    console.warn(`[mark-price-v6.3] ${markPriceError}`);
+    console.warn(`[mark-price-v6.5] ${markPriceError}`);
     return false;
   } finally {
     markPriceBusy = false;
@@ -1328,7 +1334,8 @@ function pctNumber(v) {
   if (v === null || v === undefined || v === '') return null;
   const x = Number(v);
   if (!Number.isFinite(x)) return null;
-  if (x !== 0 && Math.abs(x) <= 1) return x * 100;
+  // Binance leaderboard fields are already percentage points. For example,
+  // 0.72 means 0.72%, not 72%; multiplying sub-1 values creates false screens.
   return x;
 }
 function findLeaderboardProfile(json, trader) {
@@ -1343,7 +1350,7 @@ async function fetchScreenRange(trader, timeRange) {
     method: 'POST', headers: commonHeaders(trader.id),
     body: JSON.stringify({
       pageNumber: 1, pageSize: 18, timeRange, dataType: 'ROI',
-      favoriteOnly: false, hideFull: false, nickname: trader.name,
+      favoriteOnly: false, hideFull: false, nickname: trader.screenName || trader.name,
       order: 'DESC', apiKeyOnly: false,
     }),
   }, { priority: 6, label: `screen:${trader.id}:${timeRange}` });
@@ -1355,8 +1362,14 @@ async function fetchScreenRange(trader, timeRange) {
   if (!row) throw new Error(`screen ${timeRange} profile not found`);
   return {
     roi: pctNumber(row.roi ?? row.roiRate ?? row.returnRate ?? row.return),
+    pnl: Number.isFinite(Number(row.pnl)) ? Number(row.pnl) : null,
     mdd: pctNumber(row.mdd ?? row.maxDrawdown ?? row.maxDrawDown),
     winRate: pctNumber(row.winRate ?? row.winningRate),
+    copierPnl: Number.isFinite(Number(row.copierPnl)) ? Number(row.copierPnl) : null,
+    followers: Number.isFinite(Number(row.currentCopyCount)) ? Number(row.currentCopyCount) : null,
+    aum: Number.isFinite(Number(row.aum)) ? Number(row.aum) : null,
+    startTime: Number.isFinite(Number(row.startTime)) ? Number(row.startTime) : null,
+    sharpRatio: Number.isFinite(Number(row.sharpRatio)) ? Number(row.sharpRatio) : null,
     apiKeyOnly: row.apiKeyOnly ?? row.isApiKey ?? true,
   };
 }
@@ -1367,26 +1380,31 @@ function strictQualification(s) {
   const ref = s.referenceStats || {};
   const reasons = [];
   const roi7 = Number(screen.roi7d), roi30 = Number(screen.roi30d);
-  if (!(roi7 > 0)) reasons.push('7D未正獲利');
-  if (!(roi30 > 0)) reasons.push('30D未正獲利');
+  if (!(roi7 >= 5)) reasons.push('7D ROI<5%');
+  if (!(roi30 >= 20)) reasons.push('30D ROI<20%');
+  if (!(Number(screen.pnl30d) > 0)) reasons.push('30D實際損益未正');
+  if (!(Number(screen.copierPnl30d) > 0)) reasons.push('30D跟單者未正獲利');
+  if (!(Number(screen.aum30d) >= 100000)) reasons.push('AUM<10萬U');
+  if (!(Number(screen.followers30d) >= 30)) reasons.push('跟隨者<30');
+  if (!(Number(screen.ageDays) >= 60)) reasons.push('帶單歷史<60天');
+  const recentWinRate = Number(screen.winRate30d);
+  if (!(recentWinRate >= 35 && recentWinRate <= 95)) reasons.push('30D勝率結構異常');
   if (s.historyStatus !== 'OK') reasons.push('訂單API不可讀');
   const activePositions = Number(s.positions?.size || 0);
   if (activePositions > 8) reasons.push('同時持倉>8，訊號過度分散');
 
-  const sample = Number(st.sample || ref.sample || 0);
-  if (!(sample >= 50)) reasons.push('樣本<50');
-  const pf = Number(st.profitFactor ?? ref.profitFactor);
-  if (!(pf >= 1.5)) reasons.push('PF<1.5/未知');
-  const hold = Number(st.avgDurationMin ?? ref.medianDurationMin);
-  if (!(hold >= 60 && hold <= 18 * 60)) reasons.push('持倉不在1–18h');
+  const sample = Math.max(Number(st.sample || 0), Number(ref.sample || 0));
+  if (!(sample >= 100)) reasons.push('樣本<100');
+  const pf = Number(ref.profitFactor ?? st.profitFactor);
+  if (!(pf >= 2)) reasons.push('PF<2/未知');
+  const hold = Number(ref.medianDurationMin ?? st.avgDurationMin);
+  if (!(hold >= 60 && hold <= 24 * 60)) reasons.push('持倉不在1–24h');
   const mdd = Number.isFinite(Number(screen.mdd30d)) ? Number(screen.mdd30d) : Number(ref.reportedMdd);
-  if (!(Number.isFinite(mdd) && mdd <= 20)) reasons.push('MDD>20%/未知');
+  if (!(Number.isFinite(mdd) && mdd <= 35)) reasons.push('MDD>35%/未知');
   const maxLev = Number(ref.maxLeverage);
-  if (!(Number.isFinite(maxLev) && maxLev <= 20)) reasons.push('槓桿>20x/未知');
+  if (!(Number.isFinite(maxLev) && maxLev <= 30)) reasons.push('槓桿>30x/未知');
   const concentration = Number(ref.profitConcentration);
-  if (Number.isFinite(concentration) && concentration > 40) reasons.push('盈利過度集中');
-  const copierPnl = Number(ref.copierPnl);
-  if (Number.isFinite(copierPnl) && copierPnl < 0) reasons.push('跟單者累計虧損');
+  if (!(Number.isFinite(concentration) && concentration <= 25)) reasons.push('盈利集中>25%/未知');
   return { qualified: reasons.length === 0, status: reasons.length ? 'WATCH' : 'QUALIFIED', reasons };
 }
 
@@ -1604,9 +1622,9 @@ function subscriptionAllows(rec, target = {}) {
   const enabledTypes = new Set(rec?.enabledTypes || EVENT_TYPES);
   const isConsensus = target.eventType === 'CONSENSUS';
 
-  // Consensus is deliberately independent from per-trader notification toggles.
-  // This lets the user keep only the core trader's individual alerts enabled while
-  // still receiving one >=2 same-symbol/same-direction confirmation alert.
+  // Core-aligned confirmation is independent from individual trader toggles.
+  // The user can keep only core alerts while still receiving one confirmation when
+  // at least one qualified secondary trader matches the same symbol and direction.
   if (isConsensus) return rec?.consensusEnabled !== false;
 
   const traderAllowed = target.traderId
@@ -1696,7 +1714,7 @@ function eventAction(event) {
 function eventPushText(event) {
   if (event.kind === 'CONSENSUS') {
     return {
-      title: `${event.traderNames.length}人共識｜${event.direction}`,
+      title: `熬鷹同向確認｜${event.direction}`,
       body: `${event.symbol}｜${event.traderNames.join('、')}`,
     };
   }
@@ -1824,12 +1842,17 @@ function consensusEligibleState(s) {
   return Number.isFinite(age) && age < 5 * 60 * 1000;
 }
 function currentConsensus(symbol, side) {
-  const ids = [];
+  const core = states.get(CORE_TRADER_ID);
+  if (!core || !consensusEligibleState(core)) return [];
+  if (!core.positions.has(positionKey(symbol, side))) return [];
+
+  const ids = [CORE_TRADER_ID];
   for (const [id, s] of states) {
+    if (id === CORE_TRADER_ID) continue;
     if (!consensusEligibleState(s)) continue;
     if (s.positions.has(positionKey(symbol, side))) ids.push(id);
   }
-  return ids.sort();
+  return ids;
 }
 function consensusEpisodeTransition(input, count, now = Date.now()) {
   const ep = { active:false, belowSince:0, lastSentAt:0, lastCount:0, ...(input || {}) };
@@ -1877,7 +1900,7 @@ async function establishBaseline(s, orders) {
   persistStates();
 
   console.log(
-    `[baseline-v6.3] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
+    `[baseline-v6.5] ${s.trader.name}: ${s.positions.size} reconstructed positions / ${orders.length} orders`
   );
 }
 
@@ -1926,7 +1949,7 @@ async function pollTrader(s) {
       orderSuccess = true;
     } catch (e) {
       s.historyStatus = 'ERROR'; s.historyError = String(e?.message || e); errors.push(`orders: ${s.historyError}`);
-      console.error(`[poll-orders-v6.4] ${s.trader.name}: ${s.historyError}`);
+      console.error(`[poll-orders-v6.5] ${s.trader.name}: ${s.historyError}`);
     }
   } else orderSuccess = s.historyStatus === 'OK';
 
@@ -1993,12 +2016,12 @@ async function runNextDeepStats() {
     persistStats();
 
     console.log(
-      `[stats-v6.4] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
+      `[stats-v6.5] ${s.trader.name}: ${rows.length} orders / ${result.sample || 0} completed trades`
     );
   } catch (e) {
     // Preserve the last valid quick/deep stats. Never blank the card on an error.
     s.statsError = String(e?.message || e);
-    console.error(`[stats-v6.4] ${s.trader.name}: ${s.statsError}`);
+    console.error(`[stats-v6.5] ${s.trader.name}: ${s.statsError}`);
   } finally {
     statsRunning = false;
   }
@@ -2043,11 +2066,11 @@ async function runNextReferenceRefresh() {
     persistReference();
 
     console.log(
-      `[reference-v6.3] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
+      `[reference-v6.5] ${s.trader.name}: quality=${s.referenceStats.qualityScore ?? '-'} sample=${s.referenceStats.sample ?? '-'}`
     );
   } catch (e) {
     s.referenceError = String(e?.message || e);
-    console.warn(`[reference-v6.3] ${s.trader.name}: ${s.referenceError}`);
+    console.warn(`[reference-v6.5] ${s.trader.name}: ${s.referenceError}`);
   } finally {
     referenceRunning = false;
   }
@@ -2077,10 +2100,18 @@ async function runNextScreen() {
   try {
     const seven = await fetchScreenRange(s.trader, '7D');
     const thirty = await fetchScreenRange(s.trader, '30D');
+    const ageDays = Number.isFinite(Number(thirty.startTime))
+      ? Math.max(0, (Date.now() - Number(thirty.startTime)) / 86400000)
+      : null;
     s.screening = {
       roi7d: seven.roi, roi30d: thirty.roi,
+      pnl7d: seven.pnl, pnl30d: thirty.pnl,
       mdd30d: Number.isFinite(Number(thirty.mdd)) ? Number(thirty.mdd) : null,
       winRate30d: Number.isFinite(Number(thirty.winRate)) ? Number(thirty.winRate) : null,
+      copierPnl7d: seven.copierPnl, copierPnl30d: thirty.copierPnl,
+      followers30d: thirty.followers, aum30d: thirty.aum,
+      startTime: thirty.startTime, ageDays,
+      sharpRatio30d: thirty.sharpRatio,
       apiKeyOnly: seven.apiKeyOnly !== false && thirty.apiKeyOnly !== false,
       updatedAt: new Date().toISOString(), status: 'OK', error: null,
     };
@@ -2088,7 +2119,7 @@ async function runNextScreen() {
   } catch (e) {
     s.screening = { ...(s.screening||{}), status:'ERROR', error:String(e?.message||e), updatedAt:s.screening?.updatedAt||null };
     persistScreen();
-    console.warn(`[screen-v6.3] ${s.trader.name}: ${s.screening.error}`);
+    console.warn(`[screen-v6.5] ${s.trader.name}: ${s.screening.error}`);
   } finally { screenRunning = false; }
 }
 function screenLoop() {
@@ -2217,7 +2248,7 @@ function buildConsensusRows() {
   const rows = [];
 
   for (const [key, members] of buckets) {
-    if (members.length < 2) continue;
+    if (members.length < 2 || !hasCoreMember(members)) continue;
 
     const [symbol, side] = key.split('|');
     const prices = members.map(x => x.entryPrice).filter(x => Number.isFinite(x) && x > 0);
@@ -2269,9 +2300,13 @@ function buildConsensusRows() {
   return rows.sort((a, b) => b.score - a.score || b.count - a.count);
 }
 
+function hasCoreMember(members) {
+  return Array.isArray(members) && members.some(x => x?.traderId === CORE_TRADER_ID);
+}
+
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_4_PNL_CLEAN_API',
+    mode: 'V6_5_TRUE_STRENGTH_CORE',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -2325,7 +2360,7 @@ app.get('/api/status', (_req, res) => {
         direction: lastAction.direction,
         tradePrice: lastAction.tradePrice,
       } : null,
-      positions: [...s.positions.values()].map(p => {
+      positions: newestPositions(s.positions.values()).map(p => {
         const pv = positionPnlView(p);
         return {
           symbol: p.symbol,
@@ -2384,14 +2419,14 @@ app.get('/api/reference-levels', async (req, res) => {
       ...levels,
     });
   } catch (e) {
-    console.warn(`[reference-levels-v6.3] ${symbol}: ${String(e?.message || e)}`);
+    console.warn(`[reference-levels-v6.5] ${symbol}: ${String(e?.message || e)}`);
     return res.status(502).json({ ok: false, error: String(e?.message || e) });
   }
 });
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V6.3',
+    mode: 'V6.5',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -2537,13 +2572,13 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V6.3',
+    mode: 'V6.5',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V6.3 CLEAN RADAR started on ${PORT}`);
+    console.log(`Position Alert V6.5 TRUE STRENGTH CORE started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
@@ -2561,6 +2596,7 @@ process.on('SIGTERM', () => {
 });
 
 export {
+  TRADERS,
   extractBestRows,
   normalizeOrder,
   normalizePosition,
@@ -2570,6 +2606,8 @@ export {
   signalValue,
   syncOfficialSnapshot,
   positionKey,
+  newestPositions,
+  hasCoreMember,
   strictQualification,
   consensusEpisodeTransition,
   pctNumber,
