@@ -136,15 +136,15 @@ button,input{font:inherit}
 .switch input:checked+.slider:before{transform:translateX(19px)}
 
 .positionBox{margin-top:9px;border:1px solid #252628;border-radius:11px;overflow:hidden;background:#0c0e0f}
-.pos{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(72px,auto);gap:8px;align-items:center;padding:10px 11px;border-top:1px solid #202224}
+.pos{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(90px,.9fr) minmax(92px,1fr);gap:0;align-items:stretch;padding:0;border-top:1px solid #202224}
 .pos:first-child{border-top:0}
-.symline{display:flex;align-items:center;gap:7px;min-width:0}.sym{font-size:13px;font-weight:800}
+.symline{display:flex;align-items:center;gap:7px;min-width:0;padding:10px 9px}.sym{font-size:13px;font-weight:800}
 .dirTag{font-size:9px;font-weight:900;padding:3px 6px;border-radius:6px;flex:0 0 auto}.openAt{font-size:7px;color:#756f66;white-space:nowrap;flex:0 0 auto}
 .dirTag.long{background:#481c1d;color:#ff7778}.dirTag.short{background:#123823;color:#63e39c}
-.posPnl{min-width:62px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;line-height:1.08;transform:translateX(-18px)}
+.posPnl{min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 7px;line-height:1.08;border-left:1px solid #252628}
 .posPnl .pnlPct{font-size:11px;font-weight:900;white-space:nowrap;line-height:1.15}
 .posPnl.profit{color:var(--up)}.posPnl.loss{color:var(--down)}.posPnl.flat{color:var(--gold2)}
-.entryWrap{min-width:72px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px}.entryLabel{font-size:8px;color:#6f6a62;line-height:1;white-space:nowrap;text-align:right}.price{font-size:14px;font-weight:790;text-align:right;white-space:nowrap;line-height:1}.red{color:var(--up)!important}.green{color:var(--down)!important}.gold{color:var(--gold2)!important}
+.entryWrap{min-width:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;padding:10px 9px;border-left:1px solid #252628}.entryLabel{font-size:8px;color:#6f6a62;line-height:1;white-space:nowrap;text-align:right}.price{font-size:14px;font-weight:790;text-align:right;white-space:nowrap;line-height:1}.red{color:var(--up)!important}.green{color:var(--down)!important}.gold{color:var(--gold2)!important}
 .hidden{display:none!important}
 .moreBtn{width:100%;border:0;border-top:1px solid #202224;background:#0c0e0f;color:#938b7e;padding:9px;font-size:9px;font-weight:750}
 
@@ -179,7 +179,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 .sheetActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.sheetActions button{border:0;border-radius:10px;padding:12px;font-weight:850}
 #labelCancel{background:#272829;color:#ddd}.save{background:linear-gradient(90deg,#c68f32,#e4ba60);color:#151108}
 
-@media(max-width:420px){.types{grid-template-columns:repeat(3,1fr)}.pos{grid-template-columns:minmax(0,1fr) auto minmax(68px,auto);gap:6px}.sym{font-size:12px}.entryWrap{min-width:68px;gap:2px}.entryLabel{font-size:7px}.price{font-size:13px}.posPnl{min-width:57px;transform:translateX(-13px)}.posPnl .pnlPct{font-size:10px}}
+@media(max-width:420px){.types{grid-template-columns:repeat(3,1fr)}.pos{grid-template-columns:minmax(0,1.05fr) minmax(88px,.9fr) minmax(90px,1fr)}.symline{padding:10px 8px;gap:6px}.sym{font-size:12px}.entryWrap{padding:10px 8px;gap:5px}.entryLabel{font-size:7px}.price{font-size:13px}.posPnl{min-width:0;padding:10px 6px}.posPnl .pnlPct{font-size:10px}}
 </style>
 </head>
 <body>
@@ -296,6 +296,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=650"></script>
+<script src="/app.js?v=651"></script>
 </body>
 </html>
