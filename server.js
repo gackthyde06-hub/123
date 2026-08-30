@@ -151,7 +151,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V10.1.0';
+const BUILD_VERSION = 'V10.1.1';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -2295,29 +2295,44 @@ function applyQuickStats(s, orders) {
   persistStats();
 }
 
+function isValidVapidPair(keys) {
+  if (!keys?.publicKey || !keys?.privateKey) return false;
+  const pub = String(keys.publicKey).trim();
+  const pri = String(keys.privateKey).trim();
+  if (!pub || !pri) return false;
+  if (/^TEST_/i.test(pub) || /^TEST_/i.test(pri)) return false;
+  // web-push VAPID keys are URL-safe base64; public key is normally 87 chars, private ~43.
+  return /^[A-Za-z0-9_-]{80,100}$/.test(pub) && /^[A-Za-z0-9_-]{40,60}$/.test(pri);
+}
+
 function getVapidKeys() {
-  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    return {
-      publicKey: process.env.VAPID_PUBLIC_KEY,
-      privateKey: process.env.VAPID_PRIVATE_KEY,
-    };
-  }
+  const envKeys = {
+    publicKey: process.env.VAPID_PUBLIC_KEY,
+    privateKey: process.env.VAPID_PRIVATE_KEY,
+  };
+  if (isValidVapidPair(envKeys)) return envKeys;
 
   const saved = loadJson(VAPID_FILE, null);
-  if (saved?.publicKey && saved?.privateKey) return saved;
+  if (isValidVapidPair(saved)) return saved;
 
   const generated = webpush.generateVAPIDKeys();
   saveJson(VAPID_FILE, generated);
+  console.warn('[vapid] No valid persisted VAPID pair found; generated a new valid pair. Existing push subscriptions may need to re-subscribe.');
   return generated;
 }
 
 const vapid = getVapidKeys();
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:position-alert@example.com',
-  vapid.publicKey,
-  vapid.privateKey
-);
+try {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:position-alert@example.com',
+    vapid.publicKey,
+    vapid.privateKey
+  );
+} catch (e) {
+  // Push configuration must never take the entire market-monitoring backend down.
+  console.error(`[vapid] Push initialization disabled: ${String(e?.message || e)}`);
+}
 
 function cleanTraderIds(value, fallbackAll = true) {
   if (!Array.isArray(value)) return fallbackAll ? TRADERS.map(t => t.id) : [];
@@ -5406,7 +5421,7 @@ app.get('/healthz', (_req, res) => {
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V10.1 SOLO MAX MULTI-PLAYBOOK started on ${PORT}`);
+    console.log(`Position Alert V10.1.1 SOLO MAX MULTI-PLAYBOOK HOTFIX started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);

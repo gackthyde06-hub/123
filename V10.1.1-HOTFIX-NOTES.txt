@@ -1,0 +1,14 @@
+V10.1.1 HOTFIX — Railway VAPID startup fix
+
+Fixes
+- Removes bundled TEST_PUBLIC_KEY / TEST_PRIVATE_KEY file.
+- Validates env/persisted VAPID key format before using it.
+- Invalid/test keys are rejected and replaced with a valid generated pair.
+- Push initialization failure no longer crashes the entire backend.
+- BUILD_VERSION bumped to V10.1.1.
+
+Deployment
+- Railway ROOT only needs this package.
+- Keep existing Railway variables and volume.
+- After deployment, confirm /healthz and /api/self-test?live=1.
+- If a new VAPID pair had to be generated, iPhone push may need to be re-subscribed once.
