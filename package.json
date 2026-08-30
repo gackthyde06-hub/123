@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v800-lifecycle-monitor",
-  "version": "8.0.0",
+  "name": "position-alert-v830-rank-heat-calibrated-monitor",
+  "version": "8.3.0",
   "private": true,
   "type": "module",
   "scripts": {
