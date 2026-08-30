@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v790-monitor-judgement",
-  "version": "7.9.0",
+  "name": "position-alert-v800-lifecycle-monitor",
+  "version": "8.0.0",
   "private": true,
   "type": "module",
   "scripts": {
