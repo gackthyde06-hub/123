@@ -1,0 +1,16 @@
+V6.7｜TradingView 精準標的連結 + 頂部分頁視覺修正
+
+本版修改：
+1. 頂部「監控 / 市場流向 / 建議」移除整條黑底與模糊背景，保留透明分頁與淡金選取狀態。
+2. 原本 tradingview:// 只會喚起 iOS App、常停在最後一個圖表；改為 TradingView HTTPS 圖表連結，帶入完整 Binance USDT 永續符號：BINANCE:XXXUSDT.P。
+3. 監控頁既有「開TV」按鈕改為精準標的連結。
+4. 市場流向每個標的新增小型「TV」按鈕。
+5. 建議頁每一個推薦標的新增「開TV」按鈕。
+6. 符號正規化：可處理 BTCUSDT、BINANCE:BTCUSDT.P 等格式，避免重複 .P。
+
+重要限制：
+TradingView 目前沒有公開、可靠的 iOS tradingview:// 深連結格式可以保證「原生 App 直接切到指定 ticker」。因此 V6.7 優先保證點下去一定帶正確 ticker；iOS 若接管 TradingView HTTPS 連結會進 App，否則會在瀏覽器 TradingView 開正確標的。
+
+檢查：
+- public/app.js：node --check 通過
+- server.js：node --check 通過
