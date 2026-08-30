@@ -137,7 +137,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V8.8';
+const BUILD_VERSION = 'V9.0';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -3474,12 +3474,12 @@ function testMonitorStateLabel(state, status='CONFIRMED') {
   if(status==='LOSS'||status==='INVALID') return '失效';
   if(status==='DROPPED') return '移出';
   if(status==='TIMEOUT') return '逾時';
-  return ({STRONG:'強勢',CONTINUING:'續強',WEAKENING:'轉弱',RECOVERING:'轉強',CONFIRMED:'成立',WATCHING:'觀察',TARGET:'達標',REENTRY_WAIT:'等二進',REENTRY_TOUCH:'二次回踩',REENTRY_READY:'二次確認',REENTRY_WIN:'二進達標',REENTRY_FAILED:'二進失效'})[state] || '成立';
+  return ({STRONG:'強勢',CONTINUING:'續強',WEAKENING:'轉弱',RECOVERING:'轉強',CONFIRMED:'成立',WATCHING:'等待',TARGET:'達標',REENTRY_WAIT:'等二進',REENTRY_TOUCH:'二次回踩',REENTRY_READY:'二次確認',REENTRY_WIN:'二進達標',REENTRY_FAILED:'二進失效',CONSOLIDATING:'盤整'})[state] || '成立';
 }
 function testMonitorStateClass(state, status='CONFIRMED') {
   if(status==='WIN') return 'win';
   if(status==='LOSS'||status==='INVALID'||status==='DROPPED') return 'invalid';
-  return ({STRONG:'strong',CONTINUING:'continuing',WEAKENING:'weakening',RECOVERING:'recovering',CONFIRMED:'confirmed',TARGET:'win',REENTRY_WAIT:'watching',REENTRY_TOUCH:'touching',REENTRY_READY:'recovering',REENTRY_WIN:'win',REENTRY_FAILED:'invalid'})[state] || 'watching';
+  return ({STRONG:'strong',CONTINUING:'continuing',WEAKENING:'weakening',RECOVERING:'recovering',CONFIRMED:'confirmed',TARGET:'win',REENTRY_WAIT:'watching',REENTRY_TOUCH:'touching',REENTRY_READY:'recovering',REENTRY_WIN:'win',REENTRY_FAILED:'invalid',CONSOLIDATING:'watching'})[state] || 'watching';
 }
 function persistTestSignals() {
   saveJson(TEST_SIGNAL_FILE, Object.fromEntries(testSignalTrackers));
@@ -3833,6 +3833,7 @@ function testEntryStrategy(t, statusLabel='') {
   if(t?.reentryStage==='TOUCHING')return '二次回踩中，等5分K收回確認';
   if(t?.reentryStage==='READY')return '二次確認完成，只在建議區間內分批';
   if(label.includes('續強')||state==='CONTINUING')return '續強但不追突破K，只等回踩區';
+  if(state==='CONSOLIDATING')return '盤整中，等放量或結構重新同向；不追價';
   return '回踩區內等5分K收回，分批；破失效位取消';
 }
 function testSignalTier(t,{reentry=false}={}) {
@@ -4014,7 +4015,12 @@ async function updateConfirmedMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,
   }else if(!['WEAKENING','RECOVERING','CONTINUING'].includes(t.monitorState)){
     const favorable=Number.isFinite(risk)&&risk>0?dir*(last.close-entry)/risk:0;
     const strong=(t5.trend===dir||t5.momentum===dir)&&(t15.trend===dir||t15.momentum===dir)&&(!t1h||t1h.trend!==-dir)&&!evidence.adverseMarket&&favorable>=.15;
-    testSetState(t,strong?'STRONG':'CONFIRMED',strong?'強勢':'成立',new Date().toISOString());
+    const recent6=rows5.slice(-6),atr5=Math.max(Number(t5?.atr14||t.setup?.atr5||0),Math.abs(last.close)*.0004);
+    const range6=recent6.length?Math.max(...recent6.map(c=>Number(c.high)))-Math.min(...recent6.map(c=>Number(c.low))):Infinity;
+    const quietRange=Number.isFinite(range6)&&atr5>0&&range6<=atr5*1.9;
+    const quietVolume=Number(t5?.volumeRatio||1)<=1.05;
+    const consolidating=!strong&&quietRange&&quietVolume&&evidence.weakFlags<=1&&!evidence.adverse15&&!evidence.adverse30&&!evidence.adverse1h&&!evidence.adverseMarket&&favorable>-0.20&&favorable<0.35;
+    testSetState(t,strong?'STRONG':consolidating?'CONSOLIDATING':'CONFIRMED',strong?'強勢':consolidating?'盤整':'成立',new Date().toISOString());
   }
   if(t.monitorState==='WEAKENING'){
     const weakAge=t.weakSince?Date.now()-new Date(t.weakSince).getTime():0;
@@ -4140,7 +4146,7 @@ async function analyzeTestTracker(t, market) {
   if(rows5.length<80||rows15.length<80)throw new Error('candles short');
   if(!t.setup)t.setup=buildTestSetup(t.idea,c5,c15,backtest5?.length?backtest5:c5);
   const setup=t.setup,dir=testSignalDirection(t.direction),last=rows5.at(-1),prev=rows5.at(-2),t5=technicalSnapshot(rows5),t15=technicalSnapshot(rows15),t30=rows30.length>=60?technicalSnapshot(rows30):null,t1h=rows1h.length>=60?technicalSnapshot(rows1h):null,rsi=ideaRsiSeries(rows5.map(x=>x.close),14),macd=ideaMacdSeries(rows5.map(x=>x.close));
-  // V8.8：事件時間與即時判讀時間分離。指標以已收 K 判讀，但現價用最新 mark price。
+  // V9.0：時間顯示簡化；盤整/等待與資料延遲分離。指標以已收 K 判讀，現價用最新 mark price。
   const evaluatedAt=new Date().toISOString();
   const liveMark=Number(markPrices.get(cleanFuturesSymbol(t.symbol)));
   t.lastEvaluatedAt=evaluatedAt;
@@ -4223,7 +4229,7 @@ async function analyzeTestTracker(t, market) {
   let score=0;score+=clamp((Number(t.idea.rankScore||50)-45)*.45,0,22);score+=Math.min(16,(setup.confluenceCount||0)*5.5);score+=zoneTouch?8:0;score+=reclaim?12:0;score+=candleOk?6:0;score+=sweep?10:wicker?6:0;score+=momentum?8:0;score+=macdImprove?6:0;score+=t5.volumeRatio>=1.05?6:t5.volumeRatio<.70?-4:2;score+=derivDir*5;score+=topDir*3;score+=depthDir*3;score+=oiOk?3:-5;score+=marketAlign*7;score+=h1Opposed?-7:(t1h?.trend===dir?3:0);score+=t30Opposed?-6:(t30?.trend===dir?2:0);score+=spreadOk?1:-7;score+=chaseAtr<=.15?3:chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR?0:-9;score+=adlRisk==='high'?-9:adlRisk==='low'?1:0;score+=fundingCrowded?-5:0;score=clamp(Math.round(score),0,100);
   const reasons=testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio:t5.volumeRatio,deriv,marketAlign,direction:t.direction});
   if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');if(t1h?.trend===dir)reasons.push('1小時趨勢同向');
-  t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','觀察',new Date().toISOString());t.updatedAt=new Date().toISOString();
+  t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','等待',new Date().toISOString());t.updatedAt=new Date().toISOString();
   t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),oiChangePct:Number(Number(deriv.oiChangePct||0).toFixed(2)),takerRatio:Number(Number(deriv.takerRatio||1).toFixed(2)),topPositionRatio:Number(Number(deriv.topPositionRatio||1).toFixed(2)),globalLongShortRatio:Number(Number(deriv.globalLongShortRatio||1).toFixed(2)),depthImbalance:Number(depth.toFixed(3)),spreadBps:Number.isFinite(Number(micro?.spreadBps))?Number(Number(micro.spreadBps).toFixed(2)):null,chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:Number.isFinite(fundingPct)?Number(fundingPct.toFixed(4)):null,fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
   const confirm=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketAlign>=0&&!h1Opposed&&!t30Opposed&&depthDir>=0&&spreadOk&&chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR&&adlRisk!=='high'&&!fundingCrowded&&score>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
@@ -4286,7 +4292,7 @@ async function runTestSignalScan(force=false) {
 function testSignalLoop(){void runTestSignalScan(false).finally(()=>{testSignalTimer=setTimeout(testSignalLoop,TEST_SIGNAL_SCAN_MS)})}
 function testSignalResponse() {
   const rows=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000).sort((a,b)=>{const pa={CONFIRMED:0,INVALID:1,TOUCHING:2,WAIT_PULLBACK:3,WIN:4,TIMEOUT:5,DROPPED:6,LOSS:7,EXPIRED:8};const sa=(pa[a.status]??9),sb=(pa[b.status]??9);if(sa!==sb)return sa-sb;if(sa<=1)return testMonitorPriority(b)-testMonitorPriority(a)||(a.rank||99)-(b.rank||99);return (a.rank||99)-(b.rank||99)}).slice(0,24).map(publicTestTracker);
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V8.8 即時監控：事件時間固定、最近判讀獨立更新、現價直接讀 Binance mark price；90秒標示延遲、180秒資料過期且不再當作可進場依據。排序＝當日建議熱度46%＋保守校準勝率39%＋即時結構15%。勝率再加入排名桶、30/60分逆向、委託簿、價差、Funding擁擠與ADL風險校準；高勝率通知追價距離限制更嚴。確認要求5/15/30/60分、ADX/RSI/MACD、OI/主動買賣/大戶持倉、20檔委託簿/價差、BTC/ETH；達1R移入達標池，只在二次38.2–61.8回踩且連續2根5分K收回時重新上榜；失效保留30分收復窗，連續15分變爛且高週期同步弱則提前移出。',error:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.0 即時監控：畫面只保留成立/更新時間；市場盤整、等待與系統資料延遲分開顯示。現價直接讀 Binance mark price；90秒標示延遲、180秒資料過期且不再當作可進場依據。排序＝當日建議熱度46%＋保守校準勝率39%＋即時結構15%。勝率再加入排名桶、30/60分逆向、委託簿、價差、Funding擁擠與ADL風險校準；高勝率通知追價距離限制更嚴。確認要求5/15/30/60分、ADX/RSI/MACD、OI/主動買賣/大戶持倉、20檔委託簿/價差、BTC/ETH；達1R移入達標池，只在二次38.2–61.8回踩且連續2根5分K收回時重新上榜；失效保留30分收復窗，連續15分變爛且高週期同步弱則提前移出。',error:testSignalLastError};
 }
 
 function fallbackDailyBrief(flow, ideas, meta={}) {
@@ -4467,7 +4473,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V8_8_LIVE_MONITOR_SIGNAL',
+    mode: 'V9_0_SIMPLE_FRESHNESS_MONITOR',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
