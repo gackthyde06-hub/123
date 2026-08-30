@@ -151,7 +151,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V10.1.7';
+const BUILD_VERSION = 'V10.2.0';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -5196,6 +5196,28 @@ app.get('/api/status', (_req, res) => {
   });
 });
 
+
+app.get('/api/chart-data', async (req, res) => {
+  const symbol = cleanFuturesSymbol(req.query?.symbol || 'BTCUSDT');
+  const interval = String(req.query?.interval || '15m').toLowerCase();
+  const allowed = new Set(['5m','15m','30m','1h']);
+  const limit = Math.max(80, Math.min(500, Number(req.query?.limit || 260)));
+  if (!/^[A-Z0-9]{3,24}USDT$/.test(symbol)) return res.status(400).json({ok:false,error:'invalid symbol'});
+  if (!allowed.has(interval)) return res.status(400).json({ok:false,error:'invalid interval'});
+  try {
+    const rows = await testFetchCandles(symbol, interval, limit);
+    const source = testCandleSourceCache.get(`${symbol}:${interval}:${limit}`) || {};
+    const candles = (rows || []).slice(-limit).map(c => ({
+      time: Math.floor(Number(c.openTime) / 1000),
+      open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close), volume: Number(c.volume || 0)
+    })).filter(c => Number.isFinite(c.time) && [c.open,c.high,c.low,c.close].every(Number.isFinite));
+    if (candles.length < 40) throw new Error('chart candles too short');
+    const currentPrice = finiteMetric(realtimeBestPrice(symbol)) ?? finiteMetric(candles.at(-1)?.close);
+    res.json({ok:true,symbol,interval,source:source.source||'Binance',fallback:source.fallback===true,currentPrice,generatedAt:new Date().toISOString(),candles});
+  } catch (e) {
+    res.status(503).json({ok:false,error:String(e?.message||e)});
+  }
+});
 
 app.get('/api/reference-levels', async (req, res) => {
   const symbol = cleanFuturesSymbol(req.query?.symbol);

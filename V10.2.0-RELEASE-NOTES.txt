@@ -1,0 +1,19 @@
+V10.2.0 — SYSTEM CHART + UI NAV + CALC MODE FIX
+
+新增
+- 內建系統圖表：點任何標的名稱即可打開。
+- 週期：5m / 15m / 30m / 1h。
+- 自動畫線：最佳入場、可接受進場區、SL / 結構失效、TP1、TP2。
+- 圖內保留「官方 TradingView」按鈕。
+- 新增 /api/chart-data，K 線沿用 Binance 主源、Bybit / OKX fallback。
+
+修正
+- 上方頁籤固定頂端，向下瀏覽不會跟內容跑掉。
+- 試算按「當下價」後，8 秒狀態刷新不再重設成「建議價」。
+- 試算新增 entryMode 狀態：suggested / notify / current / manual；手動輸入也會保留。
+
+保留
+- 頁籤順序：今日 → 績效 → 流向 → 建議 → 監控 → 觀察。
+- 左右滑換頁。
+- 觀察 → 通知 → 監控 gate：監控只顯示已成功通知的普通 / 高勝率機會。
+- VAPID validation / auto-generation hotfix；發佈包不附測試 VAPID key。
