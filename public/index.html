@@ -593,6 +593,11 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
 @media(max-width:520px){.perfSummary{grid-template-columns:1fr 1fr}.perfGrid2{grid-template-columns:1fr}.perfConfig{grid-template-columns:1fr 1fr}.perfConfig label:first-child{grid-column:1/-1}.perfTradeStats{grid-template-columns:1fr 1fr}.perfOpsGrid{grid-template-columns:1fr 1fr}.pageTabs{gap:5px}.pageTab{font-size:11px!important;padding-left:1px!important;padding-right:1px!important}}
 
 </style>
+
+<style id="v1016-swipe-nav">
+/* Horizontal swipe navigation is handled in app.js; keep native vertical scrolling untouched. */
+.page{touch-action:pan-y pinch-zoom}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -784,7 +789,7 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
   </div>
 </div>
 
-<script src="/app.js?v=1013"></script>
+<script src="/app.js?v=1016"></script>
 <style id="v1013-ui-cleanup">
 /* V10.1.3：背景統一、頁籤融入背景，不再有獨立黑色橫條 */
 html,body,.wrap{background:#0a0c0d!important;background-image:none!important}

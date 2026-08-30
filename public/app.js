@@ -382,7 +382,7 @@ $('allToggle').addEventListener('change',async e=>{const ids=e.currentTarget.che
 $('consensusToggle')?.addEventListener('change',async e=>{saveConsensusEnabled(e.currentTarget.checked);await syncPreferences().catch(()=>{});$('msg').textContent=e.currentTarget.checked?'✅ 熬鷹同向確認已開啟':'🔕 熬鷹同向確認已關閉'});
 $('settingsPanel').open=!!ui.settingsOpen;$('settingsPanel').addEventListener('toggle',saveUI);
 $('labelCancel').addEventListener('click',closeLabelSheet);$('labelSave').addEventListener('click',saveLabelSheet);$('labelModal').addEventListener('click',e=>{if(e.target===$('labelModal'))closeLabelSheet()});$('labelInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveLabelSheet();if(e.key==='Escape')closeLabelSheet()});
-$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=1014'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),testSignalEnabled:loadTestSignalNotify(),testSignalNotifyMode:loadTestSignalNotifyMode(),dailyBriefIntervalHours:24,preferenceVersion:100})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
+$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=1016'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),testSignalEnabled:loadTestSignalNotify(),testSignalNotifyMode:loadTestSignalNotifyMode(),dailyBriefIntervalHours:24,preferenceVersion:100})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
 $('test').onclick=async()=>{const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id,r=await fetch('/api/test-push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({traderId})});$('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`};
 $('testPullback').onclick=async()=>{const r=await fetch('/api/test-pullback-push',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});$('msg').textContent=r.ok?'✅ 策略測試已送出 · 點通知回監控判讀':`❌ 策略測試失敗：${await r.text()}`};
 
@@ -800,6 +800,51 @@ function initTestNotifyControls(){
 initTestNotifyControls();
 initPerformanceControls();
 document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
+
+// Mobile horizontal swipe navigation: 今日 ↔ 監控 ↔ 流向 ↔ 建議 ↔ 觀察 ↔ 績效
+const PAGE_SWIPE_ORDER=['today','monitor','flow','ideas','test','performance'];
+let pageSwipeStart=null;
+function pageSwipeBlockedTarget(target){
+  if(!(target instanceof Element))return false;
+  return Boolean(target.closest('input,textarea,select,button,a,summary,label,[contenteditable="true"],.pageTabs,.modalBackdrop.show,.sheet,.tvAppHint.show'));
+}
+function pageSwipeHasScrollableAncestor(target,dx){
+  let el=target instanceof Element?target:null;
+  while(el&&el!==document.body){
+    const cs=getComputedStyle(el),overflowX=cs.overflowX;
+    if((overflowX==='auto'||overflowX==='scroll')&&el.scrollWidth>el.clientWidth+4){
+      const canLeft=el.scrollLeft>1,canRight=el.scrollLeft+el.clientWidth<el.scrollWidth-1;
+      // Finger moves right => content normally scrolls left; finger moves left => content normally scrolls right.
+      if((dx>0&&canLeft)||(dx<0&&canRight))return true;
+    }
+    el=el.parentElement;
+  }
+  return false;
+}
+function pageSwipeGo(delta){
+  const current=document.querySelector('.pageTab.active')?.dataset?.page||'today';
+  const i=PAGE_SWIPE_ORDER.indexOf(current),next=i+delta;
+  if(i<0||next<0||next>=PAGE_SWIPE_ORDER.length)return false;
+  setPage(PAGE_SWIPE_ORDER[next]);
+  return true;
+}
+document.addEventListener('touchstart',e=>{
+  if(e.touches.length!==1||pageSwipeBlockedTarget(e.target)){pageSwipeStart=null;return}
+  const t=e.touches[0];
+  pageSwipeStart={x:t.clientX,y:t.clientY,at:performance.now(),target:e.target};
+},{passive:true});
+document.addEventListener('touchend',e=>{
+  const start=pageSwipeStart;pageSwipeStart=null;
+  if(!start||e.changedTouches.length!==1)return;
+  const t=e.changedTouches[0],dx=t.clientX-start.x,dy=t.clientY-start.y,dt=performance.now()-start.at;
+  const ax=Math.abs(dx),ay=Math.abs(dy);
+  if(dt>900||ax<64||ax<ay*1.35)return;
+  if(pageSwipeHasScrollableAncestor(start.target,dx))return;
+  // Finger swipes left => next page; finger swipes right => previous page.
+  pageSwipeGo(dx<0?1:-1);
+},{passive:true});
+document.addEventListener('touchcancel',()=>{pageSwipeStart=null},{passive:true});
+
 try{setPage(localStorage.getItem('position-alert-page-v78')||'today')}catch{setPage('today')}
 setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}else if(active==='flow')void refreshMarketFlow(false);else if(active==='ideas')void refreshRankedIdeas(false);else if(active==='test'||active==='monitor')void refreshTestSignals(false);else if(active==='performance')void refreshPerformance(false)},8_000);
 
