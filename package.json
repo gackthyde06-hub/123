@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v840-reentry-monitor",
-  "version": "8.4.0",
+  "name": "position-alert-v830-entry-size-advisor",
+  "version": "8.3.0",
   "private": true,
   "type": "module",
   "scripts": {
