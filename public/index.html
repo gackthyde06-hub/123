@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=1000">
-<link rel="apple-touch-icon" href="/app-icon-180.png?v=1000">
+<link rel="manifest" href="/manifest.webmanifest?v=1010">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=1010">
 <title>倉位</title>
 <style>
 :root{
@@ -190,8 +190,8 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 
 @media(max-width:420px){.types{grid-template-columns:repeat(3,1fr)}.pos{grid-template-columns:minmax(0,1.05fr) minmax(88px,.9fr) minmax(90px,1fr)}.symline{padding:10px 8px;gap:6px}.sym{font-size:12px}.entryWrap{padding:10px 8px;gap:5px}.entryLabel{font-size:7px}.price{font-size:13px}.posPnl{min-width:0;padding:10px 6px}.posPnl .pnlPct{font-size:10px}}
 
-.pageTabs{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 4px);z-index:20;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:0 -2px 14px;padding:8px 2px;background:linear-gradient(180deg,rgba(10,10,10,.96),rgba(10,10,10,.82) 78%,rgba(10,10,10,0));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-.pageTab{border:1px solid #34302a;background:rgba(16,17,18,.38);color:#8d877e;border-radius:10px;padding:9px 5px;font-size:11px;font-weight:850}.pageTab.active{border-color:#8a6529;background:rgba(111,81,34,.24);color:#e5c170}
+.pageTabs{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 4px);z-index:20;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:0 -2px 14px;padding:8px 2px;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+.pageTab{border:1px solid transparent;background:transparent;color:#8d877e;border-radius:0;padding:9px 5px;font-size:11px;font-weight:850}.pageTab.active{border-color:transparent;background:transparent;color:#e5c170;box-shadow:inset 0 -2px 0 #b8893e}
 .page{display:none}.page.active{display:block}
 .flowHero{border:1px solid #5c4525;border-radius:16px;background:linear-gradient(145deg,#1b1813,#0c0e0f);padding:14px;margin:6px 0 12px}.flowHeroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.flowHeroTitle{font-size:20px;font-weight:900}.flowHeroTitle.long{color:#ff7778}.flowHeroTitle.short{color:#63e39c}.flowHeroTitle.neutral{color:#d7c38b}.flowHeroMeta{font-size:10px;color:#857e74;margin-top:5px}.flowConfidence{text-align:right;font-size:22px;font-weight:900;color:#e5bd68}.flowConfidence small{display:block;font-size:8px;color:#777168;margin-top:2px}.flowStats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.flowStat{border:1px solid #292a2b;background:#0d0f10;border-radius:10px;padding:9px}.flowStat span{display:block;font-size:8px;color:#746d64}.flowStat b{display:block;margin-top:3px;font-size:13px}.marketList{display:grid;gap:8px}.marketRow{display:grid;grid-template-columns:minmax(86px,1.1fr) .9fr 1fr;gap:8px;align-items:center;border:1px solid #2c2d2e;border-radius:12px;background:#0e1011;padding:10px}.marketSym{font-size:15px;font-weight:900}.marketSub{font-size:8px;color:#746e66;margin-top:3px}.marketMetric{text-align:right}.marketMetric span{display:block;font-size:8px;color:#746d64}.marketMetric b{display:block;margin-top:2px;font-size:11px}.longText{color:#ff7778}.shortText{color:#63e39c}.goldText{color:#e1ba68}.staleNote{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #594828;border-radius:10px;background:#17140f;color:#d2ad61;font-size:9px}.staleNote.show{display:block}
 .recGrid{display:grid;gap:9px}.recCard{border:1px solid #32302b;border-radius:14px;background:linear-gradient(145deg,#151616,#0c0e0f);padding:12px}.recTop{display:flex;justify-content:space-between;align-items:center;gap:10px}.recSymbolWrap{display:flex;align-items:center;gap:7px;min-width:0}.recSymbol{font-size:17px;font-weight:900}.tvMini{flex:0 0 auto;border:1px solid #5a4728;background:#16130e;color:#d7ae5b;border-radius:7px;padding:5px 7px;font-size:8px;font-weight:900;line-height:1;cursor:pointer}.tvMini:active{transform:translateY(1px)}.recTag{border-radius:8px;padding:5px 8px;font-size:10px;font-weight:900}.recTag.long{background:#481c1d;color:#ff7778}.recTag.short{background:#123823;color:#63e39c}.recScore{margin-top:9px;display:flex;justify-content:space-between;align-items:center;color:#8f877b;font-size:9px}.recScore b{font-size:15px;color:#e2bb67}.recReason{margin-top:5px;color:#777168;font-size:9px;line-height:1.45}.pageIntro{margin:0 2px 10px;color:#817a70;font-size:10px;line-height:1.45}.loadingBox{padding:18px 4px;color:#827b72;font-size:11px}.todayHero{border:1px solid #5c4525;border-radius:16px;background:linear-gradient(145deg,#1b1813,#0c0e0f);padding:14px;margin:6px 0 12px}.todayHeroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.todayHeroTitle{font-size:24px;font-weight:900}.todayHeroTitle.long{color:#ff7778}.todayHeroTitle.short{color:#63e39c}.todayHeroTitle.neutral{color:#e3c27e}.todayHeroMeta{font-size:11px;color:#857e74;margin-top:5px;line-height:1.45}.todayScore{text-align:right;font-size:24px;font-weight:900;color:#e5bd68}.todayScore small{display:block;font-size:8px;color:#777168;margin-top:2px}.todayBar{position:relative;height:14px;border-radius:999px;background:linear-gradient(90deg,#4fd58a 0%,#d0c04c 50%,#ff8a65 100%);margin-top:12px}.todayKnob{position:absolute;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border-radius:50%;background:#f0eee9;border:3px solid #121314;box-shadow:0 0 0 2px rgba(0,0,0,.25)}.todayAxis{display:flex;justify-content:space-between;margin-top:8px;font-size:9px;color:#9b9388}.todayBiasGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.biasCard{border:1px solid #2a2c2d;background:#101213;border-radius:12px;padding:9px 5px;text-align:center;cursor:pointer;min-width:0}.biasCard .label{display:block;font-size:10px;font-weight:900;white-space:nowrap}.biasCard .count{display:block;margin-top:4px;font-size:21px;font-weight:900}.biasCard .sub{display:block;margin-top:3px;font-size:8px;color:#777168;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.biasCard.active{border-color:#80602d;background:#17140f}.biasCard.long .label,.biasCard.long .count{color:#ff7448}.biasCard.longWatch .label,.biasCard.longWatch .count{color:#e0b95c}.biasCard.shortWatch .label,.biasCard.shortWatch .count{color:#75cda0}.biasCard.short .label,.biasCard.short .count{color:#28c89b}.biasListPanel{margin-top:8px;border:1px solid #2c2e2f;border-radius:13px;background:#0e1011;overflow:hidden}.biasListHead{display:flex;align-items:center;gap:8px;padding:10px 10px;border-bottom:1px solid #222526}.biasListHeadMain{display:flex;align-items:center;gap:8px;min-width:0}.biasDot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}.biasDot.long{background:#f56d38}.biasDot.longWatch{background:#e0b95c}.biasDot.shortWatch{background:#75cda0}.biasDot.short{background:#28c89b}.biasListTitle{font-size:15px;font-weight:900}.biasListMeta{font-size:8px;color:#777168;margin-top:2px}.biasListRows{display:grid}.biasRow{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:7px;align-items:center;padding:9px 10px;border-top:1px solid #1f2223}.biasRank{font-size:12px;color:#8e887e;text-align:center}.biasNameCell{min-width:0}.biasName{font-size:14px;font-weight:900}.biasExtra{font-size:9px;color:#6f6961;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.biasMetrics{text-align:right}.biasChange{display:block;font-size:13px;font-weight:900}.biasFlow{display:block;margin-top:2px;font-size:9px}.biasRow.long .biasChange,.biasRow.long .biasFlow{color:#ff7448}.biasRow.longWatch .biasChange,.biasRow.longWatch .biasFlow{color:#e0b95c}.biasRow.shortWatch .biasChange,.biasRow.shortWatch .biasFlow{color:#75cda0}.biasRow.short .biasChange,.biasRow.short .biasFlow{color:#28c89b}.matrixWrap{margin-top:10px}.matrixTitle{display:flex;align-items:center;justify-content:space-between;margin:0 2px 6px}.matrixTitle b{font-size:11px;color:#c8b68e}.matrixTitle span{font-size:8px;color:#6f6961}.miniMatrix{display:grid;grid-template-columns:1fr 1fr;gap:6px}.matrixCell{border:1px solid #292c2d;border-radius:11px;background:#0e1011;padding:7px;min-width:0}.matrixHead{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:5px}.matrixHead b{font-size:10px}.matrixHead small{font-size:7px;color:#68635d}.matrixCell.long .matrixHead b{color:#ff7448}.matrixCell.longWatch .matrixHead b{color:#e0b95c}.matrixCell.shortWatch .matrixHead b{color:#75cda0}.matrixCell.short .matrixHead b{color:#28c89b}.matrixCoins{display:grid;gap:4px}.matrixCoin{width:100%;min-height:42px;border:1px solid #2d3031;border-radius:8px;background:#131516;color:#ddd;padding:5px 7px;display:flex;align-items:center;justify-content:space-between;gap:5px;cursor:pointer;text-align:left}.matrixCoin b{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.matrixCoin span{font-size:9px;font-weight:850;white-space:nowrap}.matrixCell.long .matrixCoin span{color:#ff7448}.matrixCell.longWatch .matrixCoin span{color:#e0b95c}.matrixCell.shortWatch .matrixCoin span{color:#75cda0}.matrixCell.short .matrixCoin span{color:#28c89b}.matrixEmpty{min-height:42px;display:flex;align-items:center;color:#56524c;font-size:9px}.tvNameLink{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:900;cursor:pointer;text-align:left}.tvNameLink:hover{text-decoration:underline;text-underline-offset:2px}
@@ -264,7 +264,7 @@ body{font-size:16px;line-height:1.45}
   .nameLine,.stateLine{row-gap:8px}
   .traderName{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.2}
 
-  /* 回踩判讀：摘要分兩層，勝率獨立一列 */
+  /* 策略判讀：摘要分兩層，勝率獨立一列 */
   .testMonitorItem summary{grid-template-columns:1fr!important;gap:10px!important;align-items:start}
   .judgeTitleRow{gap:8px;row-gap:7px}
   .judgeBadgeRow{gap:7px;row-gap:7px;margin-top:8px}
@@ -367,7 +367,7 @@ button,select,input{font-family:inherit}
 .pos{align-items:stretch}
 .pos>div{min-width:0}
 
-/* 回踩判讀：名字 / 價格 / 勝率分三個區域，不硬塞單行 */
+/* 策略判讀：名字 / 價格 / 勝率分三個區域，不硬塞單行 */
 .testMonitorItem summary{grid-template-columns:minmax(190px,1.25fr) minmax(285px,1.55fr) minmax(88px,.55fr);gap:12px;align-items:center}
 .testMonitorSummaryMain{min-width:0}
 .judgeTitleRow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;row-gap:7px;min-width:0}
@@ -704,7 +704,7 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
       <div id="rateGuard" class="rateGuard">限流保護：讀取中…</div>
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
-      <button id="testPullback" class="action">測試回踩通知 → 監控判讀</button>
+      <button id="testPullback" class="action">測試策略通知 → 監控判讀</button>
       <div id="msg" class="msg"></div>
       <div class="note">熬鷹是唯一主訊號，約 3 秒檢查；佛系撈金大隊長與知危只做同向確認。回踩通知只使用訂單 API 精確首次建倉，先以 15 分 ATR 過濾普通震盪，再用建倉後極值計算一般 38.2%、深度 61.8% 與過深 78.6%；每階段每倉只提醒一次。訂單 API 異常、進場無法精確確認或歷史極值尚未補齊時一律暫停，不用舊資料硬報。通知只叫你開 TradingView 檢查 SMC／POC，不是下單指令。PnL 不含手續費與資金費。</div>
     </div>
@@ -749,22 +749,22 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
     <div id="perfSummary" class="perfSummary"><div class="perfCell"><span>通知樣本</span><b>—</b></div><div class="perfCell"><span>目標達標率</span><b>—</b></div><div class="perfCell"><span>PF</span><b>—</b></div><div class="perfCell"><span>期望R</span><b>—</b></div><div class="perfCell"><span>平均淨報酬</span><b>—</b></div><div class="perfCell"><span>模擬總損益</span><b>—</b></div></div>
     <div class="perfGrid2"><div class="perfPanel"><div class="perfPanelTitle">通知級別 <small>HIGH / NORMAL / VALID</small></div><div id="perfByTier"></div></div><div class="perfPanel"><div class="perfPanelTitle">市場狀態 <small>Regime</small></div><div id="perfByRegime"></div></div></div>
     <div class="perfGrid2"><div class="perfPanel"><div class="perfPanelTitle">通知即時度 <small>server → push → phone</small></div><div id="perfLatency"></div></div><div class="perfPanel"><div class="perfPanelTitle">勝率校準 <small>預測 vs 真實達標</small></div><div id="perfCalibration"></div></div></div>
-    <div class="perfPanel"><div class="perfPanelTitle">標的表現 <small>依 V10 通知樣本</small></div><div id="perfBySymbol"></div></div>
+    <div class="perfGrid2"><div class="perfPanel"><div class="perfPanelTitle">策略表現 <small>依通知樣本</small></div><div id="perfByStrategy"></div></div><div class="perfPanel"><div class="perfPanelTitle">標的表現 <small>依 V10 通知樣本</small></div><div id="perfBySymbol"></div></div></div>
     <div class="sectionBar"><div class="sectionTitle">最近通知</div><div id="perfResolved" class="radarCount">—</div></div>
     <div id="perfRecent" class="perfRecent"><div class="perfEmpty">V10 上線後開始累積。</div></div>
     <div id="perfMethod" class="perfNote">舊版粗略樣本不混入 V10 精準帳本，避免漂亮但假的統計。</div>
   </section>
 
   <section id="page-test" class="page">
-    <div class="sectionBar"><div class="sectionTitle">回踩測試</div><div id="testAge" class="radarCount">—</div></div>
-    <div class="testToolbar"><div class="testToolbarLeft"><div class="testToolbarTitle">建議標的自動等回踩</div><div class="testToolbarSub">詳細＝免費完整交叉比對；AI網搜只有手動展開才收費</div></div></div>
-    <div id="testSummary" class="testSummary"><div class="testSummaryCell"><span>監控</span><b>—</b></div><div class="testSummaryCell"><span>回踩中</span><b>—</b></div><div class="testSummaryCell"><span>已確認</span><b>—</b></div><div class="testSummaryCell"><span>實測勝率</span><b>—</b></div></div>
-    <div id="testGrid" class="testGrid"><div class="loadingBox">建立回踩模型中…</div></div>
+    <div class="sectionBar"><div class="sectionTitle">觀察中</div><div id="testAge" class="radarCount">—</div></div>
+    <div class="testToolbar"><div class="testToolbarLeft"><div class="testToolbarTitle">多策略交叉測試</div><div class="testToolbarSub">同時比對回踩、突破回測、流動性掃盤、動能續攻、區間極值；詳細＝免費完整交叉比對</div></div></div>
+    <div id="testSummary" class="testSummary"><div class="testSummaryCell"><span>監控</span><b>—</b></div><div class="testSummaryCell"><span>接近完成</span><b>—</b></div><div class="testSummaryCell"><span>可通知</span><b>—</b></div><div class="testSummaryCell"><span>實測勝率</span><b>—</b></div></div>
+    <div id="testGrid" class="testGrid"><div class="loadingBox">建立多策略觀察模型中…</div></div>
     <div class="testNotifyPanel">
-      <div class="testNotifyMaster"><div><b>測試通知</b><span>只推目前狀態、保守勝率、建議進場區與進場策略</span></div><label class="switch"><input id="testSignalNotify" type="checkbox"><span class="slider"></span></label></div>
+      <div class="testNotifyMaster"><div><b>策略進場通知</b><span>任一策略完成並通過資料、風險與二次確認後才通知</span></div><label class="switch"><input id="testSignalNotify" type="checkbox"><span class="slider"></span></label></div>
       <div class="testNotifyModes">
         <label><input type="radio" name="testNotifyMode" value="HIGH"><span><b>只開高勝率</b><small>最嚴格 · 不追價</small></span></label>
-        <label><input type="radio" name="testNotifyMode" value="HIGH_NORMAL"><span><b>高＋普通</b><small>完整回踩條件</small></span></label>
+        <label><input type="radio" name="testNotifyMode" value="HIGH_NORMAL"><span><b>高＋普通</b><small>多策略完整條件</small></span></label>
         <label><input type="radio" name="testNotifyMode" value="ALL"><span><b>全部有效</b><small>仍排除追價/失效</small></span></label>
       </div>
       <div id="testNotifyMsg" class="testNotifyMsg"></div><div id="testNotifyDiag" class="testNotifyDiag"></div><div id="testHealth" class="testHealth">系統檢查中…</div>
@@ -785,6 +785,16 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
   </div>
 </div>
 
-<script src="/app.js?v=1000"></script>
+<script src="/app.js?v=1012"></script>
+<style id="v101-top-tabs">
+.pageTabs{background:none!important;background-color:transparent!important;background-image:none!important;border:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding-top:5px!important;padding-bottom:7px!important;box-shadow:none!important}
+.pageTabs::before,.pageTabs::after{display:none!important;content:none!important}
+.pageTab{background:none!important;background-color:transparent!important;background-image:none!important;border:0!important;border-color:transparent!important;border-radius:0!important;box-shadow:none!important;color:#8d877e!important}
+.pageTab.active{background:none!important;background-color:transparent!important;background-image:none!important;border:0!important;border-color:transparent!important;color:#e5c170!important;box-shadow:inset 0 -2px 0 #b8893e!important}
+.testStrategyTag{display:inline-flex;align-items:center;border:1px solid #5d4b2a;border-radius:999px;padding:3px 7px;background:#17130d;color:#dfbd72;font-size:9px;font-weight:950;white-space:nowrap}
+.testQualityText{display:flex!important;justify-content:space-between!important;gap:8px!important}
+.testPlaybookList{display:grid;gap:6px;margin-top:9px}.testPlaybookRow{display:grid;grid-template-columns:minmax(90px,1fr) 2fr auto;align-items:center;gap:7px;font-size:9px;color:#8f877c}.testPlaybookBar{height:6px;border-radius:999px;background:#222526;overflow:hidden}.testPlaybookBar>i{display:block;height:100%;background:linear-gradient(90deg,#6a5328,#d2a64f);border-radius:inherit}.testPlaybookRow b{font-size:9px;color:#cfc4b4}.testExpText{font-size:10px;color:#a49b8d;font-weight:850}.testExpText strong{color:#e0bd70}.testStrategyNext{margin-top:7px;color:#857d72;font-size:9px;line-height:1.45}
+</style>
+
 </body>
 </html>
