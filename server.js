@@ -151,7 +151,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V10.1.1';
+const BUILD_VERSION = 'V10.1.2';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -4215,7 +4215,7 @@ function testEntryStrategy(t, statusLabel='') {
 }
 function testSignalTier(t,{reentry=false}={}) {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||0),low=Number(cal.conservativeLow||0);
-  const score=Number(reentry?t.reentryScore:(t.monitorScore||t.qualityScore||0)),rank=Number(t.rank||99),ev=t.monitorEvidence||t.lastCheck||{};
+  const score=Number(reentry?t.reentryScore:(t.monitorScore??t.qualityScore??0)),rank=Number(t.rank||99),ev=t.monitorEvidence||t.lastCheck||{};
   const spread=finiteMetric(ev.spreadBps),chaseAtr=finiteMetric(ev.chaseAtr),adlRisk=String(ev.adlRisk||'unknown').toLowerCase(),fundingCrowded=ev.fundingCrowded===true;
   const adverse=!!(ev.adverse15||ev.adverse30||ev.adverse1h||ev.adverseMarket);
   const noSpreadRisk=!Number.isFinite(spread)||spread<=TEST_SIGNAL_MAX_SPREAD_BPS;
@@ -4718,8 +4718,26 @@ async function analyzeTestTracker(t, market) {
   const reasons=[...(playbook.reasons||[])];if(t1h?.trend===dir)reasons.push('1小時趨勢同向');if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');
   const activeZone=playbook.entryZone||{low:setup.zoneLow,high:setup.zoneHigh},activeZoneLow=Number(activeZone?.low),activeZoneHigh=Number(activeZone?.high),activeMid=Number.isFinite(activeZoneLow)&&Number.isFinite(activeZoneHigh)?(activeZoneLow+activeZoneHigh)/2:setup.zoneMid;
   const strategyChase=Number.isFinite(Number(playbook.chaseAtr))?Number(playbook.chaseAtr):(setup.atr5>0?(dir>0?Math.max(0,last.close-Math.max(activeZoneLow,activeZoneHigh)):Math.max(0,Math.min(activeZoneLow,activeZoneHigh)-last.close))/setup.atr5:0);
+  // V10.1.2: 動態強度與「策略品質」分離。品質看 setup / playbook 完整度；
+  // 動態強度只看此刻趨勢、動能、量能、資金流、深度、大盤與追價風險，避免兩欄永遠顯示同一數字。
+  let liveStrength=50;
+  liveStrength+=t5.trend===dir?8:t5.trend===-dir?-8:0;
+  liveStrength+=t5.momentum===dir?7:t5.momentum===-dir?-7:0;
+  liveStrength+=t15.trend===dir?10:t15.trend===-dir?-10:0;
+  liveStrength+=t30?.trend===dir?6:t30?.trend===-dir?-6:0;
+  liveStrength+=t1h?.trend===dir?7:t1h?.trend===-dir?-7:0;
+  liveStrength+=marketAlign*6+derivDir*5+topDir*3+depthDir*4;
+  liveStrength+=momentum?5:-2;
+  liveStrength+=macdImprove?5:-2;
+  liveStrength+=t5.volumeRatio>=1.20?5:t5.volumeRatio>=1.05?3:t5.volumeRatio<.70?-5:0;
+  liveStrength+=oiVal==null?0:oiVal>=1?3:oiVal<=-2?-4:0;
+  liveStrength+=spreadOk?2:-7;
+  liveStrength+=strategyChase<=.15?4:strategyChase<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR?0:-8;
+  liveStrength+=adlRisk==='low'?2:adlRisk==='high'?-8:0;
+  liveStrength+=fundingCrowded?-5:0;
+  t.monitorScore=clamp(Math.round(liveStrength),0,100);
   t.currentPrice=last.close;t.qualityScore=score;t.status=t.observationProgress>=58?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','觀察中',new Date().toISOString());t.updatedAt=new Date().toISOString();
-  t.lastCheck={at:t.updatedAt,strategyId:playbook.id,strategyLabel:playbook.label,observationProgress:t.observationProgress,strategyCandidates:playbook.candidates,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(strategyChase.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
+  t.lastCheck={at:t.updatedAt,strategyId:playbook.id,strategyLabel:playbook.label,observationProgress:t.observationProgress,dynamicStrength:t.monitorScore,strategyCandidates:playbook.candidates,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(strategyChase.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
   const globalSafety=spreadOk&&adlRisk!=='high'&&!fundingCrowded&&Number(t.dataHealth?.coveragePct||0)>=72&&Number(t.dataHealth?.confidencePct||0)>=65;
   const confirm=playbook.ready===true&&globalSafety&&score>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
@@ -4794,7 +4812,7 @@ function testStrategyPlaybooks(t,ctx){
 function testMonitorPriority(t, calibratedRate=null) {
   const win=Number.isFinite(Number(calibratedRate))?Number(calibratedRate):Number(testCalibratedWinRate(t,{dynamic:true}).rate||50);
   const completion=t.status==='CONFIRMED'?100:t.status==='INVALID'?Math.min(20,Number(t.observationProgress||0)):Number(t.observationProgress||0);
-  const dynamic=Number(t.monitorScore||t.qualityScore||70);
+  const dynamic=Number(t.monitorScore??t.qualityScore??70);
   // 觀察榜像經驗條：完成度主導，勝率第二，動態品質第三。條件越接近可通知越往前。
   return clamp(completion*.50+win*.40+dynamic*.10,0,100);
 }
@@ -5421,7 +5439,7 @@ app.get('/healthz', (_req, res) => {
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V10.1.1 SOLO MAX MULTI-PLAYBOOK HOTFIX started on ${PORT}`);
+    console.log(`Position Alert V10.1.2 SOLO MAX UI/STRENGTH HOTFIX started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
