@@ -1,0 +1,89 @@
+V9.6 DATA MAX / CROSS-EXCHANGE
+日期：2026-08-30
+
+目標
+- 優先消滅「— / 無資料」，但絕不拿 0、1 或中性值假裝資料存在。
+- Binance 為主資料源；只有主源失敗才啟用明確標示的備援。
+- 完整度（有沒有資料）與可信度（資料品質）分開計算。
+- 通知寧可少，也不讓殘缺資料製造假精準勝率。
+
+V9.6 資料層
+1. K線 / 技術指標
+   - Binance 5m / 15m / 30m / 1h 為主。
+   - Binance K線失敗：Bybit -> OKX。
+   - RSI、ADX、MACD、ATR、量比、趨勢均由後端自己計算。
+   - 1000/10000/100000/1000000 前綴合約支援跨所底層幣別備援並做價格倍率校正。
+
+2. 衍生品
+   - OI：Binance openInterestHist；失敗時 Bybit OI 歷史備援。
+   - 主動買賣：Binance taker ratio；失敗時 Binance aggTrades 自算；再失敗用 Bybit recent-trade 自算。
+   - 全市場多空：Binance；失敗時 Bybit account ratio 備援。
+   - 大戶持倉比 / 大戶帳戶比：Binance 分開保留，不混成同一指標。
+
+3. 委託簿 / 進場品質
+   - 20檔深度：Binance；失敗時 Bybit -> OKX。
+   - 自算 Bid/Ask 深度失衡、Spread bps、買賣盤名目量。
+   - 追價距離用目前價與較佳進場區換算 ATR。
+
+4. Funding / Basis / ADL / Mark
+   - Funding、Mark、Index：Binance Premium Index；必要時 Bybit ticker 備援。
+   - Basis：Binance basis；拿不到時由 Mark / Index 推導並標示來源。
+   - ADL Risk：Binance symbolAdlRisk；不使用虛構中性值。
+   - 風險資料快取縮短到 60 秒（ADL 本身由交易所約 30 分鐘更新）。
+
+5. 跨交易所交叉驗證
+   - Bybit：15m 趨勢、RSI、OI、多空帳戶、深度、Funding / Mark。
+   - OKX：15m 趨勢、RSI、深度。
+   - 不把不同交易所 OI / 比率絕對值直接平均；只比較方向、一致性與衝突。
+   - 若跨所已有可用資料且趨勢明確逆向，通知直接阻擋。
+
+完整度 / 可信度
+- 完整度：16 個主要資料項目實際可用比例。
+- 回測只要有樣本就算「有資料」；18 筆會顯示「18筆 / 偏少」，不再寫成「回測無資料」。
+- 可信度：從完整度出發，再扣小樣本與備援來源折扣。
+- 資料來源 chip 顯示 Binance / Binance成交備援 / Bybit備援 / OKX備援；抓取失敗不再偽裝成有效值。
+
+通知閘門
+HIGH：
+- 校準勝率 / 品質 / 排名通過既有門檻
+- 完整度 >= 90%
+- 可信度 >= 86%
+- 5m/15m/30m/1h、OI、主動資金、深度、Funding、Mark、大盤、回測皆需存在
+- 大戶持倉或大戶帳戶至少一項存在
+
+NORMAL：
+- 完整度 >= 80%
+- 可信度 >= 76%
+- 5m/15m/30m/1h、深度、Mark、大盤、回測存在
+- OI / 主動資金至少一項存在
+
+BLOCK：
+- 完整度 < 72% 或可信度 < 65%
+- 結構失效 / 高週期逆向 / 大盤逆向 / ADL 高風險 / Funding 擁擠 / 嚴重追價 / 嚴重價差
+- 跨交易所已有有效資料且趨勢明確逆向
+
+修正的 V9.5 問題
+- INVALID/失效狀態以前會提早 return，造成詳細頁大量「—」；V9.6 先刷新完整 live snapshot，再進狀態分支。
+- 「資料完整度 93%」與畫面大量無資料的矛盾已修正。
+- 回測 18 筆不再判成無資料。
+- null 不再被 Number(null) 轉成 0，OI / Taker / Depth / Funding 等缺值不再污染評分。
+- 詳細頁新增可信度、來源、備援標記、跨所交叉驗證。
+
+免費資料診斷 API（部署後人工檢查）
+- /api/data-probe?symbol=BTCUSDT
+- 可換成 ETHUSDT、PROMUSDT 等 Binance USDT 永續 symbol。
+- 一次回傳 K線技術、衍生品、委託簿、風險與跨所備援狀態，專門用來抓出為何還會出現「無資料」。
+
+環境變數
+- ENABLE_CROSS_EXCHANGE=1  （預設就是 1；設 0 才關閉 Bybit / OKX）
+- 其他既有 Railway / VAPID / OpenAI 設定不變。
+- 不需要 Bybit / OKX API Key；V9.6 使用的是公開市場資料。
+
+部署
+- Railway：使用 V9.6 ROOT ZIP。
+- Vercel：使用 V9.6 PUBLIC ZIP。
+- 完整備份：V9.6 FULL BACKUP ZIP。
+
+驗證狀態
+- server.js / public/app.js / public/sw.js 已通過 Node 語法檢查。
+- 本地容器無 DNS 且沒有 npm 依賴快取，所以無法在此環境完成真實 Binance/Bybit/OKX runtime call；部署 Railway 後用 /api/data-probe 做實際來源驗證。

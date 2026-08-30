@@ -133,11 +133,15 @@ const TEST_REENTRY_SCORE = Math.max(74, Math.min(92, Number(process.env.TEST_REE
 const TEST_REENTRY_MAX_RANK = Math.max(3, Math.min(12, Number(process.env.TEST_REENTRY_MAX_RANK || 6)));
 const TEST_REENTRY_MAX_CHASE_ATR = Math.max(.2, Math.min(.8, Number(process.env.TEST_REENTRY_MAX_CHASE_ATR || .45)));
 const FUTURES_DATA = 'https://fapi.binance.com/futures/data';
+const BINANCE_FAPI = 'https://fapi.binance.com';
+const BYBIT_API = 'https://api.bybit.com';
+const OKX_API = 'https://www.okx.com';
+const ENABLE_CROSS_EXCHANGE = String(process.env.ENABLE_CROSS_EXCHANGE || '1') !== '0';
 const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V9.5';
+const BUILD_VERSION = 'V9.6';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -194,6 +198,8 @@ const testBacktestCandleCache = new Map();
 const testMicroCache = new Map();
 const testRiskCache = new Map();
 const testDerivCache = new Map();
+const testCrossExchangeCache = new Map();
+const testCandleSourceCache = new Map();
 function n(v) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
@@ -3225,33 +3231,102 @@ function latestFinite(arr) {
   return null;
 }
 
-async function ideaFetchJson(url, timeoutMs = 8000) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const r = await fetch(url, { headers:{accept:'application/json','user-agent':'Mozilla/5.0 PositionAlert/7.2'}, signal:controller.signal });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
-  } finally { clearTimeout(timeout); }
+async function ideaFetchJson(url, timeoutMs = 8000, attempts = 2) {
+  let lastError = null;
+  for (let attempt = 0; attempt < Math.max(1, attempts); attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, {
+        headers:{accept:'application/json','cache-control':'no-cache','user-agent':'Mozilla/5.0 PositionAlert/9.6'},
+        signal:controller.signal
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const json = await r.json();
+      if (json && typeof json === 'object' && ('retCode' in json) && Number(json.retCode) !== 0) throw new Error(`BYBIT ${json.retCode}: ${json.retMsg||'error'}`);
+      if (json && typeof json === 'object' && ('code' in json) && String(json.code) !== '0' && !Array.isArray(json)) throw new Error(`API ${json.code}: ${json.msg||json.message||'error'}`);
+      return json;
+    } catch (e) {
+      lastError = e;
+      if (attempt + 1 < Math.max(1, attempts)) await new Promise(r=>setTimeout(r, 180 + attempt * 220));
+    } finally { clearTimeout(timeout); }
+  }
+  throw lastError || new Error('FETCH_FAILED');
 }
 
+function intervalMs(interval) {
+  const map={ '1m':60000,'3m':180000,'5m':300000,'15m':900000,'30m':1800000,'1h':3600000,'2h':7200000,'4h':14400000,'1d':86400000 };
+  return map[String(interval||'').toLowerCase()] || 0;
+}
+function bybitInterval(interval){ return ({'1m':'1','3m':'3','5m':'5','15m':'15','30m':'30','1h':'60','2h':'120','4h':'240','1d':'D'})[String(interval||'').toLowerCase()] || null; }
+function okxBar(interval){ return ({'1m':'1m','3m':'3m','5m':'5m','15m':'15m','30m':'30m','1h':'1H','2h':'2H','4h':'4H','1d':'1D'})[String(interval||'').toLowerCase()] || null; }
+function okxSwapSymbol(symbol){ const s=cleanFuturesSymbol(symbol); return s.endsWith('USDT') ? `${s.slice(0,-4)}-USDT-SWAP` : ''; }
+function externalSymbolCandidates(symbol){
+  const key=cleanFuturesSymbol(symbol),base=key.endsWith('USDT')?key.slice(0,-4):key,out=[{symbol:key,scale:1}];
+  const m=base.match(/^(1000000|100000|10000|1000)([A-Z].+)$/);if(m)out.push({symbol:`${m[2]}USDT`,scale:Number(m[1])});return out;
+}
+function okxCandidates(symbol){return externalSymbolCandidates(symbol).map(x=>({instId:okxSwapSymbol(x.symbol),scale:x.scale,symbol:x.symbol})).filter(x=>x.instId)}
+function scaleCandles(rows,scale){if(!(scale>0)||scale===1)return rows;return rows.map(x=>({...x,open:x.open*scale,high:x.high*scale,low:x.low*scale,close:x.close*scale}))}
+function parseExternalKlineRow(row, interval) {
+  if (!Array.isArray(row) || row.length < 6) return null;
+  const openTime=Number(row[0]),open=Number(row[1]),high=Number(row[2]),low=Number(row[3]),close=Number(row[4]),volume=Number(row[5]||0);
+  if (![openTime,open,high,low,close].every(Number.isFinite) || !(high>0&&low>0&&close>0) || high<low) return null;
+  const ms=intervalMs(interval),closeTime=ms>0?openTime+ms-1:0;
+  return {openTime,open,high,low,close,volume:Number.isFinite(volume)?volume:0,closeTime};
+}
+async function fetchBybitCandles(symbol, interval, limit=240) {
+  const iv=bybitInterval(interval); if(!iv) throw new Error('BYBIT_INTERVAL_UNSUPPORTED');
+  const lim=Math.max(80,Math.min(1000,Number(limit)||240));let lastError=null;
+  for(const cand of externalSymbolCandidates(symbol))try{
+    const json=await ideaFetchJson(`${BYBIT_API}/v5/market/kline?category=linear&symbol=${encodeURIComponent(cand.symbol)}&interval=${encodeURIComponent(iv)}&limit=${lim}`,8500,2);
+    const rows=Array.isArray(json?.result?.list)?json.result.list.map(r=>parseExternalKlineRow(r,interval)).filter(Boolean).sort((a,b)=>a.openTime-b.openTime):[];
+    if(rows.length<80)throw new Error(`${cand.symbol} ${interval} Bybit candles too short`);return scaleCandles(rows,cand.scale);
+  }catch(e){lastError=e}
+  throw lastError||new Error(`${symbol} Bybit candles unavailable`);
+}
+async function fetchOkxCandles(symbol, interval, limit=240) {
+  const bar=okxBar(interval);if(!bar)throw new Error('OKX_INTERVAL_UNSUPPORTED');const lim=Math.max(80,Math.min(300,Number(limit)||240));let lastError=null;
+  for(const cand of okxCandidates(symbol))try{
+    const json=await ideaFetchJson(`${OKX_API}/api/v5/market/candles?instId=${encodeURIComponent(cand.instId)}&bar=${encodeURIComponent(bar)}&limit=${lim}`,8500,2);
+    const rows=Array.isArray(json?.data)?json.data.map(r=>parseExternalKlineRow(r,interval)).filter(Boolean).sort((a,b)=>a.openTime-b.openTime):[];
+    if(rows.length<80)throw new Error(`${cand.instId} ${interval} OKX candles too short`);return scaleCandles(rows,cand.scale);
+  }catch(e){lastError=e}
+  throw lastError||new Error('OKX_SYMBOL_UNSUPPORTED');
+}
 async function fetchIdeaCandles(symbol, interval, limit = 240) {
-  const json = await ideaFetchJson(`${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`);
-  const candles = Array.isArray(json) ? json.map(parseKlineRow).filter(Boolean) : [];
-  if (candles.length < 80) throw new Error(`${symbol} ${interval} candles too short`);
-  return candles;
+  const key=`${cleanFuturesSymbol(symbol)}:${interval}:${limit}`;
+  try {
+    const json = await ideaFetchJson(`${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`,8000,2);
+    const candles = Array.isArray(json) ? json.map(parseKlineRow).filter(Boolean) : [];
+    if (candles.length < 80) throw new Error(`${symbol} ${interval} Binance candles too short`);
+    testCandleSourceCache.set(key,{source:'Binance',fallback:false,at:Date.now()});
+    return candles;
+  } catch (binanceError) {
+    if (!ENABLE_CROSS_EXCHANGE) throw binanceError;
+    try {
+      const rows=await fetchBybitCandles(symbol,interval,limit);testCandleSourceCache.set(key,{source:'Bybit',fallback:true,at:Date.now(),binanceError:String(binanceError?.message||binanceError)});return rows;
+    } catch (bybitError) {
+      try {
+        const rows=await fetchOkxCandles(symbol,interval,limit);testCandleSourceCache.set(key,{source:'OKX',fallback:true,at:Date.now(),binanceError:String(binanceError?.message||binanceError),bybitError:String(bybitError?.message||bybitError)});return rows;
+      } catch (okxError) {
+        testCandleSourceCache.set(key,{source:null,fallback:false,failed:true,at:Date.now(),error:`Binance ${String(binanceError?.message||binanceError)}; Bybit ${String(bybitError?.message||bybitError)}; OKX ${String(okxError?.message||okxError)}`});
+        throw okxError;
+      }
+    }
+  }
 }
 
 function ratioLast(rows, key = 'longShortRatio') {
   if (!Array.isArray(rows) || !rows.length) return null;
-  const x = Number(rows[rows.length - 1]?.[key]);
-  return Number.isFinite(x) ? x : null;
+  const ordered=rows.some(x=>x?.timestamp!=null)?[...rows].sort((a,b)=>Number(a?.timestamp||0)-Number(b?.timestamp||0)):rows;
+  return finiteMetric(ordered.at(-1)?.[key]);
 }
 
 function ratioChangePct(rows, key) {
   if (!Array.isArray(rows) || rows.length < 2) return null;
-  const a = Number(rows[0]?.[key]), b = Number(rows[rows.length - 1]?.[key]);
-  if (!(a > 0) || !Number.isFinite(b)) return null;
+  const ordered=rows.some(x=>x?.timestamp!=null)?[...rows].sort((a,b)=>Number(a?.timestamp||0)-Number(b?.timestamp||0)):rows;
+  const a=finiteMetric(ordered[0]?.[key]),b=finiteMetric(ordered.at(-1)?.[key]);
+  if (a==null || !(a > 0) || b==null) return null;
   return (b / a - 1) * 100;
 }
 
@@ -3311,15 +3386,15 @@ function ideaScoreParts(row, t15, t1h, deriv) {
   add('15m動能', t15.momentum, 9, `RSI ${Number(t15.rsi14||0).toFixed(0)}`);
   add('結構突破', t1h.breakout, 10, t1h.breakout>0?'上破20根':t1h.breakout<0?'下破20根':'區間內');
   add('量價POC', t1h.pocSignal, 7, `${Number(t1h.poc||0).toPrecision(5)}`);
-  const oiCh=Number(deriv.oiChangePct||0), taker=Number(deriv.takerRatio||1), top=Number(deriv.topRatio||1), global=Number(deriv.globalRatio||1);
-  const oiDir = oiCh > 1.2 ? Math.sign(row.changePct||0) : oiCh < -1.2 ? -Math.sign(row.changePct||0) : 0;
-  add('OI', oiDir, 9, `${oiCh>0?'+':''}${oiCh.toFixed(1)}%`);
-  add('主動買賣', taker>1.04?1:taker<0.96?-1:0, 10, `${taker.toFixed(2)}`);
-  add('大戶部位', top>1.08?1:top<0.92?-1:0, 8, `${top.toFixed(2)}`);
-  add('全市場多空', global>1.08?1:global<0.92?-1:0, 5, `${global.toFixed(2)}`);
-  const funding=Number(row.fundingPct||0);
-  const crowd = Math.abs(funding)>=0.08 ? (funding>0?-1:1) : 0;
-  add('資金費擁擠', crowd, 6, `${funding>0?'+':''}${funding.toFixed(4)}%`);
+  const oiCh=finiteMetric(deriv.oiChangePct),taker=finiteMetric(deriv.takerRatio),top=finiteMetric(deriv.topRatio),global=finiteMetric(deriv.globalRatio);
+  const oiDir = oiCh==null?0:oiCh > 1.2 ? Math.sign(row.changePct||0) : oiCh < -1.2 ? -Math.sign(row.changePct||0) : 0;
+  if(oiCh!=null)add('OI', oiDir, 9, `${oiCh>0?'+':''}${oiCh.toFixed(1)}%`);else signals.push({name:'OI',value:0,weight:0,detail:'缺資料'});
+  if(taker!=null)add('主動買賣', taker>1.04?1:taker<0.96?-1:0, 10, `${taker.toFixed(2)}`);else signals.push({name:'主動買賣',value:0,weight:0,detail:'缺資料'});
+  if(top!=null)add('大戶部位', top>1.08?1:top<0.92?-1:0, 8, `${top.toFixed(2)}`);else signals.push({name:'大戶部位',value:0,weight:0,detail:'缺資料'});
+  if(global!=null)add('全市場多空', global>1.08?1:global<0.92?-1:0, 5, `${global.toFixed(2)}`);else signals.push({name:'全市場多空',value:0,weight:0,detail:'缺資料'});
+  const funding=finiteMetric(row.fundingPct);
+  const crowd = funding!=null&&Math.abs(funding)>=0.08 ? (funding>0?-1:1) : 0;
+  if(funding!=null)add('資金費擁擠', crowd, 6, `${funding>0?'+':''}${funding.toFixed(4)}%`);else signals.push({name:'資金費擁擠',value:0,weight:0,detail:'缺資料'});
   const volumeSignal=t15.volumeRatio>=1.35 ? Math.sign(row.changePct||0) : 0;
   add('量能', volumeSignal, 7, `${t15.volumeRatio.toFixed(2)}x`);
   const direction = signed >= 12 ? 'LONG' : signed <= -12 ? 'SHORT' : 'WAIT';
@@ -3399,20 +3474,17 @@ function symbolProjectProfile(symbol){
 
 async function analyzeIdeaSymbol(row) {
   const symbol=row.symbol;
-  const urls={
-    oi:`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
-    global:`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
-    top:`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
-    taker:`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
-  };
-  const [c15,c1h,oi,global,top,taker] = await Promise.all([
+  const [c15,c1h,rawDeriv] = await Promise.all([
     fetchIdeaCandles(symbol,'15m',240), fetchIdeaCandles(symbol,'1h',240),
-    ideaFetchJson(urls.oi).catch(()=>[]), ideaFetchJson(urls.global).catch(()=>[]), ideaFetchJson(urls.top).catch(()=>[]), ideaFetchJson(urls.taker).catch(()=>[]),
+    testFetchDerivatives(symbol).catch(()=>null),
   ]);
   const t15=technicalSnapshot(c15), t1h=technicalSnapshot(c1h);
   const deriv={
-    oiChangePct:ratioChangePct(oi,'sumOpenInterestValue') ?? ratioChangePct(oi,'sumOpenInterest'),
-    globalRatio:ratioLast(global), topRatio:ratioLast(top), takerRatio:ratioLast(taker,'buySellRatio'),
+    oiChangePct:finiteMetric(rawDeriv?.oiChangePct),
+    globalRatio:finiteMetric(rawDeriv?.globalLongShortRatio),
+    topRatio:finiteMetric(rawDeriv?.topPositionRatio),
+    takerRatio:finiteMetric(rawDeriv?.takerRatio),
+    source:rawDeriv?._source||null,
   };
   const model=ideaScoreParts(row,t15,t1h,deriv), bt=backtestIdea(c1h);
   const hist=Number.isFinite(bt.hitRate)?bt.hitRate:50;
@@ -3426,7 +3498,7 @@ async function analyzeIdeaSymbol(row) {
     modelScore:model.modelScore, rankScore:Number(rankScore.toFixed(1)), estimatedWinRate:Number(estimate.toFixed(1)),
     historicalHitRate:bt.hitRate, backtestSample:bt.sample, reason,
     profile:symbolProjectProfile(symbol),
-    metrics:{ rsi15:Number(t15.rsi14?.toFixed(1)), rsi1h:Number(t1h.rsi14?.toFixed(1)), volumeRatio:Number(t15.volumeRatio.toFixed(2)), oiChangePct:Number((deriv.oiChangePct||0).toFixed(2)), globalRatio:deriv.globalRatio, topRatio:deriv.topRatio, takerRatio:deriv.takerRatio },
+    metrics:{ rsi15:finiteMetric(t15.rsi14)!=null?Number(t15.rsi14.toFixed(1)):null, rsi1h:finiteMetric(t1h.rsi14)!=null?Number(t1h.rsi14.toFixed(1)):null, volumeRatio:finiteMetric(t15.volumeRatio)!=null?Number(t15.volumeRatio.toFixed(2)):null, oiChangePct:finiteMetric(deriv.oiChangePct)!=null?Number(deriv.oiChangePct.toFixed(2)):null, globalRatio:deriv.globalRatio, topRatio:deriv.topRatio, takerRatio:deriv.takerRatio, sources:deriv.source },
   };
 }
 
@@ -3614,62 +3686,97 @@ function buildTestSetup(idea, c5, c15, backtestCandles=c5) {
   const setupScore=clamp(Math.round(Number(idea.modelScore||50)*.28+Number(idea.rankScore||50)*.18+Number(idea.estimatedWinRate||50)*.18+(confluenceCount/3)*20+(impulse.range/atr15>=2?10:5)+adxBoost),0,100);
   return {direction,createdAt:new Date().toISOString(),impulseLow:impulse.low,impulseHigh:impulse.high,zoneLow,zoneHigh,zoneMid,invalidation,fib38,fib61,fib786,ema20_15:t15.ema20,poc15:t15.poc,vwap15,atr5,atr15,atrPct,volatilityRegime,adx15:t15.adx14,diBias15:t15.diBias,confluenceCount,setupScore,backtest:hist};
 }
+function finiteMetric(v){if(v===null||v===undefined||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null}
+function rowsByTimestamp(rows){return [...(Array.isArray(rows)?rows:[])].sort((a,b)=>Number(a?.timestamp||0)-Number(b?.timestamp||0))}
+function percentChangeSeries(rows,key){const a=rowsByTimestamp(rows).map(x=>Number(x?.[key])).filter(Number.isFinite);return a.length>=2&&a[0]!==0?(a.at(-1)/a[0]-1)*100:null}
+async function fetchBybitOiFallback(symbol){
+  let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/open-interest?category=linear&symbol=${encodeURIComponent(cand.symbol)}&intervalTime=5min&limit=12`,7500,2);const rows=rowsByTimestamp(json?.result?.list);const vals=rows.map(x=>Number(x?.openInterest)).filter(Number.isFinite);if(vals.length>=2&&vals[0]>0)return {changePct:(vals.at(-1)/vals[0]-1)*100,rows,symbol:cand.symbol};throw new Error('Bybit OI short')}catch(e){lastError=e}throw lastError||new Error('BYBIT_OI_UNAVAILABLE');
+}
+async function fetchBybitAccountRatioFallback(symbol){
+  let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/account-ratio?category=linear&symbol=${encodeURIComponent(cand.symbol)}&period=5min&limit=12`,7500,2);const rows=rowsByTimestamp(json?.result?.list),x=rows.at(-1),buy=Number(x?.buyRatio),sell=Number(x?.sellRatio);if(buy>=0&&sell>0)return {ratio:buy/sell,rows,symbol:cand.symbol};throw new Error('Bybit L/S empty')}catch(e){lastError=e}throw lastError||new Error('BYBIT_LS_UNAVAILABLE');
+}
+async function fetchBinanceAggTakerFallback(symbol){
+  const json=await ideaFetchJson(`${BINANCE_FAPI}/fapi/v1/aggTrades?symbol=${encodeURIComponent(cleanFuturesSymbol(symbol))}&limit=1000`,7500,2);
+  if(!Array.isArray(json)||!json.length)return null;let buy=0,sell=0;for(const x of json){const q=Number(x?.q),p=Number(x?.p),notional=Number.isFinite(q)&&Number.isFinite(p)?q*p:0;if(!(notional>0))continue;if(x?.m===true)sell+=notional;else buy+=notional}return buy>0&&sell>0?{ratio:buy/sell,buyNotional:buy,sellNotional:sell,sample:json.length}:null;
+}
+async function fetchBybitRecentTakerFallback(symbol){
+  let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/recent-trade?category=linear&symbol=${encodeURIComponent(cand.symbol)}&limit=1000`,7500,2);const rows=Array.isArray(json?.result?.list)?json.result.list:[];let buy=0,sell=0;for(const x of rows){const q=Number(x?.size),p=Number(x?.price),notional=Number.isFinite(q)&&Number.isFinite(p)?q*p:0;if(!(notional>0))continue;if(String(x?.side||'').toLowerCase()==='buy')buy+=notional;else if(String(x?.side||'').toLowerCase()==='sell')sell+=notional}if(buy>0&&sell>0)return {ratio:buy/sell,buyNotional:buy,sellNotional:sell,sample:rows.length,symbol:cand.symbol};throw new Error('Bybit trades empty')}catch(e){lastError=e}throw lastError||new Error('BYBIT_TRADES_UNAVAILABLE');
+}
 async function testFetchDerivatives(symbol) {
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testDerivCache.get(key);
   if(cached&&now-cached.at<25000)return cached.data;
-  const [oi,taker,globalLs,topPos]=await Promise.all([
-    ideaFetchJson(`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
-    ideaFetchJson(`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
-    ideaFetchJson(`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
-    ideaFetchJson(`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
-  ]);
-  const health={
-    oi:Array.isArray(oi)&&oi.length>=2,
-    taker:Array.isArray(taker)&&taker.length>=1,
-    globalLs:Array.isArray(globalLs)&&globalLs.length>=1,
-    topPos:Array.isArray(topPos)&&topPos.length>=1,
-    fetchedAt:new Date().toISOString()
+  const urls={
+    oi:`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,
+    taker:`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,
+    global:`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,
+    top:`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,
+    topAccount:`${FUTURES_DATA}/topLongShortAccountRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`
   };
+  const raw=await Promise.all(Object.entries(urls).map(async([name,url])=>{try{return [name,await ideaFetchJson(url,7000,2),null]}catch(e){return [name,null,String(e?.message||e)]}}));
+  const got=Object.fromEntries(raw.map(([n,v])=>[n,v])),errors=Object.fromEntries(raw.filter(([,v,e])=>!v&&e).map(([n,,e])=>[n,e]));
+  const oiRows=Array.isArray(got.oi)?got.oi:[],takerRows=Array.isArray(got.taker)?got.taker:[],globalRows=Array.isArray(got.global)?got.global:[],topRows=Array.isArray(got.top)?got.top:[],topAccountRows=Array.isArray(got.topAccount)?got.topAccount:[];
+  let oiChangePct=ratioChangePct(oiRows,'sumOpenInterestValue') ?? ratioChangePct(oiRows,'sumOpenInterest'), oiSource=oiChangePct!=null?'Binance':null;
+  let takerRatio=ratioLast(takerRows,'buySellRatio'),takerSource=takerRatio!=null?'Binance':null;
+  let globalLongShortRatio=ratioLast(globalRows,'longShortRatio'),globalSource=globalLongShortRatio!=null?'Binance':null;
+  let topPositionRatio=ratioLast(topRows,'longShortRatio'),topSource=topPositionRatio!=null?'Binance':null;
+  const topAccountRatio=ratioLast(topAccountRows,'longShortRatio');
+  if(ENABLE_CROSS_EXCHANGE&&oiChangePct==null){try{const r=await fetchBybitOiFallback(key);if(r){oiChangePct=r.changePct;oiSource='Bybit備援'}}catch(e){errors.oiFallback=String(e?.message||e)}}
+  if(takerRatio==null){try{const r=await fetchBinanceAggTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Binance成交備援'}}catch(e){errors.takerFallback=String(e?.message||e)}}
+  if(ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchBybitRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Bybit成交備援'}}catch(e){errors.takerBybitFallback=String(e?.message||e)}}
+  if(ENABLE_CROSS_EXCHANGE&&globalLongShortRatio==null){try{const r=await fetchBybitAccountRatioFallback(key);if(r){globalLongShortRatio=r.ratio;globalSource='Bybit備援'}}catch(e){errors.globalFallback=String(e?.message||e)}}
+  const health={oi:Number.isFinite(oiChangePct),taker:Number.isFinite(takerRatio),globalLs:Number.isFinite(globalLongShortRatio),topPos:Number.isFinite(topPositionRatio),topAccount:Number.isFinite(topAccountRatio),fetchedAt:new Date().toISOString()};
   const data={
-    oiChangePct:ratioChangePct(oi,'sumOpenInterestValue') ?? ratioChangePct(oi,'sumOpenInterest') ?? 0,
-    takerRatio:ratioLast(taker,'buySellRatio') ?? 1,
-    globalLongShortRatio:ratioLast(globalLs,'longShortRatio') ?? 1,
-    globalLongShortChangePct:ratioChangePct(globalLs,'longShortRatio') ?? 0,
-    topPositionRatio:ratioLast(topPos,'longShortRatio') ?? 1,
-    topPositionChangePct:ratioChangePct(topPos,'longShortRatio') ?? 0,
-    _health:health
+    oiChangePct:Number.isFinite(oiChangePct)?oiChangePct:null,
+    takerRatio:Number.isFinite(takerRatio)?takerRatio:null,
+    globalLongShortRatio:Number.isFinite(globalLongShortRatio)?globalLongShortRatio:null,
+    globalLongShortChangePct:ratioChangePct(globalRows,'longShortRatio'),
+    topPositionRatio:Number.isFinite(topPositionRatio)?topPositionRatio:null,
+    topPositionChangePct:ratioChangePct(topRows,'longShortRatio'),
+    topAccountRatio:Number.isFinite(topAccountRatio)?topAccountRatio:null,
+    _health:health,_source:{oi:oiSource,taker:takerSource,globalLs:globalSource,topPos:topSource,topAccount:Number.isFinite(topAccountRatio)?'Binance':null},_errors:errors
   };
-  testDerivCache.set(key,{at:now,data});
-  return data;
+  testDerivCache.set(key,{at:now,data});return data;
+}
+async function fetchBybitDepth(symbol){
+  let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/orderbook?category=linear&symbol=${encodeURIComponent(cand.symbol)}&limit=25`,6500,2),book=json?.result||{},scale=cand.scale;const cv=row=>[String(Number(row?.[0])*scale),row?.[1]];const bids=Array.isArray(book.b)?book.b.map(cv):[],asks=Array.isArray(book.a)?book.a.map(cv):[];if(bids.length&&asks.length)return {bids,asks,ts:Number(book.ts||json?.time||0),symbol:cand.symbol,scale};throw new Error('Bybit depth empty')}catch(e){lastError=e}throw lastError||new Error('BYBIT_DEPTH_UNAVAILABLE');
+}
+async function fetchOkxDepth(symbol){
+  let lastError=null;for(const cand of okxCandidates(symbol))try{const json=await ideaFetchJson(`${OKX_API}/api/v5/market/books?instId=${encodeURIComponent(cand.instId)}&sz=20`,6500,2),book=Array.isArray(json?.data)?json.data[0]:null,scale=cand.scale,cv=row=>[String(Number(row?.[0])*scale),row?.[1]];const bids=Array.isArray(book?.bids)?book.bids.map(cv):[],asks=Array.isArray(book?.asks)?book.asks.map(cv):[];if(bids.length&&asks.length)return {bids,asks,ts:Number(book?.ts||0),instId:cand.instId,scale};throw new Error('OKX depth empty')}catch(e){lastError=e}throw lastError||new Error('OKX_SYMBOL_UNSUPPORTED');
+}
+function summarizeDepth(bids,asks){
+  const b=Array.isArray(bids)?bids:[],a=Array.isArray(asks)?asks:[];const bidNotional=b.reduce((z,row)=>z+Number(row?.[0]||0)*Number(row?.[1]||0),0),askNotional=a.reduce((z,row)=>z+Number(row?.[0]||0)*Number(row?.[1]||0),0),total=bidNotional+askNotional;const imbalance=total>0?(bidNotional-askNotional)/total:null;const bid=Number(b?.[0]?.[0]||0),ask=Number(a?.[0]?.[0]||0),mid=bid>0&&ask>0?(bid+ask)/2:0,spreadBps=mid>0?(ask-bid)/mid*10000:null;return {depthImbalance:Number.isFinite(imbalance)?Number(imbalance.toFixed(4)):null,spreadBps:Number.isFinite(spreadBps)?Number(spreadBps.toFixed(2)):null,bidNotional:Number.isFinite(bidNotional)?Number(bidNotional.toFixed(2)):null,askNotional:Number.isFinite(askNotional)?Number(askNotional.toFixed(2)):null,ok:b.length>0&&a.length>0};
 }
 async function testFetchMicrostructure(symbol) {
-  const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testMicroCache.get(key);
-  if(cached&&now-cached.at<25000)return cached.data;
-  const depth=await ideaFetchJson(`https://fapi.binance.com/fapi/v1/depth?symbol=${encodeURIComponent(key)}&limit=20`,6500).catch(()=>null);
-  const bids=Array.isArray(depth?.bids)?depth.bids:[],asks=Array.isArray(depth?.asks)?depth.asks:[];
-  const bidNotional=bids.reduce((a,row)=>a+Number(row?.[0]||0)*Number(row?.[1]||0),0);
-  const askNotional=asks.reduce((a,row)=>a+Number(row?.[0]||0)*Number(row?.[1]||0),0);
-  const total=bidNotional+askNotional;
-  const imbalance=total>0?(bidNotional-askNotional)/total:0;
-  const bid=Number(bids?.[0]?.[0]||0),ask=Number(asks?.[0]?.[0]||0),mid=bid>0&&ask>0?(bid+ask)/2:0;
-  const spreadBps=mid>0?(ask-bid)/mid*10000:null;
-  const data={depthImbalance:Number(imbalance.toFixed(4)),spreadBps:Number.isFinite(spreadBps)?Number(spreadBps.toFixed(2)):null,bidNotional:Number(bidNotional.toFixed(2)),askNotional:Number(askNotional.toFixed(2)),_health:{depth:bids.length>0&&asks.length>0,fetchedAt:new Date().toISOString()}};
-  testMicroCache.set(key,{at:now,data});return data;
+  const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testMicroCache.get(key);if(cached&&now-cached.at<25000)return cached.data;
+  let book=null,source=null,error=null;
+  try{const depth=await ideaFetchJson(`${BINANCE_FAPI}/fapi/v1/depth?symbol=${encodeURIComponent(key)}&limit=20`,6500,2);book={bids:depth?.bids,asks:depth?.asks};source='Binance'}catch(e){error=String(e?.message||e)}
+  if((!book||!Array.isArray(book.bids)||!book.bids.length)&&ENABLE_CROSS_EXCHANGE){try{book=await fetchBybitDepth(key);source='Bybit備援'}catch(e){error=`${error||''}; Bybit ${String(e?.message||e)}`}}
+  if((!book||!Array.isArray(book.bids)||!book.bids.length)&&ENABLE_CROSS_EXCHANGE){try{book=await fetchOkxDepth(key);source='OKX備援'}catch(e){error=`${error||''}; OKX ${String(e?.message||e)}`}}
+  const sm=summarizeDepth(book?.bids,book?.asks);const data={...sm,_health:{depth:sm.ok,fetchedAt:new Date().toISOString()},_source:{depth:sm.ok?source:null},_errors:error?{depth:error}:null};testMicroCache.set(key,{at:now,data});return data;
 }
+async function fetchBybitTicker(symbol){let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/tickers?category=linear&symbol=${encodeURIComponent(cand.symbol)}`,6500,2),row=Array.isArray(json?.result?.list)?json.result.list[0]:null;if(!row)throw new Error('Bybit ticker empty');if(cand.scale!==1){row.markPrice=finiteMetric(row.markPrice)!=null?String(Number(row.markPrice)*cand.scale):row.markPrice;row.indexPrice=finiteMetric(row.indexPrice)!=null?String(Number(row.indexPrice)*cand.scale):row.indexPrice;row.lastPrice=finiteMetric(row.lastPrice)!=null?String(Number(row.lastPrice)*cand.scale):row.lastPrice}return row}catch(e){lastError=e}throw lastError||new Error('BYBIT_TICKER_UNAVAILABLE')}
 async function testFetchRiskContext(symbol) {
-  const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testRiskCache.get(key);
-  if(cached&&now-cached.at<10*60*1000)return cached.data;
-  const [adl,premium,basisRows]=await Promise.all([
-    ideaFetchJson(`https://fapi.binance.com/fapi/v1/symbolAdlRisk?symbol=${encodeURIComponent(key)}`,6500).catch(()=>null),
-    ideaFetchJson(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${encodeURIComponent(key)}`,6500).catch(()=>null),
-    ideaFetchJson(`${FUTURES_DATA}/basis?pair=${encodeURIComponent(key)}&contractType=PERPETUAL&period=5m&limit=2`,6500).catch(()=>null),
+  const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testRiskCache.get(key);if(cached&&now-cached.at<60*1000)return cached.data;
+  const [adlR,premiumR,basisR]=await Promise.all([
+    ideaFetchJson(`${BINANCE_FAPI}/fapi/v1/symbolAdlRisk?symbol=${encodeURIComponent(key)}`,6500,2).then(v=>({v})).catch(e=>({e})),
+    ideaFetchJson(`${BINANCE_FAPI}/fapi/v1/premiumIndex?symbol=${encodeURIComponent(key)}`,6500,2).then(v=>({v})).catch(e=>({e})),
+    ideaFetchJson(`${FUTURES_DATA}/basis?pair=${encodeURIComponent(key)}&contractType=PERPETUAL&period=5m&limit=2`,6500,2).then(v=>({v})).catch(e=>({e}))
   ]);
-  const adlRisk=String((Array.isArray(adl)?adl[0]?.adlRisk:adl?.adlRisk)||'unknown').toLowerCase();
-  const fundingPct=Number(premium?.lastFundingRate),markPrice=Number(premium?.markPrice),indexPrice=Number(premium?.indexPrice),basisLast=Array.isArray(basisRows)?basisRows.at(-1):null;
-  const basisRate=Number(basisLast?.basisRate),basisPct=Number.isFinite(basisRate)?basisRate*100:Number.isFinite(markPrice)&&Number.isFinite(indexPrice)&&indexPrice>0?(markPrice-indexPrice)/indexPrice*100:null;
-  const annualizedBasisRate=Number(basisLast?.annualizedBasisRate);
-  const data={adlRisk,fundingPct:Number.isFinite(fundingPct)?Number((fundingPct*100).toFixed(4)):null,markPrice:Number.isFinite(markPrice)?markPrice:null,indexPrice:Number.isFinite(indexPrice)?indexPrice:null,basisPct:Number.isFinite(basisPct)?Number(basisPct.toFixed(4)):null,annualizedBasisPct:Number.isFinite(annualizedBasisRate)?Number((annualizedBasisRate*100).toFixed(2)):null,nextFundingTime:Number.isFinite(Number(premium?.nextFundingTime))?Number(premium.nextFundingTime):null,_health:{funding:Number.isFinite(fundingPct),basis:Number.isFinite(basisPct),adl:adlRisk!=='unknown',fetchedAt:new Date().toISOString()}};
+  const errors={};if(adlR.e)errors.adl=String(adlR.e?.message||adlR.e);if(premiumR.e)errors.premium=String(premiumR.e?.message||premiumR.e);if(basisR.e)errors.basis=String(basisR.e?.message||basisR.e);
+  const adl=adlR.v,premium=premiumR.v,basisRows=basisR.v;
+  let adlRisk=String((Array.isArray(adl)?adl[0]?.adlRisk:adl?.adlRisk)||'unknown').toLowerCase();
+  let fundingRate=finiteMetric(premium?.lastFundingRate),markPrice=finiteMetric(premium?.markPrice),indexPrice=finiteMetric(premium?.indexPrice),nextFundingTime=finiteMetric(premium?.nextFundingTime),fundSource=fundingRate!=null?'Binance':null,markSource=markPrice!=null?'Binance':null;
+  if(ENABLE_CROSS_EXCHANGE&&(fundingRate==null||markPrice==null||indexPrice==null)){try{const t=await fetchBybitTicker(key);if(fundingRate==null&&finiteMetric(t?.fundingRate)!=null){fundingRate=Number(t.fundingRate);fundSource='Bybit備援'}if(markPrice==null&&finiteMetric(t?.markPrice)!=null){markPrice=Number(t.markPrice);markSource='Bybit備援'}if(indexPrice==null&&finiteMetric(t?.indexPrice)!=null)indexPrice=Number(t.indexPrice);if(nextFundingTime==null&&finiteMetric(t?.nextFundingTime)!=null)nextFundingTime=Number(t.nextFundingTime)}catch(e){errors.bybitTicker=String(e?.message||e)}}
+  const basisLast=Array.isArray(basisRows)?basisRows.at(-1):null,basisRate=finiteMetric(basisLast?.basisRate);let basisPct=basisRate!=null?basisRate*100:(markPrice!=null&&indexPrice!=null&&indexPrice>0?(markPrice-indexPrice)/indexPrice*100:null);let basisSource=basisRate!=null?'Binance':basisPct!=null?(markSource==='Binance'?'Binance推導':`${markSource||'跨所'}推導`):null;
+  const annualizedBasisRate=finiteMetric(basisLast?.annualizedBasisRate);
+  const data={adlRisk,fundingPct:fundingRate!=null?Number((fundingRate*100).toFixed(4)):null,markPrice,indexPrice,basisPct:basisPct!=null?Number(basisPct.toFixed(4)):null,annualizedBasisPct:annualizedBasisRate!=null?Number((annualizedBasisRate*100).toFixed(2)):null,nextFundingTime,_health:{funding:fundingRate!=null,basis:basisPct!=null,adl:adlRisk!=='unknown',mark:markPrice!=null,fetchedAt:new Date().toISOString()},_source:{funding:fundSource,basis:basisSource,adl:adlRisk!=='unknown'?'Binance':null,mark:markSource},_errors:errors};
   testRiskCache.set(key,{at:now,data});return data;
+}
+async function testFetchCrossExchange(symbol){
+  const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testCrossExchangeCache.get(key);if(cached&&now-cached.at<45000)return cached.data;if(!ENABLE_CROSS_EXCHANGE)return {enabled:false};
+  const bybit=await (async()=>{try{const [c,oi,ls,depth,ticker]=await Promise.all([fetchBybitCandles(key,'15m',140),fetchBybitOiFallback(key).catch(()=>null),fetchBybitAccountRatioFallback(key).catch(()=>null),fetchBybitDepth(key).catch(()=>null),fetchBybitTicker(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,oiChangePct:oi?.changePct??null,longShortRatio:ls?.ratio??null,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null,fundingPct:finiteMetric(ticker?.fundingRate)!=null?Number(ticker.fundingRate)*100:null,markPrice:finiteMetric(ticker?.markPrice)} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
+  const okx=await (async()=>{try{const [c,depth]=await Promise.all([fetchOkxCandles(key,'15m',140),fetchOkxDepth(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
+  const dirs=[bybit.ok?bybit.trend:0,okx.ok?okx.trend:0].filter(x=>x!==0),consensus=dirs.length?(dirs.every(x=>x>0)?1:dirs.every(x=>x<0)?-1:0):0;const data={enabled:true,checkedAt:new Date().toISOString(),bybit,okx,consensus,available:[bybit.ok,okx.ok].filter(Boolean).length,total:2};testCrossExchangeCache.set(key,{at:now,data});return data;
 }
 async function testMarketContext() {
   const [b5,b15,b1,e5,e15,e1]=await Promise.all([
@@ -3738,8 +3845,8 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
     if(ev.breakoutHeld)meanRate+=.8;
   }
   const effectiveSample=Math.max(1,Math.round((histN*histWeight)+(regN?regN*Math.min(.18,.06+regN/300):0)+live.effectiveSample+priorN));
-  const coverage=Number(t.dataHealth?.coveragePct);
-  if(Number.isFinite(coverage)&&coverage<95)meanRate-=clamp((95-coverage)*.12,0,5.5); // 缺資料只降可信度/勝率，不把缺值當成中性利多
+  const coverage=Number(t.dataHealth?.coveragePct),dataConfidence=Number(t.dataHealth?.confidencePct),effectiveCoverage=Math.min(Number.isFinite(coverage)?coverage:100,Number.isFinite(dataConfidence)?dataConfidence:100);
+  if(Number.isFinite(effectiveCoverage)&&effectiveCoverage<95)meanRate-=clamp((95-effectiveCoverage)*.12,0,5.5); // 缺資料只降可信度/勝率，不把缺值當成中性利多
   meanRate=clamp(meanRate,40,84);
   const meanWins=meanRate/100*effectiveSample,meanLosses=effectiveSample-meanWins,rawCi=testWilsonInterval(meanWins,meanLosses);
   // 顯示值往保守下界收斂；樣本愈少，收斂愈強。
@@ -3748,7 +3855,7 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
   const maxRate=effectiveSample>=120?78:effectiveSample>=80?75:effectiveSample>=50?71:67;
   rate=clamp(rate,40,maxRate);
   const pseudoWins=rate/100*effectiveSample,pseudoLosses=effectiveSample-pseudoWins,ci=testWilsonInterval(pseudoWins,pseudoLosses);
-  let confidence=effectiveSample>=80?'高':effectiveSample>=45?'中':'低';if(Number.isFinite(coverage)&&coverage<85)confidence='低';else if(Number.isFinite(coverage)&&coverage<92&&confidence==='高')confidence='中';
+  let confidence=effectiveSample>=80?'高':effectiveSample>=45?'中':'低';if(Number.isFinite(effectiveCoverage)&&effectiveCoverage<85)confidence='低';else if(Number.isFinite(effectiveCoverage)&&effectiveCoverage<92&&confidence==='高')confidence='中';
   return {
     rate:Number(rate.toFixed(1)),posteriorMean:Number(meanRate.toFixed(1)),confidence,effectiveSample,liveSample:live.raw,historicalSample:histN,regime:t.setup?.volatilityRegime||'NORMAL',regimeSample:regN,
     rankAtConfirm:Number.isFinite(rankRef)?rankRef:null,rankHeat:Number(rankHeat.toFixed(0)),
@@ -3833,7 +3940,7 @@ function syncTestIdeas(ideas) {
 function testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio,deriv,marketAlign,direction}) {
   const out=[];if(setup?.confluenceCount>=2)out.push('回踩區有 EMA／POC／VWAP 重疊');else if(setup?.confluenceCount===1)out.push('回踩區有一項關鍵價重疊');
   if(reclaim)out.push('5分收回回踩區');if(sweep)out.push('出現流動性掃低/掃高');else if(wicker)out.push('5分拒絕影線成立');if(momentum&&macdImprove)out.push('RSI＋MACD 動能回復');if(volumeRatio>=1.05)out.push('量能回升');
-  if(direction==='LONG'&&deriv.takerRatio>=1.02||direction==='SHORT'&&deriv.takerRatio<=.98)out.push('主動買賣同向');if(marketAlign>0)out.push('BTC/ETH 同向');if(marketAlign<0)out.push('BTC/ETH 逆向扣分');return out.slice(0,6);
+  if(finiteMetric(deriv?.takerRatio)!=null&&(direction==='LONG'&&Number(deriv.takerRatio)>=1.02||direction==='SHORT'&&Number(deriv.takerRatio)<=.98))out.push('主動買賣同向');if(marketAlign>0)out.push('BTC/ETH 同向');if(marketAlign<0)out.push('BTC/ETH 逆向扣分');return out.slice(0,6);
 }
 function testMonitorRoute(t){return `/?page=monitor&testSignal=${encodeURIComponent(t.symbol)}&dir=${t.direction}`}
 function testCurrentEntryZone(t) {
@@ -3862,7 +3969,7 @@ function testEntryStrategy(t, statusLabel='') {
 function testSignalTier(t,{reentry=false}={}) {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||0),low=Number(cal.conservativeLow||0);
   const score=Number(reentry?t.reentryScore:(t.monitorScore||t.qualityScore||0)),rank=Number(t.rank||99),ev=t.monitorEvidence||t.lastCheck||{};
-  const spread=Number(ev.spreadBps),chaseAtr=Number(ev.chaseAtr||0),adlRisk=String(ev.adlRisk||'unknown').toLowerCase(),fundingCrowded=ev.fundingCrowded===true;
+  const spread=finiteMetric(ev.spreadBps),chaseAtr=finiteMetric(ev.chaseAtr),adlRisk=String(ev.adlRisk||'unknown').toLowerCase(),fundingCrowded=ev.fundingCrowded===true;
   const adverse=!!(ev.adverse15||ev.adverse30||ev.adverse1h||ev.adverseMarket);
   const noSpreadRisk=!Number.isFinite(spread)||spread<=TEST_SIGNAL_MAX_SPREAD_BPS;
   const noChase=!Number.isFinite(chaseAtr)||chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR;
@@ -3877,11 +3984,16 @@ function testSignalTier(t,{reentry=false}={}) {
   if(fundingCrowded)blockers.push('Funding擁擠');
   if(t.status==='INVALID'||t.status==='DROPPED')blockers.push('結構失效');
   if(t.monitorState==='WEAKENING')blockers.push('目前轉弱');
-  const coverage=Number(t.dataHealth?.coveragePct);
+  const coverage=Number(t.dataHealth?.coveragePct),dataConfidence=Number(t.dataHealth?.confidencePct),sources=t.dataHealth?.sources||{},cross=t.dataHealth?.crossExchange||{},dir=testSignalDirection(t.direction);
   if(Number.isFinite(coverage)&&coverage<72)blockers.push('資料完整度<72%');
+  if(Number.isFinite(dataConfidence)&&dataConfidence<65)blockers.push('資料可信度<65%');
+  if(Number(cross?.available||0)>0&&Number(cross?.consensus||0)===-dir)blockers.push('跨交易所趨勢逆向');
   const hardSafe=blockers.length===0;
   const highMissing=[];
   if(Number.isFinite(coverage)&&coverage<90)highMissing.push('資料完整度<90%');
+  if(Number.isFinite(dataConfidence)&&dataConfidence<86)highMissing.push('資料可信度<86%');
+  for(const k of ['k5','k15','k30','h1','oi','taker','depth','funding','mark','market','backtest'])if(sources[k]!==true)highMissing.push(`關鍵資料缺:${k}`);
+  if(!(sources.topPos===true||sources.topAccount===true))highMissing.push('關鍵資料缺:大戶');
   if(rate<TEST_SIGNAL_HIGH_RATE)highMissing.push(`校準勝率<${TEST_SIGNAL_HIGH_RATE}%`);
   if(low<50)highMissing.push('保守下界<50%');
   if(score<TEST_SIGNAL_HIGH_SCORE)highMissing.push(`品質<${TEST_SIGNAL_HIGH_SCORE}`);
@@ -3889,6 +4001,9 @@ function testSignalTier(t,{reentry=false}={}) {
   if(Number.isFinite(chaseAtr)&&chaseAtr>TEST_SIGNAL_HIGH_MAX_CHASE_ATR)highMissing.push(`追價>${TEST_SIGNAL_HIGH_MAX_CHASE_ATR.toFixed(2)}ATR`);
   const normalMissing=[];
   if(Number.isFinite(coverage)&&coverage<80)normalMissing.push('資料完整度<80%');
+  if(Number.isFinite(dataConfidence)&&dataConfidence<76)normalMissing.push('資料可信度<76%');
+  for(const k of ['k5','k15','k30','h1','depth','mark','market','backtest'])if(sources[k]!==true)normalMissing.push(`關鍵資料缺:${k}`);
+  if(!(sources.oi===true||sources.taker===true))normalMissing.push('OI/主動資金皆缺');
   if(rate<TEST_SIGNAL_NORMAL_RATE)normalMissing.push(`校準勝率<${TEST_SIGNAL_NORMAL_RATE}%`);
   if(low<43)normalMissing.push('保守下界<43%');
   if(score<TEST_SIGNAL_NORMAL_SCORE)normalMissing.push(`品質<${TEST_SIGNAL_NORMAL_SCORE}`);
@@ -3926,26 +4041,27 @@ function testMonitorEvidence({dir,last,prev,t5,t15,t30,t1h,rsiNow,rsiPrev,macdNo
   const aboveBreakout2=Number.isFinite(breakoutLevel)&&(dir>0?(last.close>breakoutLevel&&prev.close>breakoutLevel):(last.close<breakoutLevel&&prev.close<breakoutLevel));
   const adverseRsi=dir>0?rsiNow<rsiPrev:rsiNow>rsiPrev;
   const adverseMacd=dir>0?macdNow<macdPrev:macdNow>macdPrev;
-  const adverseTaker=dir>0?Number(deriv.takerRatio)<.96:Number(deriv.takerRatio)>1.04;
-  const adverseTop=dir>0?Number(deriv.topPositionRatio)<.96:Number(deriv.topPositionRatio)>1.04;
+  const hasTaker=finiteMetric(deriv?.takerRatio)!=null,hasTop=finiteMetric(deriv?.topPositionRatio)!=null;
+  const adverseTaker=hasTaker?(dir>0?Number(deriv.takerRatio)<.96:Number(deriv.takerRatio)>1.04):false;
+  const adverseTop=hasTop?(dir>0?Number(deriv.topPositionRatio)<.96:Number(deriv.topPositionRatio)>1.04):false;
   const adverse15=dir>0?(t15.trend<0||(Number(t15.adx14)>=24&&Number(t15.diBias)<0)):(t15.trend>0||(Number(t15.adx14)>=24&&Number(t15.diBias)>0));
   const adverse30=t30? (dir>0?(t30.trend<0&&t30.momentum<=0):(t30.trend>0&&t30.momentum>=0)) : false;
   const adverse1h=t1h? (dir>0?(t1h.trend<0&&t1h.momentum<=0):(t1h.trend>0&&t1h.momentum>=0)) : false;
   const adverseMarket=market.dir!==0&&market.dir!==dir;
-  const depth=Number(micro?.depthImbalance||0),spread=Number(micro?.spreadBps);
-  const adverseDepth=dir>0?depth<=-.12:depth>=.12;
+  const depth=finiteMetric(micro?.depthImbalance),spread=finiteMetric(micro?.spreadBps),hasDepth=depth!=null;
+  const adverseDepth=hasDepth?(dir>0?depth<=-.12:depth>=.12):false;
   const wideSpread=Number.isFinite(spread)&&spread>=9;
   const weakFlags=[belowBreakout2,adverseRsi,adverseMacd,adverseTaker,adverseTop,adverse15,adverse30,adverse1h,adverseMarket,adverseDepth].filter(Boolean).length;
-  const supportiveTaker=dir>0?Number(deriv.takerRatio)>=.99:Number(deriv.takerRatio)<=1.01;
-  const supportiveTop=dir>0?Number(deriv.topPositionRatio)>=.99:Number(deriv.topPositionRatio)<=1.01;
+  const supportiveTaker=hasTaker?(dir>0?Number(deriv.takerRatio)>=.99:Number(deriv.takerRatio)<=1.01):false;
+  const supportiveTop=hasTop?(dir>0?Number(deriv.topPositionRatio)>=.99:Number(deriv.topPositionRatio)<=1.01):false;
   const supportiveMomentum=dir>0?(rsiNow>=rsiPrev&&macdNow>=macdPrev):(rsiNow<=rsiPrev&&macdNow<=macdPrev);
-  const supportiveDepth=dir>0?depth>=.04:depth<=-.04;
+  const supportiveDepth=hasDepth?(dir>0?depth>=.04:depth<=-.04):false;
   const supportive15=dir>0?t15.trend>=0:t15.trend<=0;
   const supportive30=!t30||(dir>0?t30.trend>=0:t30.trend<=0);
   const supportive1h=!t1h||(dir>0?t1h.trend>=0:t1h.trend<=0);
   return {
     belowBreakout2,aboveBreakout2,weakFlags,adverseRsi,adverseMacd,adverseTaker,adverseTop,adverse15,adverse30,adverse1h,adverseMarket,adverseDepth,wideSpread,
-    supportiveTaker,supportiveTop,supportiveMomentum,supportiveDepth,supportive15,supportive30,supportive1h,depthImbalance:depth,spreadBps:Number.isFinite(spread)?spread:null
+    supportiveTaker,supportiveTop,supportiveMomentum,supportiveDepth,supportive15,supportive30,supportive1h,hasTaker,hasTop,hasDepth,depthImbalance:depth,spreadBps:spread
   };
 }
 function testDynamicMonitorScore(t,{dir,t5,t15,t30,t1h,deriv,market,evidence}) {
@@ -3968,11 +4084,11 @@ function testDynamicMonitorScore(t,{dir,t5,t15,t30,t1h,deriv,market,evidence}) {
 function testMonitorEvidenceView(t,evidence,deriv,score) {
   return {
     at:new Date().toISOString(),weakFlags:evidence.weakFlags,breakoutHeld:evidence.aboveBreakout2,adverseMarket:evidence.adverseMarket,
-    adverse15:evidence.adverse15,adverse30:evidence.adverse30,adverse1h:evidence.adverse1h,depthImbalance:Number(Number(evidence.depthImbalance||0).toFixed(3)),
+    adverse15:evidence.adverse15,adverse30:evidence.adverse30,adverse1h:evidence.adverse1h,depthImbalance:finiteMetric(evidence.depthImbalance)!=null?Number(Number(evidence.depthImbalance).toFixed(3)):null,
     spreadBps:Number.isFinite(evidence.spreadBps)?Number(evidence.spreadBps.toFixed(2)):null,
-    topPositionRatio:Number(Number(deriv.topPositionRatio||1).toFixed(2)),globalLongShortRatio:Number(Number(deriv.globalLongShortRatio||1).toFixed(2)),
-    takerRatio:Number(Number(deriv.takerRatio||1).toFixed(2)),oiChangePct:Number(Number(deriv.oiChangePct||0).toFixed(2)),
-    chaseAtr:Number(Number(t?.lastCheck?.chaseAtr||0).toFixed(2)),adlRisk:t?.lastCheck?.adlRisk||'unknown',fundingPct:t?.lastCheck?.fundingPct??null,fundingCrowded:t?.lastCheck?.fundingCrowded===true,score
+    topPositionRatio:finiteMetric(deriv?.topPositionRatio)!=null?Number(Number(deriv.topPositionRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,
+    takerRatio:finiteMetric(deriv?.takerRatio)!=null?Number(Number(deriv.takerRatio).toFixed(2)):null,oiChangePct:finiteMetric(deriv?.oiChangePct)!=null?Number(Number(deriv.oiChangePct).toFixed(2)):null,
+    chaseAtr:finiteMetric(t?.lastCheck?.chaseAtr)!=null?Number(Number(t.lastCheck.chaseAtr).toFixed(2)):null,adlRisk:t?.lastCheck?.adlRisk||'unknown',fundingPct:t?.lastCheck?.fundingPct??null,fundingCrowded:t?.lastCheck?.fundingCrowded===true,score
   };
 }
 async function testEnterInvalidation(t,{reason,last,protection,entry,dir}) {
@@ -4142,9 +4258,10 @@ async function updateTargetReentryState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,mar
   const t15Ok=t15.trend===dir||t15.momentum===dir;
   const h1Ok=!t1h||t1h.trend!==-dir;
   const marketOk=market.dir!==-dir;
-  const takerOk=dir>0?Number(deriv.takerRatio)>=.99:Number(deriv.takerRatio)<=1.01;
-  const topOk=dir>0?Number(deriv.topPositionRatio)>=.98:Number(deriv.topPositionRatio)<=1.02;
-  const depth=Number(micro?.depthImbalance||0),depthOk=dir>0?depth>=-.04:depth<=.04;
+  const takerVal=finiteMetric(deriv?.takerRatio),topVal=finiteMetric(deriv?.topPositionRatio),depth=finiteMetric(micro?.depthImbalance);
+  const takerOk=takerVal!=null?(dir>0?takerVal>=.99:takerVal<=1.01):false;
+  const topOk=topVal!=null?(dir>0?topVal>=.98:topVal<=1.02):false;
+  const depthOk=depth!=null?(dir>0?depth>=-.04:depth<=.04):false;
   const vwap5=testVwap(rows5,48),nearRef=[t5.ema20,t15.ema20,t15.poc,vwap5].filter(Number.isFinite).some(x=>Math.abs(last.close-x)<=levels.atr*.55);
   const chaseAtr=Math.abs(last.close-levels.zoneMid)/Math.max(levels.atr,1e-9),notChasing=chaseAtr<=TEST_REENTRY_MAX_CHASE_ATR||inZone;
   const rankOk=Number(t.rank||99)<=TEST_REENTRY_MAX_RANK||testMonitorPriority(t)>=76;
@@ -4183,17 +4300,38 @@ async function updateTargetReentryState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,mar
   }
   return t;
 }
+function testBuildLiveSnapshot(t,{rows5,rows15,t5,t15,t30,t1h,deriv,micro,riskCtx,market,crossCtx}){
+  const dir=testSignalDirection(t.direction),last=rows5.at(-1),prev=rows5.at(-2),rsi=ideaRsiSeries(rows5.map(x=>x.close),14),macd=ideaMacdSeries(rows5.map(x=>x.close)),ri=rows5.length-1;
+  const rsiNow=finiteMetric(rsi[ri]),rsiPrev=finiteMetric(rsi[ri-1]),macdNow=finiteMetric(macd.hist[ri]),macdPrev=finiteMetric(macd.hist[ri-1]);
+  const zone=testPreferredEntryZone(t)||testCurrentEntryZone(t),zoneMid=zone?(Number(zone.low)+Number(zone.high))/2:finiteMetric(t.setup?.zoneMid),atr=finiteMetric(t5?.atr14||t.setup?.atr5),px=finiteMetric(t.livePrice)||finiteMetric(riskCtx?.markPrice)||finiteMetric(last?.close);
+  const chaseAtr=px!=null&&zoneMid!=null&&atr>0?Math.abs(px-zoneMid)/atr:null,marketAlign=market?.dir===0?0:(market?.dir===dir?1:-1),crossAlign=crossCtx?.consensus===0?0:(crossCtx?.consensus===dir?1:-1);
+  const zlow=zone?Number(zone.low):finiteMetric(t.setup?.zoneLow),zhigh=zone?Number(zone.high):finiteMetric(t.setup?.zoneHigh),inZone=Number.isFinite(zlow)&&Number.isFinite(zhigh)&&last?Number(last.low)<=Math.max(zlow,zhigh)&&Number(last.high)>=Math.min(zlow,zhigh):false;
+  const reclaim=zoneMid!=null&&last?(dir>0?Number(last.close)>zoneMid:Number(last.close)<zoneMid):null,candleOk=last?(dir>0?Number(last.close)>Number(last.open):Number(last.close)<Number(last.open)):null;
+  const range=last?Math.max(1e-12,Number(last.high)-Number(last.low)):0,body=last?Math.abs(Number(last.close)-Number(last.open)):0,wickReject=last?(dir>0?(Math.min(Number(last.open),Number(last.close))-Number(last.low))>Math.max(body*.65,range*.18):(Number(last.high)-Math.max(Number(last.open),Number(last.close)))>Math.max(body*.65,range*.18)):null;
+  const momentum=rsiNow!=null&&rsiPrev!=null&&macdNow!=null&&macdPrev!=null?(dir>0?(rsiNow>=rsiPrev&&macdNow>=macdPrev):(rsiNow<=rsiPrev&&macdNow<=macdPrev)):null;
+  const macdImprove=macdNow!=null&&macdPrev!=null?(dir>0?macdNow>=macdPrev:macdNow<=macdPrev):null;
+  return {...(t.lastCheck||{}),at:new Date().toISOString(),inZone,reclaim,candleOk,wicker:wickReject,momentum,macdImprove,
+    volumeRatio:finiteMetric(t5?.volumeRatio),volumeRatio15:finiteMetric(t15?.volumeRatio),rsi5:rsiNow,rsi15:finiteMetric(t15?.rsi14),macd5:macdNow,macd15:finiteMetric(t15?.macdHist),adx5:finiteMetric(t5?.adx14),adx15:finiteMetric(t15?.adx14),atrPct5:finiteMetric(t5?.atrPct),
+    oiChangePct:finiteMetric(deriv?.oiChangePct),takerRatio:finiteMetric(deriv?.takerRatio),topPositionRatio:finiteMetric(deriv?.topPositionRatio),topAccountRatio:finiteMetric(deriv?.topAccountRatio),globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio),
+    depthImbalance:finiteMetric(micro?.depthImbalance),spreadBps:finiteMetric(micro?.spreadBps),bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:finiteMetric(chaseAtr),
+    adlRisk:String(riskCtx?.adlRisk||'unknown').toLowerCase(),fundingPct:finiteMetric(riskCtx?.fundingPct),basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),markPrice:finiteMetric(riskCtx?.markPrice),indexPrice:finiteMetric(riskCtx?.indexPrice),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),
+    fundingCrowded:finiteMetric(riskCtx?.fundingPct)!=null&&(dir>0?Number(riskCtx.fundingPct)>=.08:Number(riskCtx.fundingPct)<=-.08),t30Trend:t30?.trend??null,h1Trend:t1h?.trend??null,marketAlign,crossAlign,crossExchange:crossCtx||null,
+    metricSources:{...(t.lastCheck?.metricSources||{}),...(deriv?._source||{}),...(micro?._source||{}),...(riskCtx?._source||{})}
+  };
+}
+
 async function analyzeTestTracker(t, market) {
   if(terminalTestStatus(t.status))return t;
   const needSetup=!t.setup;
-  const [c5,c15,c30,c1h,deriv,micro,riskCtx,backtest5]=await Promise.all([
+  const [c5,c15,c30,c1h,deriv,micro,riskCtx,crossCtx,backtest5]=await Promise.all([
     testFetchCandles(t.symbol,'5m',500),
     testFetchCandles(t.symbol,'15m',260),
     testFetchCandles(t.symbol,'30m',220).catch(()=>null),
     testFetchCandles(t.symbol,'1h',180).catch(()=>null),
     testFetchDerivatives(t.symbol),
-    testFetchMicrostructure(t.symbol).catch(()=>({depthImbalance:0,spreadBps:null})),
-    testFetchRiskContext(t.symbol).catch(()=>({adlRisk:'unknown',fundingPct:null})),
+    testFetchMicrostructure(t.symbol).catch(()=>({depthImbalance:null,spreadBps:null,_health:{depth:false},_source:{depth:null},_errors:{fatal:'fetch failed'}})),
+    testFetchRiskContext(t.symbol).catch(()=>({adlRisk:'unknown',fundingPct:null,_health:{funding:false,basis:false,adl:false,mark:false},_source:{}})),
+    testFetchCrossExchange(t.symbol).catch(()=>({enabled:true,available:0,total:2,consensus:0,bybit:{ok:false},okx:{ok:false}})),
     needSetup?testFetchBacktestCandles(t.symbol,'5m',2).catch(()=>null):Promise.resolve(null)
   ]);
   const rows5=closedTestCandles(c5),rows15=closedTestCandles(c15),rows30=c30?closedTestCandles(c30):[],rows1h=c1h?closedTestCandles(c1h):[];
@@ -4208,15 +4346,26 @@ async function analyzeTestTracker(t, market) {
   t.lastEvaluationError=null;
   t.lastEvaluationErrorAt=null;
   if(Number.isFinite(liveMark)&&liveMark>0)t.livePrice=liveMark;
+  t.lastCheck=testBuildLiveSnapshot(t,{rows5,rows15,t5,t15,t30,t1h,deriv,micro,riskCtx,market,crossCtx});
+  const ksrc=(interval,limit)=>testCandleSourceCache.get(`${cleanFuturesSymbol(t.symbol)}:${interval}:${limit}`)||null;
+  const btSample=Number(t.setup?.backtest?.sample||0);
   const sourceFlags={
     k5:rows5.length>=80,k15:rows15.length>=80,k30:rows30.length>=60,h1:rows1h.length>=60,
-    oi:deriv?._health?.oi===true,taker:deriv?._health?.taker===true,globalLs:deriv?._health?.globalLs===true,topPos:deriv?._health?.topPos===true,
-    depth:micro?._health?.depth===true,funding:riskCtx?._health?.funding===true,basis:riskCtx?._health?.basis===true,adl:riskCtx?._health?.adl===true,mark:Number.isFinite(liveMark)&&liveMark>0,
-    market:market?.ok===true,backtest:Number(t.setup?.backtest?.sample||0)>=20
+    oi:deriv?._health?.oi===true,taker:deriv?._health?.taker===true,globalLs:deriv?._health?.globalLs===true,topPos:deriv?._health?.topPos===true,topAccount:deriv?._health?.topAccount===true,
+    depth:micro?._health?.depth===true,funding:riskCtx?._health?.funding===true,basis:riskCtx?._health?.basis===true,adl:riskCtx?._health?.adl===true,mark:(riskCtx?._health?.mark===true)||(Number.isFinite(liveMark)&&liveMark>0),
+    market:market?.ok===true,backtest:btSample>0
   };
-  const qualityKeys=['k5','k15','k30','h1','oi','taker','globalLs','topPos','depth','funding','basis','adl','mark','market','backtest'];
+  const sourceDetails={
+    k5:{source:ksrc('5m',500)?.source||null,fallback:ksrc('5m',500)?.fallback===true,error:ksrc('5m',500)?.error||null},k15:{source:ksrc('15m',260)?.source||null,fallback:ksrc('15m',260)?.fallback===true,error:ksrc('15m',260)?.error||null},k30:{source:ksrc('30m',220)?.source||null,fallback:ksrc('30m',220)?.fallback===true,error:ksrc('30m',220)?.error||null},h1:{source:ksrc('1h',180)?.source||null,fallback:ksrc('1h',180)?.fallback===true,error:ksrc('1h',180)?.error||null},
+    oi:{source:deriv?._source?.oi||null,error:deriv?._errors?.oi||deriv?._errors?.oiFallback||null},taker:{source:deriv?._source?.taker||null,error:deriv?._errors?.taker||deriv?._errors?.takerFallback||deriv?._errors?.takerBybitFallback||null},globalLs:{source:deriv?._source?.globalLs||null,error:deriv?._errors?.global||deriv?._errors?.globalFallback||null},topPos:{source:deriv?._source?.topPos||null,error:deriv?._errors?.top||null},topAccount:{source:deriv?._source?.topAccount||null,error:deriv?._errors?.topAccount||null},depth:{source:micro?._source?.depth||null,error:micro?._errors?.depth||null},funding:{source:riskCtx?._source?.funding||null,error:riskCtx?._errors?.premium||riskCtx?._errors?.bybitTicker||null},basis:{source:riskCtx?._source?.basis||null,error:riskCtx?._errors?.basis||null},adl:{source:riskCtx?._source?.adl||null,error:riskCtx?._errors?.adl||null},mark:{source:riskCtx?._source?.mark||(Number.isFinite(liveMark)&&liveMark>0?'Binance':null),error:riskCtx?._errors?.premium||null},market:{source:'Binance BTC/ETH'},backtest:{source:'Binance K線自算',sample:btSample}
+  };
+  const qualityKeys=['k5','k15','k30','h1','oi','taker','globalLs','topPos','topAccount','depth','funding','basis','adl','mark','market','backtest'];
   const validCount=qualityKeys.filter(k=>sourceFlags[k]).length,coveragePct=Math.round(validCount/qualityKeys.length*100);
-  t.dataHealth={coveragePct,validCount,total:qualityKeys.length,sources:sourceFlags,checkedAt:evaluatedAt,adlNote:'Binance 公開 ADL Risk（約30分鐘更新）已納入資料健康檢查；抓不到時顯示無資料，不會假裝低風險'};
+  const fallbackCount=Object.values(sourceDetails).filter(x=>x?.fallback||String(x?.source||'').includes('備援')).length;
+  let confidencePct=coveragePct;
+  if(btSample>0&&btSample<20)confidencePct-=8;else if(btSample>=20&&btSample<50)confidencePct-=3;
+  confidencePct-=Math.min(8,fallbackCount*2);confidencePct=Math.max(0,Math.min(100,Math.round(confidencePct)));
+  t.dataHealth={coveragePct,confidencePct,validCount,total:qualityKeys.length,fallbackCount,sources:sourceFlags,details:sourceDetails,checkedAt:evaluatedAt,backtestSample:btSample,backtestLevel:btSample>=50?'充足':btSample>=20?'可用':'樣本偏少',crossExchange:crossCtx,adlNote:'ADL Risk 使用 Binance 公開端點（約30分鐘更新）；主資料抓取失敗時，允許 Bybit / OKX 或 Binance 成交資料作明確標示的備援，不再用 0 或中性值假裝有效'};
 
   if(t.status==='INVALID'){
     t=await updateInvalidMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,market,rsi,macd,micro});
@@ -4283,17 +4432,17 @@ async function analyzeTestTracker(t, market) {
   const body=Math.max(Math.abs(last.close-last.open),setup.atr5*.04),lower=Math.max(0,Math.min(last.open,last.close)-last.low),upper=Math.max(0,last.high-Math.max(last.open,last.close)),wicker=dir>0?lower/body>=.65:upper/body>=.65;
   const prior=rows5.slice(-7,-1),priorEdge=dir>0?Math.min(...prior.map(x=>x.low)):Math.max(...prior.map(x=>x.high)),sweep=dir>0?(last.low<priorEdge&&last.close>priorEdge):(last.high>priorEdge&&last.close<priorEdge);
   const ri=rows5.length-1,rsiNow=Number(rsi[ri]),rsiPrev=Number(rsi[ri-1]),momentum=dir>0?(rsiNow>=44&&rsiNow<=72&&rsiNow>rsiPrev):(rsiNow<=56&&rsiNow>=28&&rsiNow<rsiPrev),macdImprove=dir>0?macd.hist[ri]>macd.hist[ri-1]:macd.hist[ri]<macd.hist[ri-1];
-  const marketAlign=market.dir===0?0:(market.dir===dir?1:-1),derivDir=dir>0?(deriv.takerRatio>=1.02?1:deriv.takerRatio<.94?-1:0):(deriv.takerRatio<=.98?1:deriv.takerRatio>1.06?-1:0),topDir=dir>0?(deriv.topPositionRatio>=1.02?1:deriv.topPositionRatio<.96?-1:0):(deriv.topPositionRatio<=.98?1:deriv.topPositionRatio>1.04?-1:0),oiOk=Number(deriv.oiChangePct)>-2;
-  const depth=Number(micro?.depthImbalance||0),depthDir=dir>0?(depth>=.06?1:depth<=-.14?-1:0):(depth<=-.06?1:depth>=.14?-1:0);
+  const marketAlign=market.dir===0?0:(market.dir===dir?1:-1),takerVal=finiteMetric(deriv?.takerRatio),topVal=finiteMetric(deriv?.topPositionRatio),oiVal=finiteMetric(deriv?.oiChangePct),derivDir=takerVal==null?0:(dir>0?(takerVal>=1.02?1:takerVal<.94?-1:0):(takerVal<=.98?1:takerVal>1.06?-1:0)),topDir=topVal==null?0:(dir>0?(topVal>=1.02?1:topVal<.96?-1:0):(topVal<=.98?1:topVal>1.04?-1:0)),oiOk=oiVal==null?false:oiVal>-2;
+  const depth=finiteMetric(micro?.depthImbalance),depthDir=depth==null?0:(dir>0?(depth>=.06?1:depth<=-.14?-1:0):(depth<=-.06?1:depth>=.14?-1:0));
   const h1Opposed=t1h&&t1h.trend===-dir&&Number(t1h.adx14||0)>=24,t30Opposed=t30&&t30.trend===-dir&&Number(t30.adx14||0)>=22;
   const chaseDistance=dir>0?Math.max(0,last.close-setup.zoneHigh):Math.max(0,setup.zoneLow-last.close),chaseAtr=setup.atr5>0?chaseDistance/setup.atr5:0;
-  const spreadOk=!Number.isFinite(Number(micro?.spreadBps))||Number(micro.spreadBps)<=TEST_SIGNAL_MAX_SPREAD_BPS;
-  const adlRisk=String(riskCtx?.adlRisk||'unknown').toLowerCase(),fundingPct=Number(riskCtx?.fundingPct),fundingCrowded=Number.isFinite(fundingPct)&&(dir>0?fundingPct>=.08:fundingPct<=-.08);
+  const spreadVal=finiteMetric(micro?.spreadBps),spreadOk=spreadVal==null||spreadVal<=TEST_SIGNAL_MAX_SPREAD_BPS;
+  const adlRisk=String(riskCtx?.adlRisk||'unknown').toLowerCase(),fundingPct=finiteMetric(riskCtx?.fundingPct),fundingCrowded=fundingPct!=null&&(dir>0?fundingPct>=.08:fundingPct<=-.08);
   let score=0;score+=clamp((Number(t.idea.rankScore||50)-45)*.45,0,22);score+=Math.min(16,(setup.confluenceCount||0)*5.5);score+=zoneTouch?8:0;score+=reclaim?12:0;score+=candleOk?6:0;score+=sweep?10:wicker?6:0;score+=momentum?8:0;score+=macdImprove?6:0;score+=t5.volumeRatio>=1.05?6:t5.volumeRatio<.70?-4:2;score+=derivDir*5;score+=topDir*3;score+=depthDir*3;score+=oiOk?3:-5;score+=marketAlign*7;score+=h1Opposed?-7:(t1h?.trend===dir?3:0);score+=t30Opposed?-6:(t30?.trend===dir?2:0);score+=spreadOk?1:-7;score+=chaseAtr<=.15?3:chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR?0:-9;score+=adlRisk==='high'?-9:adlRisk==='low'?1:0;score+=fundingCrowded?-5:0;score=clamp(Math.round(score),0,100);
   const reasons=testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio:t5.volumeRatio,deriv,marketAlign,direction:t.direction});
   if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');if(t1h?.trend===dir)reasons.push('1小時趨勢同向');
   t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','等待',new Date().toISOString());t.updatedAt=new Date().toISOString();
-  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:Number(Number(deriv.oiChangePct||0).toFixed(2)),takerRatio:Number(Number(deriv.takerRatio||1).toFixed(2)),topPositionRatio:Number(Number(deriv.topPositionRatio||1).toFixed(2)),globalLongShortRatio:Number(Number(deriv.globalLongShortRatio||1).toFixed(2)),depthImbalance:Number(depth.toFixed(3)),spreadBps:Number.isFinite(Number(micro?.spreadBps))?Number(Number(micro.spreadBps).toFixed(2)):null,bidNotional:Number.isFinite(Number(micro?.bidNotional))?Number(micro.bidNotional):null,askNotional:Number.isFinite(Number(micro?.askNotional))?Number(micro.askNotional):null,chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:Number.isFinite(fundingPct)?Number(fundingPct.toFixed(4)):null,basisPct:Number.isFinite(Number(riskCtx?.basisPct))?Number(riskCtx.basisPct):null,annualizedBasisPct:Number.isFinite(Number(riskCtx?.annualizedBasisPct))?Number(riskCtx.annualizedBasisPct):null,nextFundingTime:Number.isFinite(Number(riskCtx?.nextFundingTime))?Number(riskCtx.nextFundingTime):null,fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
+  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
   const confirm=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketAlign>=0&&!h1Opposed&&!t30Opposed&&depthDir>=0&&spreadOk&&chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR&&adlRisk!=='high'&&!fundingCrowded&&score>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
     const entry=last.close,rawRisk=Math.abs(entry-setup.invalidation),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.65,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
@@ -4360,7 +4509,7 @@ function testSignalResponse() {
   const now=Date.now(),scanAgeMs=testSignalLastRunAt?Math.max(0,now-testSignalLastRunAt):null,priceAgeMs=markPriceUpdatedAt?Math.max(0,now-new Date(markPriceUpdatedAt).getTime()):null;
   const staleCount=rows.filter(r=>r.freshness?.state==='STALE').length,delayedCount=rows.filter(r=>r.freshness?.state==='DELAYED').length;
   const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError};
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.5 免費交叉比對＋資料完整度校驗：高勝率通知要求資料完整度至少90%，普通至少80%，低於72%直接阻擋。5/15/30/60分、OI、主動買賣、大戶/全市場多空、Funding/Basis、20檔委託簿、Mark Price、回測與BTC/ETH大盤共同交叉；缺值不再用中性值冒充有效資料。AI網搜完全改成手動按需啟動，2小時快取。',error:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.6 DATA MAX：Binance 主資料源；K線/技術指標自行計算，衍生品、委託簿、Funding/Basis/ADL/Mark Price 優先 Binance；失敗時以 Binance 成交資料、Bybit、OKX 明確標示備援。資料完整度只計可用性，可信度另外扣除小樣本與備援來源；高勝率通知要求完整度≥90%且可信度≥86%，普通≥80%/76%，低於72%或65%直接阻擋。缺值不以0或中性值冒充有效訊號；Bybit/OKX只做交叉驗證，不把不同交易所絕對值直接平均。AI網搜維持手動按需、2小時快取。',error:testSignalLastError};
 }
 
 
@@ -4518,6 +4667,26 @@ app.get('/api/test-signals', async (req, res) => {
   }
 });
 
+app.get('/api/data-probe', async (req, res) => {
+  const symbol=cleanFuturesSymbol(req.query?.symbol||'BTCUSDT');
+  if(!/^[A-Z0-9]{3,24}USDT$/.test(symbol))return res.status(400).json({ok:false,error:'invalid symbol'});
+  try{
+    const started=Date.now();
+    const [c5,c15,c30,c1h,deriv,micro,risk,cross]=await Promise.all([
+      testFetchCandles(symbol,'5m',180).catch(e=>({__error:String(e?.message||e)})),
+      testFetchCandles(symbol,'15m',180).catch(e=>({__error:String(e?.message||e)})),
+      testFetchCandles(symbol,'30m',120).catch(e=>({__error:String(e?.message||e)})),
+      testFetchCandles(symbol,'1h',120).catch(e=>({__error:String(e?.message||e)})),
+      testFetchDerivatives(symbol).catch(e=>({__error:String(e?.message||e)})),
+      testFetchMicrostructure(symbol).catch(e=>({__error:String(e?.message||e)})),
+      testFetchRiskContext(symbol).catch(e=>({__error:String(e?.message||e)})),
+      testFetchCrossExchange(symbol).catch(e=>({__error:String(e?.message||e)})),
+    ]);
+    const candleInfo=(rows,interval,limit)=>{const err=rows?.__error;if(err)return {ok:false,error:err};const closed=closedTestCandles(rows),t=closed.length>=60?technicalSnapshot(closed):null,src=testCandleSourceCache.get(`${symbol}:${interval}:${limit}`)||{};return {ok:closed.length>=60,bars:closed.length,source:src.source||null,fallback:src.fallback===true,rsi:t?.rsi14??null,adx:t?.adx14??null,volumeRatio:t?.volumeRatio??null,trend:t?.trend??null,error:src.error||null}};
+    res.json({ok:true,symbol,generatedAt:new Date().toISOString(),elapsedMs:Date.now()-started,mode:'V9.6 DATA MAX',candles:{m5:candleInfo(c5,'5m',180),m15:candleInfo(c15,'15m',180),m30:candleInfo(c30,'30m',120),h1:candleInfo(c1h,'1h',120)},derivatives:deriv,microstructure:micro,risk,crossExchange:cross});
+  }catch(e){res.status(502).json({ok:false,symbol,error:String(e?.message||e)})}
+});
+
 app.post('/api/test-signal-push', async (_req, res) => {
   try {
     await sendPush({
@@ -4543,7 +4712,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V9_0_SIMPLE_FRESHNESS_MONITOR',
+    mode: 'V9_6_DATA_MAX_CROSS_EXCHANGE',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -4554,6 +4723,7 @@ app.get('/api/config', (_req, res) => {
     vapidPublicKey: vapid.publicKey,
     dailyBrief: { aiReady: Boolean(OPENAI_API_KEY), model: OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true, runtime:{project:RUNTIME_PROJECT||null,service:RUNTIME_SERVICE||null,version:BUILD_VERSION} },
     rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS, webAnalysisOnDemand:true, webAnalysisCacheMs:SYMBOL_ANALYSIS_CACHE_MS },
+    dataMax: { primary:'Binance', fallbacks:ENABLE_CROSS_EXCHANGE?['Binance成交資料','Bybit','OKX']:['Binance成交資料'], crossExchange:ENABLE_CROSS_EXCHANGE, probe:'/api/data-probe?symbol=BTCUSDT' },
     testSignals: { scanMs: TEST_SIGNAL_SCAN_MS, max: TEST_SIGNAL_MAX, confirmScore: TEST_SIGNAL_CONFIRM_SCORE, weakFlags: TEST_MONITOR_WEAK_FLAGS, stateBars: TEST_MONITOR_STATE_BARS, routeToMonitor: true, lifecycle: true, reentry:true, reentryScore:TEST_REENTRY_SCORE, reentryConfirmBars:TEST_REENTRY_CONFIRM_BARS },
     pushReady: true,
     traders: TRADERS,
@@ -4677,7 +4847,7 @@ app.get('/api/reference-levels', async (req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V8.2',
+    mode: 'V9.6',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -4880,13 +5050,13 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V8.2',
+    mode: 'V9.6',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V8.2 LIFECYCLE CALIBRATED MONITOR started on ${PORT}`);
+    console.log(`Position Alert V9.6 DATA MAX CROSS-EXCHANGE started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
