@@ -511,6 +511,34 @@ button,select,input{font-family:inherit}
 .testFocusActions button{min-width:0;min-height:42px;white-space:normal;line-height:1.25}
 .removeJudge{border-color:#4b3939!important;color:#c9a3a3!important}
 @media(max-width:520px){.testMonitorItem>summary{padding-right:44px!important}.judgeDismissBtn{top:7px;right:7px;width:29px;height:29px}.testFocusActions{grid-template-columns:1fr 1fr!important}.testFocusActions .openTv{grid-column:1/-1}}
+
+
+/* V8.8：事件時間 ≠ 即時判讀時間；舊資料禁止冒充現在 */
+.testFreshTag{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:950;line-height:1;white-space:nowrap}
+.testFreshTag.live{color:#74e3a5;border:1px solid #23613d;background:#0d2116}
+.testFreshTag.delayed{color:#efc16d;border:1px solid #685126;background:#211a0d}
+.testFreshTag.stale{color:#ff8585;border:1px solid #6d3232;background:#251111}
+.judgeTimeRow{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-top:8px;color:#81796f;font-size:10px;line-height:1.35;font-variant-numeric:tabular-nums}
+.judgeTimeRow b{color:#d9bc7a;font-size:10px;font-weight:900}
+.judgeStaleWarning{margin-top:12px;padding:10px 12px;border:1px solid #703232;border-radius:11px;background:#211111;color:#f19a96;font-size:11px;font-weight:850;line-height:1.55}
+.testMonitorItem.dataStale{border-color:#593333}
+.testMonitorItem.dataStale .testMonitorSummaryScore b{color:#9c8d81!important}
+.reachedRow.dataStale{opacity:.72}
+.testMonitorSub{max-width:760px}
+
+/* 三個價位在手機不要硬擠成三小格 */
+@media(max-width:520px){
+  .judgePriceStrip{grid-template-columns:1fr 1fr!important}
+  .judgePriceStrip>div:last-child{grid-column:1/-1}
+  .judgePriceStrip>div{min-height:64px}
+  .judgeTimeRow{gap:6px 10px;font-size:10.5px}
+  .testFreshTag{font-size:10px}
+  .judgeCoreGrid{grid-template-columns:1fr 1fr!important}
+}
+@media(max-width:390px){
+  .judgePriceStrip,.judgeCoreGrid{grid-template-columns:1fr!important}
+  .judgePriceStrip>div:last-child{grid-column:auto}
+}
 </style>
 </head>
 <body>
@@ -683,6 +711,6 @@ button,select,input{font-family:inherit}
   </div>
 </div>
 
-<script src="/app.js?v=870"></script>
+<script src="/app.js?v=890"></script>
 </body>
 </html>

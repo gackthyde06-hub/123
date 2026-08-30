@@ -367,7 +367,7 @@ $('allToggle').addEventListener('change',async e=>{const ids=e.currentTarget.che
 $('consensusToggle')?.addEventListener('change',async e=>{saveConsensusEnabled(e.currentTarget.checked);await syncPreferences().catch(()=>{});$('msg').textContent=e.currentTarget.checked?'✅ 熬鷹同向確認已開啟':'🔕 熬鷹同向確認已關閉'});
 $('settingsPanel').open=!!ui.settingsOpen;$('settingsPanel').addEventListener('toggle',saveUI);
 $('labelCancel').addEventListener('click',closeLabelSheet);$('labelSave').addEventListener('click',saveLabelSheet);$('labelModal').addEventListener('click',e=>{if(e.target===$('labelModal'))closeLabelSheet()});$('labelInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveLabelSheet();if(e.key==='Escape')closeLabelSheet()});
-$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=870'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),testSignalEnabled:loadTestSignalNotify(),testSignalNotifyMode:loadTestSignalNotifyMode(),dailyBriefIntervalHours:24,preferenceVersion:87})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
+$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=890'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),testSignalEnabled:loadTestSignalNotify(),testSignalNotifyMode:loadTestSignalNotifyMode(),dailyBriefIntervalHours:24,preferenceVersion:87})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
 $('test').onclick=async()=>{const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id,r=await fetch('/api/test-push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({traderId})});$('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`};
 $('testPullback').onclick=async()=>{const r=await fetch('/api/test-pullback-push',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});$('msg').textContent=r.ok?'✅ 回踩測試已送出 · 點通知回監控判讀':`❌ 回踩測試失敗：${await r.text()}`};
 
@@ -407,21 +407,22 @@ function setPage(name){
 function fmtVol(v){const x=Number(v||0);if(x>=1e9)return`${(x/1e9).toFixed(x>=10e9?1:2)}B`;if(x>=1e6)return`${(x/1e6).toFixed(1)}M`;return x.toLocaleString('en-US',{maximumFractionDigits:0})}
 function signed(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}%`}
 function biasClassName(key){return({LONG:'long',LONG_WATCH:'longWatch',SHORT_WATCH:'shortWatch',SHORT:'short'})[key]||'watch'}
+function todayBiasLabel(key,fallback=''){return({LONG:'偏多',LONG_WATCH:'偏多觀察',SHORT_WATCH:'偏空觀察',SHORT:'偏空'})[key]||fallback||'—'}
 function renderBiasList(t,activeKey){
   const biases=Array.isArray(t?.biases)?t.biases:[],active=biases.find(x=>x.key===activeKey)||biases[0];
   if(!active){$('todayBiasList').innerHTML='<div class="loadingBox">—</div>';return}
   const cls=biasClassName(active.key),shown=active.items||[];
   const rows=shown.map((x,i)=>`<div class="biasRow ${cls}"><div class="biasRank">${i+1}</div><div class="biasNameCell"><button type="button" class="tvNameLink biasName" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)}</button><div class="biasExtra">${fmtVol(x.quoteVolume)} · F ${signed(x.fundingPct,4)}</div></div><div class="biasMetrics"><span class="biasChange">${signed(x.changePct,2)}</span><span class="biasFlow">${x.flowScore>0?'+':''}${Number(x.flowScore||0).toFixed(1)}</span></div></div>`).join('')||'<div class="loadingBox">—</div>';
-  $('todayBiasList').innerHTML=`<div class="biasListHead"><div class="biasListHeadMain"><span class="biasDot ${cls}"></span><div><div class="biasListTitle">${esc(active.label)}</div><div class="biasListMeta">前 ${shown.length} / 共 ${Number(active.count||0)}</div></div></div></div><div class="biasListRows">${rows}</div>`;
+  $('todayBiasList').innerHTML=`<div class="biasListHead"><div class="biasListHeadMain"><span class="biasDot ${cls}"></span><div><div class="biasListTitle">${esc(todayBiasLabel(active.key,active.label))}</div><div class="biasListMeta">前 ${shown.length} / 共 ${Number(active.count||0)}</div></div></div></div><div class="biasListRows">${rows}</div>`;
 }
 function renderMatrix(t){
   const items=Array.isArray(t?.bubbleMap?.items)?t.bubbleMap.items:[],groups={LONG:[],SHORT_WATCH:[],LONG_WATCH:[],SHORT:[]};for(const x of items){if(groups[x.bias])groups[x.bias].push(x)}
-  const order=[['LONG','做多','流入＋漲'],['SHORT_WATCH','空觀','流出＋漲'],['LONG_WATCH','多觀','流入＋跌'],['SHORT','做空','流出＋跌']];
+  const order=[['LONG','偏多','流入＋漲'],['SHORT_WATCH','偏空觀察','流出＋漲'],['LONG_WATCH','偏多觀察','流入＋跌'],['SHORT','偏空','流出＋跌']];
   $('matrixChart').innerHTML=order.map(([key,label,sub])=>{const cls=biasClassName(key),coins=groups[key].slice(0,3).map(x=>`<button type="button" class="matrixCoin" data-tv-symbol="${esc(x.symbol)}"><b>${esc(x.symbol)}</b><span>${signed(x.changePct,1)}</span></button>`).join('');return `<div class="matrixCell ${cls}"><div class="matrixHead"><b>${label}</b><small>${sub}</small></div><div class="matrixCoins">${coins||'<div class="matrixEmpty">—</div>'}</div></div>`}).join('');
 }
 function renderToday(d){
   const t=d.today||{},biases=Array.isArray(t.biases)?t.biases:[];
-  if(biases.length){if(!biases.some(x=>x.key===todayBiasKey))todayBiasKey=t.defaultBias||biases[0].key;$('todayBiases').innerHTML=biases.map(x=>{const cls=biasClassName(x.key),active=x.key===todayBiasKey,shortSub=({LONG:'流入＋漲',LONG_WATCH:'流入＋跌',SHORT_WATCH:'流出＋漲',SHORT:'流出＋跌'})[x.key]||'';return `<button type="button" class="biasCard ${cls} ${active?'active':''}" data-bias-key="${esc(x.key)}"><span class="label">${esc(x.label)}</span><span class="count">${Number(x.count||0)}</span><span class="sub">${shortSub}</span></button>`}).join('');renderBiasList(t,todayBiasKey)}else{$('todayBiases').innerHTML='<div class="loadingBox">—</div>';$('todayBiasList').innerHTML='<div class="loadingBox">—</div>'}
+  if(biases.length){if(!biases.some(x=>x.key===todayBiasKey))todayBiasKey=t.defaultBias||biases[0].key;$('todayBiases').innerHTML=biases.map(x=>{const cls=biasClassName(x.key),active=x.key===todayBiasKey,shortSub=({LONG:'流入＋漲',LONG_WATCH:'流入＋跌',SHORT_WATCH:'流出＋漲',SHORT:'流出＋跌'})[x.key]||'';return `<button type="button" class="biasCard ${cls} ${active?'active':''}" data-bias-key="${esc(x.key)}"><span class="label">${esc(todayBiasLabel(x.key,x.label))}</span><span class="count">${Number(x.count||0)}</span><span class="sub">${shortSub}</span></button>`}).join('');renderBiasList(t,todayBiasKey)}else{$('todayBiases').innerHTML='<div class="loadingBox">—</div>';$('todayBiasList').innerHTML='<div class="loadingBox">—</div>'}
   renderMatrix(t);
 }
 function renderDailyBrief(d){
@@ -482,6 +483,18 @@ function testEffectiveWinRate(x){
   return -1;
 }
 function testEventTime(x){return localTime(x?.eventAt||x?.finishedAt||x?.updatedAt)||'—'}
+function testSignalTime(x){return localTime(x?.confirmedAt||x?.notificationSentAt||x?.firstSeenAt)||'—'}
+function testStateTime(x){return localTime(x?.stateChangedAt||x?.eventAt||x?.updatedAt)||'—'}
+function testLastEvalTime(x){return localTime(x?.lastEvaluatedAt)||'—'}
+function testPriceTime(x){return localTime(x?.priceUpdatedAt)||'—'}
+function testFreshnessState(x){
+  const v=String(x?.freshness?.state||'').toUpperCase();if(v)return v;
+  const at=x?.lastEvaluatedAt?new Date(x.lastEvaluatedAt).getTime():0,age=at?Date.now()-at:Infinity;
+  return age<=90_000?'LIVE':age<=180_000?'DELAYED':'STALE';
+}
+function testIsStale(x){return testFreshnessState(x)==='STALE'}
+function testFreshnessTag(x){const st=testFreshnessState(x);return st==='LIVE'?'<span class="testFreshTag live">即時</span>':st==='DELAYED'?'<span class="testFreshTag delayed">資料延遲</span>':'<span class="testFreshTag stale">資料過期</span>'}
+function testWinDeltaText(x){if(!hasNum(x?.currentWinRate)||!hasNum(x?.confirmedWinRate))return'';const d=Number(x.currentWinRate)-Number(x.confirmedWinRate);if(Math.abs(d)<.1)return'0.0';return `${d>0?'↑':'↓'}${Math.abs(d).toFixed(1)}`}
 function testInvalidWindowText(x){
   if(x?.status!=='INVALID'||!x?.reactivateUntil)return'';
   const ms=new Date(x.reactivateUntil).getTime()-Date.now();
@@ -533,7 +546,8 @@ function updateTestPlanner(box){
   set('[data-plan-tp]',tp?price(tp):'—');set('[data-plan-sl]',Number.isFinite(stop)?price(stop):(budgetSl?price(budgetSl):'—'));set('[data-plan-rr]',rr?rr.toFixed(2):'—');set('[data-plan-risk]',structRisk?`${structRisk.toFixed(structRisk>=100?0:1)} U`:'—');
   const plan={entry:get('entry')?.value||'',margin:get('margin')?.value||'',lev:get('lev')?.value||'',profit:get('profit')?.value||'',loss:get('loss')?.value||''};saveTestEntryPlan(x.key,plan);
   let advice='等待完整訊號資料。';const state=String(x.monitorState||''),reStage=String(x.reentryStage||''),tier=String(x.notificationTier||'VALID');
-  if(x.status==='INVALID'||x.status==='DROPPED'||state==='WEAKENING')advice='目前轉弱／失效，暫停進場；等系統重新收復後再看。';
+  if(testIsStale(x))advice='判讀資料已超過 3 分鐘未更新，暫停進場；等資料恢復即時後再判斷。';
+  else if(x.status==='INVALID'||x.status==='DROPPED'||state==='WEAKENING')advice='目前轉弱／失效，暫停進場；等系統重新收復後再看。';
   else if(testIsReachedWaiting(x))advice='已達標，現在不追價；等二次回踩區形成後，符合條件會重新跳回監控並通知。';
   else if(reStage==='TOUCHING')advice='二次回踩正在發生，先等已收 5 分 K 重新站回，再考慮進場。';
   else if(entryInput&&zone){
@@ -555,7 +569,7 @@ function testMonitorCandidates(){
   const rows=testSignalsState.rows||[],picked=new Map();
   rows.forEach(x=>{if(x.notificationSentAt&&['CONFIRMED','WIN','LOSS','TIMEOUT','INVALID'].includes(x.status)&&!testIsReachedWaiting(x)&&!isTestJudgementDismissed(x))picked.set(x.key,x)});
   if(testFocusSymbol){const x=rows.find(r=>r.symbol===testFocusSymbol&&(!testFocusDirection||r.direction===testFocusDirection))||rows.find(r=>r.symbol===testFocusSymbol);if(x&&!testIsReachedWaiting(x)){clearTestJudgementDismiss(x.key);picked.set(x.key,x)}}
-  return [...picked.values()].sort((a,b)=>Number(b.priorityScore||0)-Number(a.priorityScore||0)||testEffectiveWinRate(b)-testEffectiveWinRate(a)||(a.rank||99)-(b.rank||99));
+  return [...picked.values()].sort((a,b)=>{const fa=testFreshnessState(a)==='STALE'?1:0,fb=testFreshnessState(b)==='STALE'?1:0;if(fa!==fb)return fa-fb;return Number(b.priorityScore||0)-Number(a.priorityScore||0)||testEffectiveWinRate(b)-testEffectiveWinRate(a)||(a.rank||99)-(b.rank||99)});
 }
 function testReachedCandidates(){
   if(!testSignalsState)return[];
@@ -570,45 +584,53 @@ function bindTestJudgementDetails(){
   panel.querySelectorAll('details[data-test-judge]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)testMonitorOpenKeys.add(d.dataset.testJudge);else testMonitorOpenKeys.delete(d.dataset.testJudge)}));bindTestPlanners(panel);
 }
 function renderMonitorJudgeCard(x,i,focusKey,reLiveText){
-  const bt=x.setup?.backtest||{},win=testEffectiveWinRate(x),winText=win>=0?`${win.toFixed(1)}%`:'—',hist=hasNum(bt.hitRate)?`${Number(bt.hitRate).toFixed(1)}%`:'—',avg=testSignedPct(bt.avgReturnPct,2),pf=hasNum(bt.profitFactor)?Number(bt.profitFactor).toFixed(2):'—',q=Math.max(0,Math.min(100,Number(x.qualityScore||x.setup?.setupScore||0))),isFocus=x.key===focusKey,long=x.direction==='LONG',open=testMonitorOpenKeys.has(x.key),confidence=x.winRateMeta?.confidence||'—',eventTime=testEventTime(x);
+  const bt=x.setup?.backtest||{},stale=testIsStale(x),win=testEffectiveWinRate(x),winText=stale?'—':win>=0?`${win.toFixed(1)}%`:'—',hist=hasNum(bt.hitRate)?`${Number(bt.hitRate).toFixed(1)}%`:'—',avg=testSignedPct(bt.avgReturnPct,2),pf=hasNum(bt.profitFactor)?Number(bt.profitFactor).toFixed(2):'—',q=Math.max(0,Math.min(100,Number(x.qualityScore||x.setup?.setupScore||0))),isFocus=x.key===focusKey,long=x.direction==='LONG',open=testMonitorOpenKeys.has(x.key),confidence=x.winRateMeta?.confidence||'—';
+  const signalTime=testSignalTime(x),stateTime=testStateTime(x),evalTime=testLastEvalTime(x),priceTime=testPriceTime(x),freshTag=testFreshnessTag(x),delta=testWinDeltaText(x),confirmedRate=hasNum(x.confirmedWinRate)?`${Number(x.confirmedWinRate).toFixed(1)}%`:'—';
   const dynamic=hasNum(x.monitorScore)?Number(x.monitorScore).toFixed(0):q,protect=hasNum(x.structureProtection)?price(x.structureProtection):(hasNum(x.stop)?price(x.stop):'—'),breakout=hasNum(x.breakoutLevel)?price(x.breakoutLevel):'—',topRatio=hasNum(x.monitorEvidence?.topPositionRatio)?Number(x.monitorEvidence.topPositionRatio).toFixed(2):'—',depth=hasNum(x.monitorEvidence?.depthImbalance)?`${Number(x.monitorEvidence.depthImbalance)>0?'+':''}${(Number(x.monitorEvidence.depthImbalance)*100).toFixed(1)}%`:'—',h1=x.monitorEvidence?.adverse1h?'逆向':'正常',ciLow=hasNum(x.winRateMeta?.conservativeLow)?`${Number(x.winRateMeta.conservativeLow).toFixed(1)}%`:'—',ciHigh=hasNum(x.winRateMeta?.confidenceHigh)?`${Number(x.winRateMeta.confidenceHigh).toFixed(1)}%`:'—',invalidWindow=testInvalidWindowText(x),invalidReason=testInvalidReasonText(x);
   const rankNow=Number(x.rank||0),priority=hasNum(x.priorityScore)?Number(x.priorityScore).toFixed(0):'—',heat=hasNum(x.rankHeat)?Number(x.rankHeat).toFixed(0):'—';
   const reZone=hasNum(x.reentryZoneLow)&&hasNum(x.reentryZoneHigh)?`${price(x.reentryZoneLow)}～${price(x.reentryZoneHigh)}`:'—',reScore=hasNum(x.reentryScore)?Number(x.reentryScore).toFixed(0):'—',reEntry=hasNum(x.reentryEntryPrice)?price(x.reentryEntryPrice):'—',reStop=hasNum(x.reentryStop)?price(x.reentryStop):'—',reTarget=hasNum(x.reentryTarget1R)?price(x.reentryTarget1R):'—';
   const reMeta=(x.reentryReasons||[]).length?`二進：${(x.reentryReasons||[]).map(esc).join('、')}`:'',adl=String(x.monitorEvidence?.adlRisk||x.lastCheck?.adlRisk||'—').toUpperCase(),fund=hasNum(x.monitorEvidence?.fundingPct)?`${Number(x.monitorEvidence.fundingPct).toFixed(4)}%`:hasNum(x.lastCheck?.fundingPct)?`${Number(x.lastCheck.fundingPct).toFixed(4)}%`:'—';
-  const strategy=esc(x.entryStrategy||'回踩區內等確認，不追價');
+  const strategy=stale?'資料過期，暫停採用這筆進場判讀':esc(x.entryStrategy||'回踩區內等確認，不追價');
   const preferred=x.preferredEntryZone?`${price(x.preferredEntryZone.low)}～${price(x.preferredEntryZone.high)}`:testZoneText(x.setup);
-  const suggestedMid=x.preferredEntryZone?(Number(x.preferredEntryZone.low)+Number(x.preferredEntryZone.high))/2:null,notifyPoint=testNotifyPoint(x),currentPoint=Number(x.currentPrice);
-  return `<details class="testMonitorItem ${isFocus?'focused':''}" data-test-judge="${esc(x.key)}" ${open?'open':''}>
+  const suggestedMid=!stale&&x.preferredEntryZone?(Number(x.preferredEntryZone.low)+Number(x.preferredEntryZone.high))/2:null,notifyPoint=testNotifyPoint(x),currentPoint=Number(x.currentPrice);
+  const stateLabel=esc(x.monitorLabel||x.statusLabel||'監控中');
+  return `<details class="testMonitorItem ${isFocus?'focused':''} ${stale?'dataStale':''}" data-test-judge="${esc(x.key)}" ${open?'open':''}>
     <button type="button" class="judgeDismissBtn" data-test-dismiss="${esc(x.key)}" aria-label="從監控判讀移除 ${esc(x.symbol)}" title="移除這筆；下次新訊號會再出現">×</button>
     <summary>
       <div class="judgeLead">
-        <div class="judgeTitleRow"><span class="testMonitorSymbol">${i+1}. ${esc(x.symbol)}</span><span class="testMonitorRankTag">${rankNow?`排名 ${rankNow}`:'排名 —'}</span></div>
-        <div class="judgeBadgeRow">${testTrendTag(x)}<span class="testMonitorDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testTierClass(x)}">${esc(testTierLabel(x))}</span><span class="testMonitorState">${esc(x.statusLabel||'未破確認')}</span><span class="testMonitorEventTime">${eventTime}</span>${invalidWindow?`<span class="testMonitorRecover">${esc(invalidWindow)}</span>`:''}</div>
+        <div class="judgeTitleRow"><span class="testMonitorSymbol">${i+1}. ${esc(x.symbol)}</span><span class="testMonitorRankTag">${rankNow?`排名 ${rankNow}`:'排名 —'}</span>${freshTag}</div>
+        <div class="judgeBadgeRow">${testTrendTag(x)}<span class="testMonitorDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testTierClass(x)}">${esc(testTierLabel(x))}</span><span class="testMonitorState">${stateLabel}</span>${invalidWindow?`<span class="testMonitorRecover">${esc(invalidWindow)}</span>`:''}</div>
+        <div class="judgeTimeRow"><span>成立 ${signalTime}</span><span>狀態 ${stateTime}</span><b>判讀 ${evalTime}</b></div>
       </div>
-      <div class="judgePriceStrip"><div><span>通知點位</span><b>${hasNum(notifyPoint)?price(notifyPoint):'—'}</b></div><div><span>當下點位</span><b>${hasNum(currentPoint)?price(currentPoint):'—'}</b></div><div><span>建議進場</span><b>${hasNum(suggestedMid)?price(suggestedMid):'—'}</b><small>${esc(preferred)}</small></div></div>
-      <div class="testMonitorSummaryScore"><b>${winText}</b><span>校準勝率</span><small>優先 ${priority}</small></div>
+      <div class="judgePriceStrip"><div><span>通知點位</span><b>${hasNum(notifyPoint)?price(notifyPoint):'—'}</b></div><div><span>當下點位</span><b>${hasNum(currentPoint)?price(currentPoint):'—'}</b><small>行情 ${priceTime}</small></div><div><span>建議進場</span><b>${hasNum(suggestedMid)?price(suggestedMid):stale?'暫停':'—'}</b><small>${stale?'等判讀恢復':esc(preferred)}</small></div></div>
+      <div class="testMonitorSummaryScore"><b>${winText}</b><span>${stale?'資料過期':'目前勝率'}</span><small>成立 ${confirmedRate}${delta?` · ${delta}`:''}</small></div>
     </summary>
     <div class="testMonitorBody">
+      ${stale?`<div class="judgeStaleWarning">⚠ 最近判讀已超過 3 分鐘。現價仍更新，但勝率、進場區與結構判讀暫停採用。</div>`:''}
       <div class="judgeCoreGrid">
         <div class="judgeCoreCell important"><span>當日排名 / 熱度</span><b>${rankNow?`${rankNow}`:'—'} / ${heat}</b></div>
-        <div class="judgeCoreCell"><span>動態強度</span><b>${dynamic}</b></div>
-        <div class="judgeCoreCell wide"><span>較佳進場區</span><b>${esc(preferred)}</b></div>
+        <div class="judgeCoreCell"><span>動態強度</span><b>${stale?'—':dynamic}</b></div>
+        <div class="judgeCoreCell"><span>成立時勝率</span><b>${confirmedRate}</b></div>
+        <div class="judgeCoreCell"><span>目前勝率</span><b>${winText}${delta?` · ${delta}`:''}</b></div>
+        <div class="judgeCoreCell wide"><span>較佳進場區</span><b>${stale?'資料恢復後重算':esc(preferred)}</b></div>
         <div class="judgeCoreCell"><span>目前保護位</span><b>${protect}</b></div>
-        <div class="judgeCoreCell"><span>狀態時間</span><b>${eventTime}</b></div>
+        <div class="judgeCoreCell"><span>最近判讀</span><b>${evalTime}</b></div>
+        <div class="judgeCoreCell"><span>狀態發生</span><b>${stateTime}</b></div>
       </div>
       <div class="judgeStrategy"><span>目前判讀</span><b>${strategy}</b></div>
       ${invalidReason?`<div class="judgeWarning">${esc(invalidReason)}${invalidWindow?` · ${esc(invalidWindow)}`:''}</div>`:''}
       <details class="judgeMore"><summary><span>更多判讀數據</span><b>展開</b></summary><div class="testFocusBody">
-        <div class="testFocusCell"><span>保守下界</span><b>${ciLow}</b></div><div class="testFocusCell"><span>可信度 / 等效樣本</span><b>${esc(confidence)} / ${Number(x.winRateMeta?.effectiveSample||0)}</b></div>
+        <div class="testFocusCell"><span>保守下界</span><b>${stale?'—':ciLow}</b></div><div class="testFocusCell"><span>可信度 / 等效樣本</span><b>${esc(confidence)} / ${Number(x.winRateMeta?.effectiveSample||0)}</b></div>
         <div class="testFocusCell"><span>歷史1R勝率</span><b>${hist}</b></div><div class="testFocusCell"><span>平均90分報酬</span><b>${avg}</b></div>
         <div class="testFocusCell"><span>回測獲利因子</span><b>${pf}</b></div><div class="testFocusCell"><span>回測樣本</span><b>${Number(bt.sample||0)}</b></div>
         <div class="testFocusCell"><span>完整回踩區</span><b>${esc(testZoneText(x.setup))}</b></div><div class="testFocusCell"><span>確認價</span><b>${hasNum(x.confirmationPrice)?price(x.confirmationPrice):'等待確認'}</b></div>
         <div class="testFocusCell"><span>突破位</span><b>${breakout}</b></div><div class="testFocusCell"><span>大戶持倉多空比</span><b>${topRatio}</b></div>
         <div class="testFocusCell"><span>20檔委託簿失衡</span><b>${depth}</b></div><div class="testFocusCell"><span>ADL / Funding</span><b>${adl} / ${fund}</b></div>
-        <div class="testFocusCell"><span>1小時趨勢</span><b>${h1}</b></div><div class="testFocusCell"><span>勝率區間</span><b>${ciLow}～${ciHigh}</b></div>
+        <div class="testFocusCell"><span>1小時趨勢</span><b>${h1}</b></div><div class="testFocusCell"><span>勝率區間</span><b>${stale?'—':`${ciLow}～${ciHigh}`}</b></div>
         <div class="testFocusCell"><span>二次回踩區</span><b>${reZone}</b></div><div class="testFocusCell"><span>二次條件分</span><b>${reScore}</b></div>
         <div class="testFocusCell"><span>二進實測勝率 / 樣本</span><b>${reLiveText}</b></div><div class="testFocusCell"><span>二次進場 / 停損</span><b>${reEntry} / ${reStop}</b></div>
         <div class="testFocusCell"><span>二次 1R</span><b>${reTarget}</b></div><div class="testFocusCell"><span>APP實測樣本</span><b>${Number(x.winRateMeta?.liveSample||0)}</b></div>
+        <div class="testFocusCell"><span>已收5分K時間</span><b>${localTime(x.lastEvaluatedBarAt)||'—'}</b></div><div class="testFocusCell"><span>即時行情時間</span><b>${priceTime}</b></div>
       </div></details>
       <div class="judgeReasonBlock"><span>成立依據</span><div class="testReasons">${testReasonChips(x)||'<span class="testReason">等待回踩確認資料</span>'}</div>${reMeta?`<p>${reMeta}</p>`:''}</div>
       <details class="testPlannerFold"><summary><span>進場 / 盈虧試算</span><b>展開</b></summary>${testEntryPlanMarkup(x)}</details>
@@ -616,9 +638,10 @@ function renderMonitorJudgeCard(x,i,focusKey,reLiveText){
     </div>
   </details>`;
 }
+
 function renderReachedPool(rows){
   if(!rows.length)return'';
-  const items=rows.map(x=>{const win=testEffectiveWinRate(x),re=x.reentryStage==='WAIT_PULLBACK'?'等二次回踩':x.reentryStage==='WIN'?'二進達標':x.reentryStage==='FAILED'?'二進失效':'達標',zone=hasNum(x.reentryZoneLow)&&hasNum(x.reentryZoneHigh)?`${price(x.reentryZoneLow)}～${price(x.reentryZoneHigh)}`:'尚未形成';return `<div class="reachedRow"><div><b>${esc(x.symbol)}</b><span>排名 ${Number(x.rank||0)||'—'} · ${localTime(x.targetReachedAt)} · ${re}</span></div><div><strong>${win>=0?win.toFixed(1)+'%':'—'}</strong><small>二踩 ${zone}</small></div></div>`}).join('');
+  const items=rows.map(x=>{const stale=testIsStale(x),win=testEffectiveWinRate(x),re=x.reentryStage==='WAIT_PULLBACK'?'等二次回踩':x.reentryStage==='WIN'?'二進達標':x.reentryStage==='FAILED'?'二進失效':'達標',zone=hasNum(x.reentryZoneLow)&&hasNum(x.reentryZoneHigh)?`${price(x.reentryZoneLow)}～${price(x.reentryZoneHigh)}`:'尚未形成';return `<div class="reachedRow ${stale?'dataStale':''}"><div><b>${esc(x.symbol)}</b><span>排名 ${Number(x.rank||0)||'—'} · 達標 ${localTime(x.targetReachedAt)} · 判讀 ${testLastEvalTime(x)} · ${re}</span></div><div><strong>${stale?'—':win>=0?win.toFixed(1)+'%':'—'}</strong><small>${stale?'資料過期':'二踩 '+zone}</small></div></div>`}).join('');
   return `<details class="reachedPool"><summary><span>達標池</span><b>${rows.length}</b><small>預設收起 · 出現二次回踩/二次確認會自動回到上方並通知</small></summary><div class="reachedList">${items}</div></details>`;
 }
 function renderTestFocus(){
@@ -633,7 +656,7 @@ function renderTestFocus(){
   const top=rows.slice(0,3),more=rows.slice(3),topCards=top.map((x,i)=>renderMonitorJudgeCard(x,i,focusKey,reLiveText)).join(''),moreCards=more.map((x,i)=>renderMonitorJudgeCard(x,i+3,focusKey,reLiveText)).join('');
   const moreHtml=more.length?`<details class="moreMonitorPool"><summary>更多監控 <b>+${more.length}</b></summary><div class="testMonitorList more">${moreCards}</div></details>`:'';
   panel.classList.add('show');
-  panel.innerHTML=`<div class="testMonitorHeader"><div class="testMonitorHeadLeft"><div class="testMonitorTitle">回踩判讀</div><div class="testMonitorSub">前 3 筆優先顯示 · 當日建議排名為主，保守勝率與即時結構校準</div></div><div class="testMonitorControls"><button type="button" data-test-expand-all>全部展開</button><button type="button" data-test-collapse-all>全部縮小</button></div></div><div class="testMonitorList">${topCards}</div>${moreHtml}${renderReachedPool(reached)}`;
+  panel.innerHTML=`<div class="testMonitorHeader"><div class="testMonitorHeadLeft"><div class="testMonitorTitle">回踩判讀</div><div class="testMonitorSub">前 3 筆優先顯示 · 現價約 10 秒更新 · 完整判讀約 60 秒重算 · 事件時間不再冒充最新資料</div></div><div class="testMonitorControls"><button type="button" data-test-expand-all>全部展開</button><button type="button" data-test-collapse-all>全部縮小</button></div></div><div class="testMonitorList">${topCards}</div>${moreHtml}${renderReachedPool(reached)}`;
   bindTestJudgementDetails();
 }
 function goTestSignalToMonitor(symbol,direction){testFocusSymbol=symbol;testFocusDirection=direction==='SHORT'?'SHORT':'LONG';clearTestJudgementDismiss(`${symbol}:${testFocusDirection}`);testMonitorOpenKeys.add(`${symbol}:${testFocusDirection}`);try{history.replaceState(null,'',`${location.pathname}?page=monitor&testSignal=${encodeURIComponent(symbol)}&dir=${testFocusDirection}`)}catch{}setPage('monitor');renderTestFocus();window.scrollTo({top:0,behavior:'smooth'})}
@@ -641,12 +664,12 @@ function renderTestSignals(d){
   if(!d?.ok)return;testSignalsState=d;testSignalsFetchedAt=Date.now();const rows=d.rows||[],live=d.liveStats||{};if(lastStatus)renderCalcPositions(lastStatus);
   const active=rows.filter(x=>['WAIT_PULLBACK','TOUCHING','CONFIRMED','INVALID'].includes(x.status)&&!testIsReachedWaiting(x)).length,high=rows.filter(x=>x.notificationTier==='HIGH'&&!testIsReachedWaiting(x)).length,normal=rows.filter(x=>x.notificationTier==='NORMAL'&&!testIsReachedWaiting(x)).length,liveHit=hasNum(live.hitRate)?`${Number(live.hitRate).toFixed(1)}%`:'—';
   $('testSummary').innerHTML=`<div class="testSummaryCell"><span>監控</span><b>${active}</b></div><div class="testSummaryCell"><span>高勝率</span><b>${high}</b></div><div class="testSummaryCell"><span>普通</span><b>${normal}</b></div><div class="testSummaryCell"><span>實測勝率</span><b>${liveHit}</b></div>`;
-  $('testGrid').innerHTML=rows.map(x=>{const bt=x.setup?.backtest||{},q=Math.max(0,Math.min(100,Number(x.qualityScore||x.setup?.setupScore||0))),long=x.direction==='LONG',hist=hasNum(bt.hitRate)?`${Number(bt.hitRate).toFixed(1)}%`:'—',cal=testEffectiveWinRate(x)>=0?`${testEffectiveWinRate(x).toFixed(1)}%`:'—',avg=testSignedPct(bt.avgReturnPct,2),dynamic=hasNum(x.monitorScore)?Number(x.monitorScore).toFixed(0):q,preferred=x.preferredEntryZone?`${price(x.preferredEntryZone.low)}～${price(x.preferredEntryZone.high)}`:'等待區間';return `<div class="testCard ${testStatusClass(x.status)}"><div class="testHead"><div class="testRank">${x.rank?`#${x.rank}`:'#—'}</div><div class="testSymbolRow"><span class="testSymbol">${esc(x.symbol)}</span>${testTrendTag(x)}<span class="testDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testTierClass(x)}">${esc(testTierLabel(x))}</span></div><div class="testState"><b>${esc(x.statusLabel||'等待')}</b><small>${x.updatedAt?ageText(x.updatedAt):'—'}</small></div></div><div class="testQuality"><div class="testQualityBar"><div class="testQualityFill" style="width:${q}%"></div></div><div class="testQualityText">品質 <b>${q||'—'}</b></div></div><div class="testQuickGrid"><div><span>校準勝率</span><b>${cal}</b></div><div><span>歷史1R</span><b>${hist}</b></div><div><span>動態強度</span><b>${dynamic}</b></div><div><span>90分報酬</span><b>${avg}</b></div><div class="wide"><span>較佳進場區</span><b>${esc(preferred)}</b></div></div><details class="testCardMore"><summary>更多數據</summary><div class="testMetrics"><div class="testMetric"><span>回測樣本</span><b>${Number(bt.sample||0)}</b></div><div class="testMetric"><span>回測獲利因子</span><b>${hasNum(bt.profitFactor)?Number(bt.profitFactor).toFixed(2):'—'}</b></div><div class="testMetric"><span>5分 RSI</span><b>${hasNum(x.lastCheck?.rsi5)?Number(x.lastCheck.rsi5).toFixed(1):'—'}</b></div><div class="testMetric"><span>OI 變化</span><b>${testSignedPct(x.lastCheck?.oiChangePct,1)}</b></div></div><div class="testLevels"><div class="testLevel"><span>完整回踩區</span><b>${esc(testZoneText(x.setup))}</b></div><div class="testLevel"><span>失效參考</span><b>${x.setup?price(x.setup.invalidation):'—'}</b></div><div class="testLevel"><span>確認價</span><b>${hasNum(x.confirmationPrice)?price(x.confirmationPrice):'等待確認'}</b></div></div></details><div class="testReasons">${testReasonChips(x)||'<span class="testReason">等待5分回踩確認</span>'}</div><div class="testActions"><button type="button" class="monitorBtn" data-test-monitor="${esc(x.symbol)}" data-test-dir="${esc(x.direction)}">到監控判讀</button><button type="button" class="openTvBtn" data-tv-symbol="${esc(x.symbol)}">開啟TV</button></div></div>`}).join('')||'<div class="testEmpty">目前建議排名沒有可追蹤標的。</div>';
+  $('testGrid').innerHTML=rows.map(x=>{const bt=x.setup?.backtest||{},q=Math.max(0,Math.min(100,Number(x.qualityScore||x.setup?.setupScore||0))),long=x.direction==='LONG',hist=hasNum(bt.hitRate)?`${Number(bt.hitRate).toFixed(1)}%`:'—',cal=testEffectiveWinRate(x)>=0?`${testEffectiveWinRate(x).toFixed(1)}%`:'—',avg=testSignedPct(bt.avgReturnPct,2),dynamic=hasNum(x.monitorScore)?Number(x.monitorScore).toFixed(0):q,preferred=x.preferredEntryZone?`${price(x.preferredEntryZone.low)}～${price(x.preferredEntryZone.high)}`:'等待區間';return `<div class="testCard ${testStatusClass(x.status)}"><div class="testHead"><div class="testRank">${x.rank?`#${x.rank}`:'#—'}</div><div class="testSymbolRow"><span class="testSymbol">${esc(x.symbol)}</span>${testTrendTag(x)}<span class="testDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testTierClass(x)}">${esc(testTierLabel(x))}</span></div><div class="testState"><b>${esc(x.statusLabel||'等待')}</b><small>${x.lastEvaluatedAt?`判讀 ${ageText(x.lastEvaluatedAt)}`:x.updatedAt?ageText(x.updatedAt):'—'}</small></div></div><div class="testQuality"><div class="testQualityBar"><div class="testQualityFill" style="width:${q}%"></div></div><div class="testQualityText">品質 <b>${q||'—'}</b></div></div><div class="testQuickGrid"><div><span>校準勝率</span><b>${cal}</b></div><div><span>歷史1R</span><b>${hist}</b></div><div><span>動態強度</span><b>${dynamic}</b></div><div><span>90分報酬</span><b>${avg}</b></div><div class="wide"><span>較佳進場區</span><b>${esc(preferred)}</b></div></div><details class="testCardMore"><summary>更多數據</summary><div class="testMetrics"><div class="testMetric"><span>回測樣本</span><b>${Number(bt.sample||0)}</b></div><div class="testMetric"><span>回測獲利因子</span><b>${hasNum(bt.profitFactor)?Number(bt.profitFactor).toFixed(2):'—'}</b></div><div class="testMetric"><span>5分 RSI</span><b>${hasNum(x.lastCheck?.rsi5)?Number(x.lastCheck.rsi5).toFixed(1):'—'}</b></div><div class="testMetric"><span>OI 變化</span><b>${testSignedPct(x.lastCheck?.oiChangePct,1)}</b></div></div><div class="testLevels"><div class="testLevel"><span>完整回踩區</span><b>${esc(testZoneText(x.setup))}</b></div><div class="testLevel"><span>失效參考</span><b>${x.setup?price(x.setup.invalidation):'—'}</b></div><div class="testLevel"><span>確認價</span><b>${hasNum(x.confirmationPrice)?price(x.confirmationPrice):'等待確認'}</b></div></div></details><div class="testReasons">${testReasonChips(x)||'<span class="testReason">等待5分回踩確認</span>'}</div><div class="testActions"><button type="button" class="monitorBtn" data-test-monitor="${esc(x.symbol)}" data-test-dir="${esc(x.direction)}">到監控判讀</button><button type="button" class="openTvBtn" data-tv-symbol="${esc(x.symbol)}">開啟TV</button></div></div>`}).join('')||'<div class="testEmpty">目前建議排名沒有可追蹤標的。</div>';
   const th=d.notifyThresholds||{};$('testMethod').textContent=`高勝率：校準≥${Number(th.highRate||68)}%、品質≥${Number(th.highScore||87)}、排名前6、追價≤${Number(th.highMaxChaseAtr||.18)} ATR、無高週期逆向/高ADL/擁擠風險。普通：校準≥${Number(th.normalRate||60)}%、品質≥${Number(th.normalScore||80)}、排名前9且主要條件同向。超過 ${Number(th.maxChaseAtr||.35)} ATR 追價不確認。失效最多 ${Number(d.reactivateMinutes||30)} 分收復；連續 ${Number(d.badBars||3)} 根5分K變爛且高週期同步弱就提前移出。`;
   $('testAge').textContent=d.generatedAt?ageText(d.generatedAt):'—';renderTestFocus();
 }
 async function refreshTestSignals(force=false){
-  if(testSignalsBusy)return;if(!force&&testSignalsState&&Date.now()-testSignalsFetchedAt<25_000){renderTestSignals(testSignalsState);return}testSignalsBusy=true;
+  if(testSignalsBusy)return;if(!force&&testSignalsState&&Date.now()-testSignalsFetchedAt<8_000){renderTestSignals(testSignalsState);return}testSignalsBusy=true;
   try{const r=await fetch(`/api/test-signals${force?'?force=1':''}`,{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderTestSignals(d)}catch(e){if(testSignalsState)renderTestSignals(testSignalsState);else $('testGrid').innerHTML='<div class="testEmpty">回踩測試暫時不可用。</div>'}finally{testSignalsBusy=false}
 }
 
@@ -678,5 +701,5 @@ function initTestNotifyControls(){
 initTestNotifyControls();
 document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
 try{setPage(localStorage.getItem('position-alert-page-v78')||'today')}catch{setPage('today')}
-setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}else if(active==='flow')void refreshMarketFlow(false);else if(active==='ideas')void refreshRankedIdeas(false);else if(active==='test'||active==='monitor')void refreshTestSignals(false)},30_000);
+setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}else if(active==='flow')void refreshMarketFlow(false);else if(active==='ideas')void refreshRankedIdeas(false);else if(active==='test'||active==='monitor')void refreshTestSignals(false)},10_000);
 
