@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=870">
-<link rel="apple-touch-icon" href="/app-icon-180.png?v=861">
+<link rel="manifest" href="/manifest.webmanifest?v=1000">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=1000">
 <title>倉位</title>
 <style>
 :root{
@@ -190,7 +190,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 
 @media(max-width:420px){.types{grid-template-columns:repeat(3,1fr)}.pos{grid-template-columns:minmax(0,1.05fr) minmax(88px,.9fr) minmax(90px,1fr)}.symline{padding:10px 8px;gap:6px}.sym{font-size:12px}.entryWrap{padding:10px 8px;gap:5px}.entryLabel{font-size:7px}.price{font-size:13px}.posPnl{min-width:0;padding:10px 6px}.posPnl .pnlPct{font-size:10px}}
 
-.pageTabs{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 -2px 14px;padding:8px 2px;background:transparent;backdrop-filter:none}
+.pageTabs{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:0 -2px 14px;padding:8px 2px;background:transparent;backdrop-filter:none}
 .pageTab{border:1px solid #34302a;background:rgba(16,17,18,.38);color:#8d877e;border-radius:10px;padding:9px 5px;font-size:11px;font-weight:850}.pageTab.active{border-color:#8a6529;background:rgba(111,81,34,.24);color:#e5c170}
 .page{display:none}.page.active{display:block}
 .flowHero{border:1px solid #5c4525;border-radius:16px;background:linear-gradient(145deg,#1b1813,#0c0e0f);padding:14px;margin:6px 0 12px}.flowHeroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.flowHeroTitle{font-size:20px;font-weight:900}.flowHeroTitle.long{color:#ff7778}.flowHeroTitle.short{color:#63e39c}.flowHeroTitle.neutral{color:#d7c38b}.flowHeroMeta{font-size:10px;color:#857e74;margin-top:5px}.flowConfidence{text-align:right;font-size:22px;font-weight:900;color:#e5bd68}.flowConfidence small{display:block;font-size:8px;color:#777168;margin-top:2px}.flowStats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.flowStat{border:1px solid #292a2b;background:#0d0f10;border-radius:10px;padding:9px}.flowStat span{display:block;font-size:8px;color:#746d64}.flowStat b{display:block;margin-top:3px;font-size:13px}.marketList{display:grid;gap:8px}.marketRow{display:grid;grid-template-columns:minmax(86px,1.1fr) .9fr 1fr;gap:8px;align-items:center;border:1px solid #2c2d2e;border-radius:12px;background:#0e1011;padding:10px}.marketSym{font-size:15px;font-weight:900}.marketSub{font-size:8px;color:#746e66;margin-top:3px}.marketMetric{text-align:right}.marketMetric span{display:block;font-size:8px;color:#746d64}.marketMetric b{display:block;margin-top:2px;font-size:11px}.longText{color:#ff7778}.shortText{color:#63e39c}.goldText{color:#e1ba68}.staleNote{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #594828;border-radius:10px;background:#17140f;color:#d2ad61;font-size:9px}.staleNote.show{display:block}
@@ -560,7 +560,7 @@ button,select,input{font-family:inherit}
 .testAiHint{margin:6px 2px 0;color:#7f766a;font-size:10px;font-weight:800;text-align:right}.testNotifyGate{margin-top:7px;padding:8px 10px;border-radius:10px;border:1px solid #343638;background:#111314;color:#a59d91;font-size:10.5px;line-height:1.45;font-weight:800}.testNotifyGate.high{border-color:#385b44;color:#a9d9b5;background:#101813}.testNotifyGate.normal{border-color:#5b4e30;color:#dac17b;background:#17140e}.testNotifyGate.blocked{border-color:#5e3835;color:#dda29b;background:#191110}.testNotifyDiag{margin-top:10px;padding:10px 11px;border:1px solid #303336;border-radius:11px;background:#0e1011;color:#aaa196;font-size:10.5px;line-height:1.5}.testNotifyDiag b{color:#e2c275;font-size:11.5px}.testNotifyDiag span{display:block;margin-top:3px;color:#81796f}.testHealth{margin-top:7px;color:#716a61;font-size:10px;line-height:1.4;text-align:center}.ideaDetail>summary b{white-space:nowrap}.ideaAnalysisFoot{line-height:1.5}.testActions{align-items:center}
 
 
-/* V9.6 DATA MAX — 多源資料補全 / 可信度分離 / 跨所交叉驗證 / 手動 AI */
+/* V10 SOLO MAX — 即時行情 / 多源交叉 / 精準通知績效 / 手動 AI */
 #tradeCalc:not([open]){display:none}
 #tradeCalc[open]{margin-top:14px;margin-bottom:14px}
 .tvNameLink,.symTvLink,.matrixCoin,.openTv{text-decoration:none;-webkit-tap-highlight-color:transparent}
@@ -586,6 +586,12 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
   a.tvNameLink,a.symTvLink{touch-action:manipulation}
 }
 
+
+/* V10 SOLO MAX performance ledger */
+.perfHero{border:1px solid #443a27;border-radius:18px;background:linear-gradient(145deg,#15140f,#0d0f10);padding:14px;margin-bottom:12px}.perfHeroTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.perfHeroTitle{font-size:19px;font-weight:950;color:#e1bd6b}.perfHeroSub{margin-top:4px;color:#80786e;font-size:10px;line-height:1.5}.perfLiveBadge{border:1px solid #4b3c20;background:#181309;color:#dfb75f;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:900;white-space:nowrap}.perfConfig{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0 12px}.perfConfig label{display:block;border:1px solid #2e3031;border-radius:11px;background:#0e1011;padding:8px}.perfConfig span{display:block;color:#756e65;font-size:8px;margin-bottom:4px}.perfConfig input{width:100%;height:31px;border:1px solid #3a3c3d;border-radius:8px;background:#111314;color:#e2d9cb;padding:0 8px;font-size:12px;font-weight:850}.perfSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.perfCell{border:1px solid #2c2f30;border-radius:12px;background:#0e1011;padding:9px 7px;text-align:center}.perfCell span{display:block;color:#746e66;font-size:8px}.perfCell b{display:block;margin-top:4px;color:#e0bd6b;font-size:16px}.perfCell b.good{color:#6fe39d}.perfCell b.bad{color:#ff7b7b}.perfGrid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.perfPanel{border:1px solid #2b2e2f;border-radius:14px;background:#0e1011;padding:10px;margin-bottom:10px}.perfPanelTitle{display:flex;justify-content:space-between;align-items:center;color:#d7c69f;font-size:12px;font-weight:900;margin-bottom:7px}.perfPanelTitle small{font-size:8px;color:#70695f;font-weight:700}.perfBreakRow{display:grid;grid-template-columns:minmax(72px,1.1fr) .7fr .7fr .7fr;gap:5px;align-items:center;padding:7px 3px;border-top:1px solid #232627;font-size:9px}.perfBreakRow:first-child{border-top:0}.perfBreakRow b{color:#d8d0c4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.perfBreakRow span{text-align:right;color:#91897f}.perfRecent{display:grid;gap:7px}.perfTrade{border:1px solid #2b2e2f;border-radius:12px;background:#101213;padding:10px}.perfTradeHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.perfTradeSym{font-size:15px;font-weight:950;color:#e4ddd2}.perfTradeDir{font-size:8px;font-weight:900;border-radius:6px;padding:3px 6px;margin-left:6px}.perfTradeDir.long{background:#461d1d;color:#ff7a7a}.perfTradeDir.short{background:#123923;color:#63e39c}.perfTradeResult{font-size:10px;font-weight:950}.perfTradeResult.win{color:#65df99}.perfTradeResult.loss{color:#ff7777}.perfTradeResult.active{color:#e0bb68}.perfTradeResult.timeout{color:#aaa096}.perfTradeMeta{margin-top:5px;color:#777067;font-size:8px}.perfTradeStats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}.perfTradeStat{border-top:1px solid #292b2c;padding-top:6px;min-width:0}.perfTradeStat span{display:block;color:#6e6860;font-size:7px}.perfTradeStat b{display:block;margin-top:2px;color:#d5cec3;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.perfNote{color:#71695f;font-size:9px;line-height:1.55;margin:8px 2px 0}.perfEmpty{text-align:center;padding:24px 5px;color:#777067;font-size:10px}
+.perfOpsGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.perfOpsGrid>div{border:1px solid #272a2b;border-radius:9px;background:#111314;padding:7px;min-width:0}.perfOpsGrid span{display:block;color:#716b63;font-size:7px}.perfOpsGrid b{display:block;margin-top:3px;color:#d8cfbf;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.perfCalRows{margin-top:8px;border-top:1px solid #252829}.perfCalRow{display:grid;grid-template-columns:.8fr .6fr 1fr 1fr;gap:5px;padding:6px 2px;border-top:1px solid #222526;font-size:8px}.perfCalRow:first-child{border-top:0}.perfCalRow b{color:#d3c7b0}.perfCalRow span{text-align:right;color:#8b8378}.goodText{color:#6fe39d!important}.badText{color:#ff7b7b!important}.perfExport{display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a3d23;border-radius:9px;background:#17130b;color:#dfbb67!important;text-decoration:none;padding:6px 9px;font-size:9px;font-weight:900}
+@media(max-width:520px){.perfSummary{grid-template-columns:1fr 1fr}.perfGrid2{grid-template-columns:1fr}.perfConfig{grid-template-columns:1fr 1fr}.perfConfig label:first-child{grid-column:1/-1}.perfTradeStats{grid-template-columns:1fr 1fr}.perfOpsGrid{grid-template-columns:1fr 1fr}.pageTabs{gap:5px}.pageTab{font-size:11px!important;padding-left:1px!important;padding-right:1px!important}}
+
 </style>
 </head>
 <body>
@@ -601,7 +607,7 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
     </div>
   </div>
 
-  <div class="pageTabs" role="tablist"><button class="pageTab active" data-page="today" type="button">今日</button><button class="pageTab" data-page="monitor" type="button">監控</button><button class="pageTab" data-page="flow" type="button">市場流向</button><button class="pageTab" data-page="ideas" type="button">建議</button><button class="pageTab" data-page="test" type="button">測試</button></div>
+  <div class="pageTabs" role="tablist"><button class="pageTab active" data-page="today" type="button">今日</button><button class="pageTab" data-page="monitor" type="button">監控</button><button class="pageTab" data-page="flow" type="button">市場流向</button><button class="pageTab" data-page="ideas" type="button">建議</button><button class="pageTab" data-page="test" type="button">測試</button><button class="pageTab" data-page="performance" type="button">績效</button></div>
 
   <section id="page-today" class="page active">
     <div class="sectionBar"><div class="sectionTitle">今日</div><div id="todayAge" class="radarCount">—</div></div>
@@ -730,6 +736,25 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
     <div id="recGrid" class="recGrid"><div class="loadingBox">計算中…</div></div>
   </section>
 
+
+
+  <section id="page-performance" class="page">
+    <div class="sectionBar"><div class="sectionTitle">通知後績效</div><div style="display:flex;align-items:center;gap:7px"><a class="perfExport" href="/api/performance.csv">匯出 CSV</a><div id="perfAge" class="radarCount">—</div></div></div>
+    <div class="perfHero"><div class="perfHeroTop"><div><div class="perfHeroTitle">V10 精準績效帳本</div><div class="perfHeroSub">只統計真正成功送到你手機的「可進場 / 二次確認」通知；逐筆追目標 / 停損首觸、MFE / MAE、5～240 分鐘報酬，並量測手機推播實際收到延遲。</div></div><div id="perfRealtime" class="perfLiveBadge">即時行情檢查中</div></div></div>
+    <div class="perfConfig">
+      <label><span>模擬保證金 U</span><input id="perfMargin" type="number" inputmode="decimal" min="1" step="10" value="300"></label>
+      <label><span>槓桿</span><input id="perfLeverage" type="number" inputmode="numeric" min="1" max="125" step="1" value="20"></label>
+      <label><span>單輪成本 bps</span><input id="perfCostBps" type="number" inputmode="decimal" min="0" max="100" step="1" value="12"></label>
+    </div>
+    <div id="perfSummary" class="perfSummary"><div class="perfCell"><span>通知樣本</span><b>—</b></div><div class="perfCell"><span>目標達標率</span><b>—</b></div><div class="perfCell"><span>PF</span><b>—</b></div><div class="perfCell"><span>期望R</span><b>—</b></div><div class="perfCell"><span>平均淨報酬</span><b>—</b></div><div class="perfCell"><span>模擬總損益</span><b>—</b></div></div>
+    <div class="perfGrid2"><div class="perfPanel"><div class="perfPanelTitle">通知級別 <small>HIGH / NORMAL / VALID</small></div><div id="perfByTier"></div></div><div class="perfPanel"><div class="perfPanelTitle">市場狀態 <small>Regime</small></div><div id="perfByRegime"></div></div></div>
+    <div class="perfGrid2"><div class="perfPanel"><div class="perfPanelTitle">通知即時度 <small>server → push → phone</small></div><div id="perfLatency"></div></div><div class="perfPanel"><div class="perfPanelTitle">勝率校準 <small>預測 vs 真實達標</small></div><div id="perfCalibration"></div></div></div>
+    <div class="perfPanel"><div class="perfPanelTitle">標的表現 <small>依 V10 通知樣本</small></div><div id="perfBySymbol"></div></div>
+    <div class="sectionBar"><div class="sectionTitle">最近通知</div><div id="perfResolved" class="radarCount">—</div></div>
+    <div id="perfRecent" class="perfRecent"><div class="perfEmpty">V10 上線後開始累積。</div></div>
+    <div id="perfMethod" class="perfNote">舊版粗略樣本不混入 V10 精準帳本，避免漂亮但假的統計。</div>
+  </section>
+
   <section id="page-test" class="page">
     <div class="sectionBar"><div class="sectionTitle">回踩測試</div><div id="testAge" class="radarCount">—</div></div>
     <div class="testToolbar"><div class="testToolbarLeft"><div class="testToolbarTitle">建議標的自動等回踩</div><div class="testToolbarSub">詳細＝免費完整交叉比對；AI網搜只有手動展開才收費</div></div></div>
@@ -760,6 +785,6 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
   </div>
 </div>
 
-<script src="/app.js?v=950"></script>
+<script src="/app.js?v=1000"></script>
 </body>
 </html>

@@ -1,24 +1,14 @@
 {
-  "id": "/",
-  "name": "倉位",
-  "short_name": "倉位",
-  "start_url": "/",
+  "name": "熬鷹 SOLO MAX",
+  "short_name": "SOLO MAX",
+  "start_url": "/?page=monitor",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#070809",
-  "theme_color": "#070809",
+  "background_color": "#0d0f10",
+  "theme_color": "#0d0f10",
+  "description": "單人使用的即時加密永續監控、通知與績效追蹤工具",
   "icons": [
-    {
-      "src": "/app-icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/app-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    {"src":"/app-icon-192.png?v=1000","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"/app-icon-512.png?v=1000","sizes":"512x512","type":"image/png","purpose":"any maskable"}
   ]
 }
