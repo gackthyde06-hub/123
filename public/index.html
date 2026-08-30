@@ -145,6 +145,7 @@ button,input{font:inherit}
 .posPnl .pnlPct{font-size:11px;font-weight:900;white-space:nowrap;line-height:1.15}
 .posPnl.profit{color:var(--up)}.posPnl.loss{color:var(--down)}.posPnl.flat{color:var(--gold2)}
 .entryWrap{min-width:0;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;padding:10px 9px;border-left:1px solid #252628}.entryLabel{font-size:8px;color:#6f6a62;line-height:1;white-space:nowrap;text-align:right}.price{font-size:14px;font-weight:790;text-align:right;white-space:nowrap;line-height:1}.red{color:var(--up)!important}.green{color:var(--down)!important}.gold{color:var(--gold2)!important}
+.warnText{color:var(--bad)!important}.pullbackLine{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border-top:1px solid #202224;background:#0a0c0d;color:#9b9386;font-size:8px;line-height:1.35}.pullbackLine span{min-width:0}.pullbackLine a{flex:0 0 auto;color:#181108;background:linear-gradient(90deg,#c68f32,#e3b95d);border-radius:7px;padding:4px 8px;text-decoration:none;font-weight:900}.pullbackLine.active,.pullbackLine.normal{color:#d8bc7d}.pullbackLine.deep{color:#edc46e}.pullbackLine.invalid,.pullbackLine.paused{color:var(--bad)}.pullbackLine.syncing,.pullbackLine.waiting{color:#858078}
 .hidden{display:none!important}
 .moreBtn{width:100%;border:0;border-top:1px solid #202224;background:#0c0e0f;color:#938b7e;padding:9px;font-size:9px;font-weight:750}
 
@@ -166,7 +167,7 @@ button,input{font:inherit}
 .typeChoice input:checked+span{background:linear-gradient(90deg,#c68f32,#e3b95d);color:#161108;border-color:#e1b75a}
 button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px;font-size:12px;font-weight:850}
 #subscribe{background:linear-gradient(90deg,#c68f32,#e4ba60);color:#151108}
-#test{background:#222426;color:#e4dfd5;border:1px solid #363738}
+#test,#testPullback{background:#222426;color:#e4dfd5;border:1px solid #363738}
 .msg{min-height:13px;color:#878078;font-size:9px;text-align:center;margin-top:6px}
 .note{font-size:8px;color:#66615a;margin-top:7px;line-height:1.45}
 
@@ -187,7 +188,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   <div class="top">
     <div>
       <div class="brandTitle">交易監控</div>
-      <div class="brandSub">高訊號倉位 · 深度統計</div>
+      <div class="brandSub">高訊號倉位 · 自動回踩通知</div>
     </div>
     <div class="sync">
       <div class="syncMain"><span id="dot" class="dot"></span><span id="status">連線中</span></div>
@@ -268,8 +269,9 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
       <div id="rateGuard" class="rateGuard">限流保護：讀取中…</div>
       <button id="subscribe" class="action">同步 iPhone 通知</button>
       <button id="test" class="action">測試通知</button>
+      <button id="testPullback" class="action">測試回踩通知 → 開TV</button>
       <div id="msg" class="msg"></div>
-      <div class="note">熬鷹是唯一主訊號，約 3 秒檢查；佛系撈金大隊長與知危只做同向確認。確認資格會動態檢查 7D/30D 報酬、實際損益、跟單者損益、AUM、樣本、PF、持倉時間、槓桿、回撤與訂單 API；任何一項失格就不參與同向確認。倉位同時用訂單紀錄＋官方倉位快照交叉監控。公開基準與重建統計都屬參考資料；「單筆價格報酬」是不乘槓桿的價格變動，不等於帳戶 ROI。PnL 不含手續費與資金費。</div>
+      <div class="note">熬鷹是唯一主訊號，約 3 秒檢查；佛系撈金大隊長與知危只做同向確認。回踩雷達只使用訂單 API 精確首次建倉，先以 15 分 ATR 過濾普通震盪，再用建倉後極值計算一般 38.2%、深度 61.8% 與過深 78.6%；每階段每倉只提醒一次。訂單 API 異常、進場無法精確確認或歷史極值尚未補齊時一律暫停，不用舊資料硬報。通知只叫你開 TradingView 檢查 SMC／POC，不是下單指令。PnL 不含手續費與資金費。</div>
     </div>
   </details>
 
@@ -296,6 +298,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=651"></script>
+<script src="/app.js?v=652"></script>
 </body>
 </html>
