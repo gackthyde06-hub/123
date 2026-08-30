@@ -45,7 +45,7 @@ button,input{font:inherit}
 }
 .latest.show{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
 .latestTitle{font-size:13px;font-weight:850}.latestBody{font-size:11px;color:#bfb9ae;margin-top:3px}
-.latestTime{font-size:9px;color:#777168}
+.latestTime{font-size:9px;color:#777168;white-space:nowrap}.latestAside{display:flex;align-items:center;gap:8px}.latestDismiss{width:30px;height:30px;border:1px solid #3b3832;border-radius:8px;background:#101112;color:#9f978b;font-size:18px;line-height:1;font-weight:700;cursor:pointer}.latestDismiss:active{border-color:#8a672e;color:#e7c477}
 
 .consensusPanel{
   display:none;margin:10px 0 13px;padding:12px;border:1px solid #6b4d20;border-radius:16px;
@@ -77,7 +77,7 @@ button,input{font:inherit}
 .calcField{min-width:0}.calcField label{display:block;color:#80786d;font-size:8px;font-weight:800;margin:0 0 4px 2px}.calcField input,.calcField select{width:100%;height:42px;border:1px solid #363534;border-radius:9px;background:#0c0d0e;color:#eee7dc;padding:0 9px;font-size:16px;font-weight:760;outline:none}.calcField input:focus,.calcField select:focus{border-color:#c99a45}.calcField input::placeholder{color:#55514b}.calcField select{appearance:auto}.calcField input:disabled{opacity:.48}.calcField input[readonly]{color:#cfc7bb;background:#101112}
 .autoLevels{margin-top:9px;padding:9px;border:1px solid #302a20;border-radius:11px;background:#0b0c0d}.autoHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.autoHead b{font-size:10px;color:#d2b46f}.autoHead span{display:block;margin-top:2px;color:#6f685f;font-size:7.5px}.autoRefresh{border:1px solid #4a3921;background:#19150f;color:#c9a55d;border-radius:7px;padding:6px 8px;font-size:8px;font-weight:800}.autoRefresh:disabled{opacity:.45}.levelGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.levelCell{border:1px solid #252627;background:#101112;border-radius:9px;padding:8px}.levelCell span{display:block;color:#777168;font-size:7.5px}.levelCell b{display:block;margin-top:3px;font-size:11px}.levelCell small{display:block;margin-top:3px;color:#6c665e;font-size:7px}.autoAdopt{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px}.autoCheck{display:flex;align-items:center;gap:6px;min-height:34px;padding:6px 7px;border:1px solid #292a2b;border-radius:8px;color:#9b9183;font-size:8px}.autoCheck input{accent-color:#d6aa52}.autoCheck strong{margin-left:auto;color:#c5a359;font-size:8px;white-space:nowrap}.autoNote{min-height:11px;margin-top:5px;color:#665f57;font-size:7px;text-align:center;line-height:1.4}
 .calcPriceHint{display:block;min-height:10px;margin:3px 2px 0;color:#6e685f;font-size:7px}.calcResult{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}.calcCell{background:#0b0c0d;border:1px solid #262729;border-radius:9px;padding:8px;min-width:0}.calcCell span{display:block;color:#746d64;font-size:7.5px;font-weight:800}.calcCell b{display:block;margin-top:3px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calcProfit{color:var(--up)}.calcLoss{color:var(--down)}.calcGold{color:var(--gold2)}
-.calcMsg{min-height:14px;margin-top:7px;font-size:8px;color:#777168;text-align:center;line-height:1.4}.calcMsg.bad{color:#e1a65f}.calcNote{font-size:7.5px;color:#5f5a54;text-align:center;margin-top:5px;line-height:1.45}.calcSelected{color:#c9a55d}.pos[data-calc-entry]{cursor:pointer}
+.calcMsg{min-height:14px;margin-top:7px;font-size:8px;color:#777168;text-align:center;line-height:1.4}.calcMsg.bad{color:#e1a65f}.calcNote{font-size:7.5px;color:#5f5a54;text-align:center;margin-top:5px;line-height:1.45}.calcSelected{color:#c9a55d}.pos[data-calc-entry]{cursor:default}
 .bottomMaster{margin-top:12px;border:1px solid #302a20;border-radius:13px;background:#101111;padding:11px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px}.bottomMasterText b{display:block;color:#d5c5a3;font-size:11px}.bottomMasterText span{display:block;color:#746d64;font-size:8px;margin-top:3px}.masterWrap{display:flex;align-items:center;gap:8px}.masterCount{font-size:9px;color:#a99b82}
 
 
@@ -145,6 +145,7 @@ button,input{font:inherit}
 .symline{display:flex;align-items:center;gap:7px;min-width:0;padding:10px 9px}.sym{font-size:13px;font-weight:800}
 .dirTag{font-size:9px;font-weight:900;padding:3px 6px;border-radius:6px;flex:0 0 auto}.openAt{font-size:7px;color:#756f66;white-space:nowrap;flex:0 0 auto}
 .dirTag.long{background:#481c1d;color:#ff7778}.dirTag.short{background:#123823;color:#63e39c}
+.symTvLink{min-width:0;flex:1 1 auto;border:0;background:transparent;color:inherit;padding:0;text-align:left;font:inherit;cursor:pointer;white-space:normal;overflow-wrap:anywhere}.symTvLink:active{color:#e4bd69}.posCalcBtn{flex:0 0 auto;border:1px solid #5b4727;border-radius:7px;background:#17130e;color:#d7b464;padding:4px 8px;font-size:9px;font-weight:900;line-height:1.2;cursor:pointer}.posCalcBtn:active{transform:translateY(1px);border-color:#b4873c;color:#f0cf82}
 .posPnl{min-width:0;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px 7px;line-height:1.08;border-left:1px solid #252628}
 .posPnl .pnlPct{font-size:11px;font-weight:900;white-space:nowrap;line-height:1.15}
 .posPnl.profit{color:var(--up)}.posPnl.loss{color:var(--down)}.posPnl.flat{color:var(--gold2)}
@@ -544,6 +545,11 @@ button,select,input{font-family:inherit}
 .judgeTimeRow{gap:7px 14px!important;margin-top:9px!important}
 .judgeTimeRow span,.judgeTimeRow b{font-size:11px!important}
 .testFreshTag.live{color:#78d6a0!important}.testFreshTag.delayed{color:#efc16d!important}.testFreshTag.stale{color:#ff8585!important}
+
+/* V9.1：通知可關閉、試算明確按鈕、標的名稱直接開 TV */
+.latestCopy{min-width:0}.latestAside{justify-content:flex-end}.symline .symTvLink{font-size:inherit!important;font-weight:inherit!important;line-height:inherit!important}.positionBox .symTvLink{font-size:19px!important;font-weight:850!important}.positionBox .posCalcBtn{font-size:11px!important;padding:5px 9px;min-height:30px}.tradeCalc>summary>span:first-child{font-size:15px}.tradeCalcHint{white-space:normal;text-align:right;line-height:1.35}
+@media(max-width:520px){.latest.show{grid-template-columns:minmax(0,1fr) auto}.latestAside{align-self:start}.positionBox .symline{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;align-items:center!important;gap:8px!important}.positionBox .symTvLink{min-width:0;grid-column:auto!important;font-size:19px!important;line-height:1.25!important}.positionBox .posCalcBtn{min-width:48px;height:34px;padding:0 9px}.positionBox .dirTag{min-height:30px;display:inline-flex;align-items:center;justify-content:center;padding:4px 9px!important}.tradeCalc>summary{gap:12px}.tradeCalcHint{max-width:62%}}
+@media(max-width:370px){.positionBox .symline{grid-template-columns:minmax(0,1fr) auto!important}.positionBox .symTvLink{grid-column:1/-1!important}.positionBox .posCalcBtn{grid-column:1}.positionBox .dirTag{grid-column:2}.latestDismiss{width:32px;height:32px}}
 </style>
 </head>
 <body>
@@ -579,7 +585,7 @@ button,select,input{font-family:inherit}
   <div id="consensusPanel" class="consensusPanel"></div>
 
   <details id="tradeCalc" class="tradeCalc">
-    <summary><span>⚡ 跟單 / 盈損試算</span><span class="tradeCalcHint">回踩判讀 · 建議進場 · TP / SL　⌄</span></summary>
+    <summary><span>⚡ 試算</span><span class="tradeCalcHint">按「試算」才帶入 · TP / SL　⌄</span></summary>
     <div class="tradeCalcBody">
       <div class="calcPositionPick">
         <div class="calcField"><label for="calcPosition">選擇目前監控倉位</label><select id="calcPosition"><option value="">目前沒有可選倉位</option></select></div>
@@ -716,6 +722,6 @@ button,select,input{font-family:inherit}
   </div>
 </div>
 
-<script src="/app.js?v=900"></script>
+<script src="/app.js?v=910"></script>
 </body>
 </html>
