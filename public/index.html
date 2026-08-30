@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="倉位">
-<link rel="manifest" href="/manifest.webmanifest?v=851">
-<link rel="apple-touch-icon" href="/app-icon-180.png?v=851">
+<link rel="manifest" href="/manifest.webmanifest?v=870">
+<link rel="apple-touch-icon" href="/app-icon-180.png?v=861">
 <title>倉位</title>
 <style>
 :root{
@@ -238,6 +238,279 @@ body{font-size:16px;line-height:1.45}
 
 /* V8.5 remaining UI text scale */
 .settings>summary,.orderSettings>summary{font-size:12px!important}.consensusSettingText b,.bottomMasterText b{font-size:13px!important}.consensusSettingText span,.bottomMasterText span{font-size:10px!important;line-height:1.5}.rateGuard{font-size:10px!important;line-height:1.5}.orderRow{font-size:11px!important}.orderRow em{font-size:9px!important}.typeChoice span{font-size:11px!important}.action{font-size:12px!important}.msg{font-size:10px!important}.settingsInner .note{font-size:10px!important;line-height:1.6}.panelTitle b{font-size:15px!important}.panelTitle span{font-size:10px!important}.consensusSymbol{font-size:16px!important}.consensusScore{font-size:15px!important}.consensusScore small{font-size:9px!important}.latestTitle{font-size:15px!important}.latestBody{font-size:12px!important}.latestTime{font-size:10px!important}.recSymbol{font-size:19px!important}.recTag{font-size:11px!important}.recScore{font-size:10px!important}.recScore b{font-size:16px!important}.recReason{font-size:10.5px!important;line-height:1.55}.flowHeroTitle{font-size:24px!important}.flowHeroMeta{font-size:11px!important}.flowStat span,.marketMetric span{font-size:9.5px!important}.flowStat b,.marketMetric b{font-size:13px!important}.biasListTitle{font-size:17px!important}.biasListMeta{font-size:9.5px!important}.biasChange{font-size:14px!important}.biasFlow{font-size:10px!important}.matrixHead b{font-size:11px!important}.matrixHead small{font-size:8.5px!important}.matrixCoin b{font-size:11px!important}.matrixCoin span{font-size:10px!important}
+
+
+/* V8.6：手機重排，不再把資訊硬塞同一行 */
+@media(max-width:520px){
+  /* 交易員持倉：標的＋方向獨立一列，避免長幣名把「做多/做空」擠到中間 */
+  .positionBox .pos{grid-template-columns:1fr 1fr!important}
+  .positionBox .symline{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #252628}
+  .positionBox .sym{flex:1 1 180px;min-width:0;font-size:19px!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:break-word}
+  .positionBox .dirTag{flex:0 0 auto;font-size:11px!important;padding:4px 8px}
+  .positionBox .posPnl{border-left:0;align-items:flex-start;text-align:left;padding:11px 12px;gap:5px}
+  .positionBox .posPnl .openAt{font-size:10px!important;line-height:1.35}
+  .positionBox .posPnl .pnlPct{font-size:16px!important;line-height:1.2}
+  .positionBox .entryWrap{align-items:flex-start;justify-content:center;padding:11px 12px;gap:5px}
+  .positionBox .entryLabel,.positionBox .price{text-align:left!important}
+  .positionBox .entryLabel{font-size:10px!important}
+  .positionBox .price{font-size:18px!important;line-height:1.2;white-space:normal!important;overflow-wrap:anywhere}
+  .positionBox .pullbackLine{padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .positionBox .pullbackCopy{flex:1 1 230px}
+  .positionBox .pullbackLine button{min-height:36px;font-size:10px!important;margin-left:auto}
+
+  /* 交易員頂部資訊可自然換行，不讓開關壓到名稱 */
+  .traderTop{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px}
+  .nameLine,.stateLine{row-gap:8px}
+  .traderName{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.2}
+
+  /* 回踩判讀：摘要分兩層，勝率獨立一列 */
+  .testMonitorItem summary{grid-template-columns:1fr!important;gap:10px!important;align-items:start}
+  .judgeTitleRow{gap:8px;row-gap:7px}
+  .judgeBadgeRow{gap:7px;row-gap:7px;margin-top:8px}
+  .testMonitorSummaryScore{display:flex;align-items:baseline;gap:8px;text-align:left!important;white-space:normal!important;border-top:1px solid #242627;padding-top:9px}
+  .testMonitorSummaryScore b{font-size:20px!important}
+  .testMonitorSummaryScore span,.testMonitorSummaryScore small{font-size:10px!important;margin:0!important}
+  .judgeCoreGrid{grid-template-columns:1fr!important;gap:9px}
+  .judgeCoreCell.wide{grid-column:auto!important}
+  .judgeCoreCell span{font-size:11px!important}
+  .judgeCoreCell b{font-size:15px!important}
+  .testFocusBody{grid-template-columns:1fr 1fr!important;gap:10px}
+  .testFocusCell span{font-size:10.5px!important}
+  .testFocusCell b{font-size:14px!important}
+  .testPlannerGrid{grid-template-columns:1fr 1fr!important;gap:9px}
+  .testPlannerGrid label:first-child{grid-column:1/-1!important}
+  .testPlannerOut{grid-template-columns:1fr 1fr!important;gap:9px}
+  .reachedRow{grid-template-columns:1fr!important;gap:7px}
+  .reachedRow strong,.reachedRow small{text-align:left!important;max-width:none!important}
+
+  /* 測試頁：統計 2×2；標的狀態獨立一列 */
+  .testSummary{grid-template-columns:1fr 1fr!important;gap:8px}
+  .testSummaryCell{min-height:66px;display:flex;flex-direction:column;justify-content:center}
+  .testSummaryCell span{font-size:11px!important}
+  .testSummaryCell b{font-size:19px!important}
+  .testHead{grid-template-columns:36px minmax(0,1fr)!important;gap:9px!important;align-items:start!important}
+  .testRank{padding-top:3px}
+  .testSymbolRow{row-gap:8px}
+  .testState{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;text-align:left!important;border-top:1px solid #252829;padding-top:9px;margin-top:1px}
+  .testState b{font-size:15px!important}
+  .testState small{font-size:10px!important;margin-top:0!important;white-space:nowrap}
+  .testQuickGrid{gap:9px}
+  .testQuickGrid>div{padding:10px}
+  .testQuickGrid span{font-size:10.5px!important}
+  .testQuickGrid b{font-size:15px!important}
+  .testMetrics{grid-template-columns:1fr 1fr!important;gap:9px}
+  .testMetric span,.testLevel span{font-size:10px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+  .testMetric b,.testLevel b{font-size:14px!important;white-space:normal!important;overflow-wrap:anywhere}
+
+  /* 盈虧試算：三欄改成多列，輸入欄位更寬 */
+  .calcAutoGrid{grid-template-columns:1fr 1fr!important;gap:8px}
+  .calcAutoGrid .calcField:first-child{grid-column:1/-1}
+  .calcLead{grid-template-columns:1fr 1fr!important;gap:8px}
+  .calcLead .calcField:nth-child(3){grid-column:1/-1}
+  .calcPrices{grid-template-columns:1fr 1fr!important;gap:8px}
+  .calcField label{font-size:10.5px!important}
+  .calcField input,.calcField select{font-size:16px!important;height:45px}
+
+  /* 達標池／更多監控：文字不要跟右側資訊互相搶空間 */
+  .moreMonitorPool>summary,.reachedPool>summary{line-height:1.45}
+  .reachedPool>summary{grid-template-columns:1fr auto!important}
+  .reachedPool>summary small{grid-column:1/-1!important;font-size:10px!important}
+}
+
+@media(max-width:390px){
+  .testFocusBody{grid-template-columns:1fr!important}
+  .testPlannerGrid{grid-template-columns:1fr!important}
+  .testPlannerGrid label:first-child{grid-column:auto!important}
+  .testPlannerOut{grid-template-columns:1fr!important}
+  .testQuickGrid{grid-template-columns:1fr!important}
+  .testQuickGrid>div.wide{grid-column:auto!important}
+  .calcPrices{grid-template-columns:1fr!important}
+}
+
+
+/* V8.7：資訊分層＋等高卡片＋最新監控邏輯 */
+:root{--ui-field-h:48px}
+body{font-size:15px}
+.wrap{max-width:980px}
+.pageIntro,.ideaNote,.note{line-height:1.6}
+button,select,input{font-family:inherit}
+
+/* 所有表單卡片：等高、不溢出 */
+.calcField,.testPlannerGrid>label,.planEntryField{min-width:0}
+.calcField{display:flex;flex-direction:column;align-self:stretch}
+.calcField label,.testPlannerGrid label>span,.planEntryField label>span{line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.calcField input,.calcField select,.testPlannerGrid input,.planEntryField input{box-sizing:border-box;width:100%;height:var(--ui-field-h);min-height:var(--ui-field-h);font-size:16px!important;line-height:1.2;overflow:hidden;text-overflow:ellipsis}
+.calcGrid,.calcLead,.calcPrices{align-items:stretch}
+.calcAutoGrid{grid-template-columns:1.1fr .7fr 1.25fr;gap:10px}
+.calcAutoGrid>.calcField{min-height:72px}
+.calcLead{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.calcLead>.calcField{min-height:72px}
+.calcPrices{gap:10px}
+.calcPrices>.calcField{min-height:92px}
+.calcPositionPick .calcField{min-height:72px}
+
+.calcEntryBtns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.calcEntryBtns button{height:40px;border:1px solid #3a3d3f;border-radius:10px;background:#101213;color:#c9c0b4;font-size:11px;font-weight:900}
+.calcEntryBtns button:active{transform:translateY(1px);border-color:#a67b39;color:#edd18f}
+.calcSignalContext{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:9px;padding:10px;border:1px solid #2e3032;border-radius:11px;background:#0d0f10}
+.calcSignalContext>span{grid-column:1/-1;color:#777067;font-size:10px}
+.calcSignalContext>div{min-width:0;padding:2px 4px}
+.calcSignalContext>div.wide{grid-column:auto}
+.calcSignalContext span{display:block;color:#777067;font-size:9px;font-weight:800;line-height:1.35}
+.calcSignalContext b{display:block;margin-top:4px;color:#d8d0c3;font-size:12px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+
+/* 交易員持倉：長幣名不再壓方向標籤 */
+.positionBox .symline{min-width:0}
+.positionBox .sym{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;word-break:break-word;line-height:1.25}
+.positionBox .dirTag{white-space:nowrap;flex:0 0 auto}
+.pos{align-items:stretch}
+.pos>div{min-width:0}
+
+/* 回踩判讀：名字 / 價格 / 勝率分三個區域，不硬塞單行 */
+.testMonitorItem summary{grid-template-columns:minmax(190px,1.25fr) minmax(285px,1.55fr) minmax(88px,.55fr);gap:12px;align-items:center}
+.testMonitorSummaryMain{min-width:0}
+.judgeTitleRow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;row-gap:7px;min-width:0}
+.judgeBadgeRow{display:flex;flex-wrap:wrap;gap:7px;row-gap:7px}
+.judgePriceStrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;min-width:0}
+.judgePriceStrip>div{min-width:0;min-height:58px;padding:8px 9px;border:1px solid #303335;border-radius:10px;background:#0d0f10;display:flex;flex-direction:column;justify-content:center}
+.judgePriceStrip span{font-size:9px;color:#7f786f;font-weight:800;line-height:1.25}
+.judgePriceStrip b{margin-top:3px;font-size:13px;color:#ded5c8;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.judgePriceStrip small{margin-top:2px;font-size:8px;color:#9a8255;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.testMonitorSummaryScore{min-width:84px}
+.testMonitorSummaryScore b{font-size:20px!important}
+.testMonitorSummaryScore span,.testMonitorSummaryScore small{font-size:9px!important}
+.judgeCoreGrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.judgeCoreCell{min-height:65px;padding:9px 10px;border:1px solid #292c2e;border-radius:10px;background:#0c0e0f;display:flex;flex-direction:column;justify-content:center}
+.judgeCoreCell span{font-size:10px!important;line-height:1.35}
+.judgeCoreCell b{font-size:14px!important;line-height:1.35;white-space:normal!important;overflow-wrap:anywhere}
+
+/* 進場規劃：輸入欄位不要全部塞同列 */
+.testPlannerGrid{grid-template-columns:1.35fr repeat(2,minmax(0,.8fr));gap:10px}
+.testPlannerGrid>label,.planEntryField{min-height:94px;padding:9px;border:1px solid #292c2e;border-radius:10px;background:#0d0f10;display:flex;flex-direction:column;justify-content:flex-start}
+.testPlannerGrid>label:nth-last-child(-n+2){grid-column:span 1}
+.planEntryField label{display:block;min-width:0}
+.planEntryButtons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:6px}
+.planEntryButtons button{min-width:0;height:32px;border:1px solid #36393b;border-radius:8px;background:#111315;color:#bdb4a8;font-size:9px;font-weight:900;white-space:nowrap}
+.testPlannerPointRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:9px}
+.testPlannerPointRow>div{min-width:0;min-height:58px;padding:8px 9px;border:1px solid #292c2e;border-radius:9px;background:#0c0e0f;display:flex;flex-direction:column;justify-content:center}
+.testPlannerPointRow span{font-size:9px;color:#7d766d;line-height:1.3}
+.testPlannerPointRow b{margin-top:3px;font-size:13px;color:#ded5c8;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+.testPlannerOut{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.testPlannerOut>div{min-height:54px}
+
+/* 建議排名：專案定位吃掉原本空白；詳細網搜另外展開 */
+.recGrid{gap:10px}
+.rankCard{display:block!important;padding:12px!important}
+.rankHeadGrid{display:grid;grid-template-columns:34px minmax(0,1fr) 78px;gap:10px;align-items:start}
+.rankNo{font-size:15px!important;padding-top:3px}
+.rankMain{min-width:0}
+.rankTop{gap:8px;row-gap:6px}
+.rankSymbol{font-size:18px!important;line-height:1.25;white-space:normal!important;overflow-wrap:anywhere;text-align:left}
+.rankProfile{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px;align-items:start;margin-top:7px;min-width:0}
+.rankProfile span{font-size:9px;font-weight:900;color:#c49b52;border:1px solid #4a3d27;border-radius:999px;padding:3px 6px;white-space:nowrap}
+.rankProfile b{font-size:10.5px;font-weight:750;color:#a79f94;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
+.rankWin{min-width:0!important}
+.rankWin b{font-size:18px!important}
+.rankWin span,.rankWin small{font-size:9px!important}
+.rankReason{margin-top:9px!important;font-size:10.5px!important;line-height:1.55;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+.rankMini{margin-top:6px!important;font-size:9px!important;line-height:1.45;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;color:#756e65}
+.ideaDetail{margin-top:10px;border:1px solid #2d3032;border-radius:10px;background:#0d0f10;overflow:hidden}
+.ideaDetail>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;cursor:pointer}
+.ideaDetail>summary::-webkit-details-marker{display:none}
+.ideaDetail>summary span{font-size:11px;font-weight:900;color:#d8b66a}
+.ideaDetail>summary b{font-size:9px;color:#797168;font-weight:800}
+.ideaDetailBody{padding:0 11px 11px;border-top:1px solid #27292b}
+.ideaAnalysisLoading{padding:11px 0;color:#81796e;font-size:10px;line-height:1.5}
+.ideaAnalysisGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.ideaAnalysisGrid>div{min-width:0;padding:9px;border:1px solid #292c2e;border-radius:9px;background:#0b0d0e}
+.ideaAnalysisGrid span{display:block;color:#7d766d;font-size:9px}
+.ideaAnalysisGrid b{display:block;margin-top:3px;color:#ddd4c7;font-size:12px;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.ideaAnalysisSection{margin-top:10px}
+.ideaAnalysisSection>span{display:block;color:#c29c54;font-size:10px;font-weight:900}
+.ideaAnalysisSection p,.ideaAnalysisSection li{color:#aba397;font-size:10.5px;line-height:1.55}
+.ideaAnalysisSection p{margin:5px 0 0}
+.ideaAnalysisSection ul{margin:5px 0 0;padding-left:17px}
+
+/* 全站閱讀性：小字只做輔助，核心資料大一級 */
+.sectionTitle{font-size:17px!important}.pageTab{font-size:12px!important}.traderName{font-size:20px!important}
+.metricValue{font-size:18px!important}.pos .sym{font-size:18px!important}.entryWrap .price{font-size:17px!important}
+.testMonitorSymbol{font-size:17px!important}.testSymbol{font-size:19px!important}.recSymbol{font-size:19px!important}
+.testNotifyPanel b{line-height:1.35}.testNotifyPanel span,.testNotifyPanel small{line-height:1.45}
+
+@media(max-width:720px){
+  .testMonitorItem summary{grid-template-columns:minmax(0,1fr) minmax(240px,1.2fr);align-items:start}
+  .testMonitorSummaryScore{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;border-top:1px solid #262829;padding-top:9px;text-align:left!important}
+  .judgeCoreGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .calcSignalContext{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .calcSignalContext>div.wide{grid-column:1/-1}
+  .testPlannerGrid{grid-template-columns:1fr 1fr}
+  .planEntryField{grid-column:1/-1}
+  .testPlannerOut{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  :root{--ui-field-h:50px}
+  .wrap{padding-left:12px;padding-right:12px}
+  .pageIntro,.ideaNote{font-size:10.5px!important}
+  .positionBox .pos{grid-template-columns:1fr 1fr!important}
+  .positionBox .symline{grid-column:1/-1!important;min-height:58px}
+  .positionBox .posPnl,.positionBox .entryWrap{min-height:70px}
+
+  .testMonitorItem summary{grid-template-columns:1fr!important;gap:10px!important}
+  .judgePriceStrip{grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+  .judgePriceStrip>div{min-height:62px;padding:8px 7px}
+  .judgePriceStrip span{font-size:9.5px}.judgePriceStrip b{font-size:13.5px}
+  .testMonitorSummaryScore{grid-column:auto;width:100%;margin:0}
+  .judgeCoreGrid{grid-template-columns:1fr 1fr!important}
+
+  .calcAutoGrid{grid-template-columns:1fr 1fr!important}
+  .calcAutoGrid .calcField:first-child{grid-column:1/-1}
+  .calcEntryField{grid-column:1/-1}
+  .calcLead{grid-template-columns:1fr 1fr!important}
+  .calcLead .calcField:nth-child(3){grid-column:1/-1}
+  .calcEntryBtns{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .calcEntryBtns button{font-size:10.5px;height:42px}
+  .calcSignalContext{grid-template-columns:1fr 1fr;padding:9px}
+  .calcResult{grid-template-columns:1fr 1fr!important}
+
+  .testPlannerGrid{grid-template-columns:1fr 1fr!important}
+  .planEntryField{grid-column:1/-1!important}
+  .testPlannerGrid>label,.planEntryField{min-height:96px}
+  .testPlannerPointRow{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .testPlannerPointRow>div{padding:8px 6px}
+  .testPlannerPointRow b{font-size:12.5px}
+  .testPlannerOut{grid-template-columns:1fr 1fr!important}
+
+  .rankHeadGrid{grid-template-columns:28px minmax(0,1fr) 68px;gap:8px}
+  .rankSymbol{font-size:18px!important}
+  .rankProfile{grid-template-columns:1fr;gap:5px}
+  .rankProfile span{justify-self:start}
+  .rankProfile b{font-size:10.5px}
+  .rankWin b{font-size:17px!important}
+  .ideaDetail>summary b{font-size:8.5px}
+  .ideaAnalysisGrid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:380px){
+  .judgePriceStrip,.testPlannerPointRow{grid-template-columns:1fr 1fr}
+  .judgePriceStrip>div:last-child,.testPlannerPointRow>div:last-child{grid-column:1/-1}
+  .judgeCoreGrid,.testFocusBody,.testPlannerGrid,.testPlannerOut,.calcSignalContext,.calcResult{grid-template-columns:1fr!important}
+  .planEntryField,.calcEntryField,.calcSignalContext>div.wide{grid-column:auto!important}
+  .calcAutoGrid,.calcLead,.calcPrices{grid-template-columns:1fr!important}
+  .calcAutoGrid .calcField:first-child,.calcLead .calcField:nth-child(3){grid-column:auto!important}
+  .rankHeadGrid{grid-template-columns:24px minmax(0,1fr)}
+  .rankWin{grid-column:2;text-align:left!important;display:flex;align-items:baseline;gap:6px}
+  .rankWin span,.rankWin small{display:inline!important}
+}
+
+
+/* V8.7：監控判讀可手動移除；下一個新生命週期事件才重新出現 */
+.testMonitorItem{position:relative}
+.testMonitorItem>summary{padding-right:48px!important}
+.judgeDismissBtn{position:absolute;top:8px;right:8px;z-index:4;width:30px;height:30px;border:1px solid #413b34;border-radius:9px;background:#121416;color:#8d867d;font-size:20px;font-weight:700;line-height:1;cursor:pointer;display:grid;place-items:center}
+.judgeDismissBtn:hover{border-color:#7a6040;color:#e2c47f}.judgeDismissBtn:active{transform:translateY(1px)}
+.testFocusActions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px!important}
+.testFocusActions button{min-width:0;min-height:42px;white-space:normal;line-height:1.25}
+.removeJudge{border-color:#4b3939!important;color:#c9a3a3!important}
+@media(max-width:520px){.testMonitorItem>summary{padding-right:44px!important}.judgeDismissBtn{top:7px;right:7px;width:29px;height:29px}.testFocusActions{grid-template-columns:1fr 1fr!important}.testFocusActions .openTv{grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -273,7 +546,7 @@ body{font-size:16px;line-height:1.45}
   <div id="consensusPanel" class="consensusPanel"></div>
 
   <details id="tradeCalc" class="tradeCalc">
-    <summary><span>⚡ 跟單 / 盈損試算</span><span class="tradeCalcHint">自動區間 · 最大虧損 · TP / SL　⌄</span></summary>
+    <summary><span>⚡ 跟單 / 盈損試算</span><span class="tradeCalcHint">回踩判讀 · 建議進場 · TP / SL　⌄</span></summary>
     <div class="tradeCalcBody">
       <div class="calcPositionPick">
         <div class="calcField"><label for="calcPosition">選擇目前監控倉位</label><select id="calcPosition"><option value="">目前沒有可選倉位</option></select></div>
@@ -282,8 +555,14 @@ body{font-size:16px;line-height:1.45}
         <div class="calcField"><label for="calcSymbol">標的</label><input id="calcSymbol" type="text" value="—" readonly></div>
         <div class="calcField"><label for="calcSideLabel">方向</label><input id="calcSideLabel" type="text" value="—" readonly></div>
         <input id="calcSide" type="hidden" value="LONG">
-        <div class="calcField"><label for="calcEntry">進場位</label><input id="calcEntry" type="text" value="—" readonly></div>
+        <div class="calcField calcEntryField"><label for="calcEntry">預計進場</label><input id="calcEntry" inputmode="decimal" type="number" min="0" step="any" placeholder="選建議價 / 通知價 / 當下價"></div>
       </div>
+      <div class="calcEntryBtns" aria-label="快速帶入預計進場價">
+        <button id="calcUseSuggested" type="button">建議價</button>
+        <button id="calcUseNotify" type="button">通知價</button>
+        <button id="calcUseCurrent" type="button">當下價</button>
+      </div>
+      <div id="calcSignalContext" class="calcSignalContext"><span>選擇標的後顯示通知點位、當下價與建議進場。</span></div>
 
       <div class="calcModeRow">
         <div class="calcField"><label for="calcMode">試算方式</label><select id="calcMode"><option value="MARGIN">固定保證金</option><option value="MAX_LOSS">固定最大虧損</option></select></div>
@@ -370,7 +649,7 @@ body{font-size:16px;line-height:1.45}
 
   <section id="page-ideas" class="page">
     <div class="sectionBar"><div class="sectionTitle">建議排名</div><div id="ideaAge" class="radarCount">—</div></div>
-    <div class="ideaNote">估算＝多週期技術＋衍生品數據＋近期類似訊號回測</div>
+    <div class="ideaNote">名稱開 TV；排名＝技術＋衍生品＋回測。展開詳細才做即時網搜。</div>
     <div id="recGrid" class="recGrid"><div class="loadingBox">計算中…</div></div>
   </section>
 
@@ -404,6 +683,6 @@ body{font-size:16px;line-height:1.45}
   </div>
 </div>
 
-<script src="/app.js?v=851"></script>
+<script src="/app.js?v=870"></script>
 </body>
 </html>
