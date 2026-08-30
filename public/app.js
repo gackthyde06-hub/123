@@ -9,6 +9,8 @@ const CALC_PREF='position-alert-order-calc-v610';
 const CONSENSUS_PREF='position-alert-consensus-v62';
 const ORDER_PREF='position-alert-trader-order-v63';
 const PULLBACK_TYPE_MIGRATION='position-alert-pullback-types-v65';
+const BRIEF_NOTIFY_PREF='position-alert-brief-notify-v72';
+const BRIEF_INTERVAL_PREF='position-alert-brief-interval-v72';
 const CORE_TRADER_ID='5075281354358777856';
 const PULLBACK_TYPES=['PULLBACK','DEEP_PULLBACK','INVALIDATION'];
 const DEFAULT_TYPES=['OPEN','ADD','REDUCE','CLOSE',...PULLBACK_TYPES,'CONSENSUS'];
@@ -25,6 +27,10 @@ function ageText(iso){if(!iso)return'尚未同步';const sec=Math.max(0,Math.rou
 function defaultTraderIds(){return cfg?.traders?.map(t=>t.id)||[]}
 function loadConsensusEnabled(){try{const v=localStorage.getItem(CONSENSUS_PREF);return v===null?true:v==='1'}catch{return true}}
 function saveConsensusEnabled(v){try{localStorage.setItem(CONSENSUS_PREF,v?'1':'0')}catch{}}
+function loadBriefNotify(){try{return localStorage.getItem(BRIEF_NOTIFY_PREF)==='1'}catch{return false}}
+function saveBriefNotify(v){try{localStorage.setItem(BRIEF_NOTIFY_PREF,v?'1':'0')}catch{}}
+function loadBriefInterval(){try{const n=Number(localStorage.getItem(BRIEF_INTERVAL_PREF)||3);return [2,3,6,12].includes(n)?n:3}catch{return 3}}
+function saveBriefInterval(v){const n=[2,3,6,12].includes(Number(v))?Number(v):3;try{localStorage.setItem(BRIEF_INTERVAL_PREF,String(n))}catch{}}
 function loadTraderOrder(){const all=defaultTraderIds(),valid=new Set(all),saved=loadArray(ORDER_PREF,[]).filter(id=>valid.has(id)),merged=[...new Set([CORE_TRADER_ID,...saved,...all])];return merged.filter(id=>valid.has(id))}
 function saveTraderOrder(ids){const all=defaultTraderIds(),valid=new Set(all),clean=[CORE_TRADER_ID,...ids.filter(id=>id!==CORE_TRADER_ID&&valid.has(id))];localStorage.setItem(ORDER_PREF,JSON.stringify([...new Set(clean)]))}
 function orderedTraders(list){const order=loadTraderOrder(),rank=new Map(order.map((id,i)=>[id,i]));return [...(list||[])].sort((a,b)=>(a.id===CORE_TRADER_ID?-1:b.id===CORE_TRADER_ID?1:(rank.get(a.id)??999)-(rank.get(b.id)??999)))}
@@ -89,7 +95,7 @@ function pfText(s){if(s?.profitFactor===null||s?.profitFactor===undefined||s?.pr
 function metricClass(v){const x=Number(v);if(!Number.isFinite(x)||x===0)return'gold';return x>0?'up':'down'}
 function durationText(v){const x=Number(v);if(!Number.isFinite(x))return'—';if(x<60)return`${Math.round(x)} 分`;if(x<1440)return`${(x/60).toFixed(1)} 小時`;return`${(x/1440).toFixed(1)} 天`}
 async function getPushSubscription(){if(!('serviceWorker'in navigator))return null;const r=await navigator.serviceWorker.getRegistration('/');return r?await r.pushManager.getSubscription():null}
-async function syncPreferences(){const sub=await getPushSubscription();if(!sub)return;await fetch('/api/preferences',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),preferenceVersion:65})})}
+async function syncPreferences(){const sub=await getPushSubscription();if(!sub)return;await fetch('/api/preferences',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),dailyBriefIntervalHours:loadBriefInterval(),preferenceVersion:72})})}
 function b64ToUint8(base64){const padding='='.repeat((4-base64.length%4)%4),s=(base64+padding).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
 
 function renderMaster(){const enabled=loadEnabledTraders();$('allToggle').checked=enabled.length===cfg.traders.length;$('allCount').textContent=`${enabled.length}/${cfg.traders.length}`}
@@ -341,7 +347,7 @@ $('allToggle').addEventListener('change',async e=>{const ids=e.currentTarget.che
 $('consensusToggle')?.addEventListener('change',async e=>{saveConsensusEnabled(e.currentTarget.checked);await syncPreferences().catch(()=>{});$('msg').textContent=e.currentTarget.checked?'✅ 熬鷹同向確認已開啟':'🔕 熬鷹同向確認已關閉'});
 $('settingsPanel').open=!!ui.settingsOpen;$('settingsPanel').addEventListener('toggle',saveUI);
 $('labelCancel').addEventListener('click',closeLabelSheet);$('labelSave').addEventListener('click',saveLabelSheet);$('labelModal').addEventListener('click',e=>{if(e.target===$('labelModal'))closeLabelSheet()});$('labelInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveLabelSheet();if(e.key==='Escape')closeLabelSheet()});
-$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=653'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),preferenceVersion:65})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
+$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=653'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),dailyBriefIntervalHours:loadBriefInterval(),preferenceVersion:72})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
 $('test').onclick=async()=>{const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id,r=await fetch('/api/test-push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({traderId})});$('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`};
 $('testPullback').onclick=async()=>{const r=await fetch('/api/test-pullback-push',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});$('msg').textContent=r.ok?'✅ 回踩測試已送出 · 點通知會開TV':`❌ 回踩測試失敗：${await r.text()}`};
 
@@ -360,70 +366,86 @@ launchTvFromNotification();
 setInterval(refresh,8000);
 setInterval(updateSync,1000);
 
-// V6.6 recovery: page switching + Binance market flow + recommendation view.
 let marketFlowState=null,marketFlowFetchedAt=0,marketFlowBusy=false,todayBiasKey='LONG';
+let dailyBriefState=null,dailyBriefFetchedAt=0,dailyBriefBusy=false;
+let rankedIdeasState=null,rankedIdeasFetchedAt=0,rankedIdeasBusy=false;
+
 function setPage(name){
   const valid=['today','monitor','flow','ideas'];if(!valid.includes(name))name='today';
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${name}`));
   document.querySelectorAll('.pageTab').forEach(x=>x.classList.toggle('active',x.dataset.page===name));
-  try{localStorage.setItem('position-alert-page-v68',name)}catch{}
-  if(name!=='monitor')void refreshMarketFlow(false);
+  try{localStorage.setItem('position-alert-page-v72',name)}catch{}
+  if(name==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}
+  else if(name==='flow')void refreshMarketFlow(false);
+  else if(name==='ideas'){void refreshMarketFlow(false);void refreshRankedIdeas(false)}
 }
 function fmtVol(v){const x=Number(v||0);if(x>=1e9)return`${(x/1e9).toFixed(x>=10e9?1:2)}B`;if(x>=1e6)return`${(x/1e6).toFixed(1)}M`;return x.toLocaleString('en-US',{maximumFractionDigits:0})}
 function signed(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}%`}
-function fmtSignedPlain(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}`}
 function biasClassName(key){return({LONG:'long',LONG_WATCH:'longWatch',SHORT_WATCH:'shortWatch',SHORT:'short'})[key]||'watch'}
-function renderBiasList(t, activeKey){
-  const biases=Array.isArray(t?.biases)?t.biases:[];
-  const active=biases.find(x=>x.key===activeKey)||biases[0];
+function renderBiasList(t,activeKey){
+  const biases=Array.isArray(t?.biases)?t.biases:[],active=biases.find(x=>x.key===activeKey)||biases[0];
   if(!active){$('todayBiasList').innerHTML='<div class="loadingBox">—</div>';return}
-  const cls=biasClassName(active.key);
-  const rows=(active.items||[]).map((x,i)=>`<div class="biasRow ${cls}"><div class="biasRank">${i+1}</div><div class="biasNameCell"><button type="button" class="tvNameLink biasName" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)}</button><div class="biasExtra">${fmtVol(x.quoteVolume)} · F ${signed(x.fundingPct,4)}</div></div><div class="biasMetrics"><span class="biasChange">${signed(x.changePct,2)}</span><span class="biasFlow">${x.flowScore>0?'+':''}${Number(x.flowScore||0).toFixed(1)}</span></div></div>`).join('')||'<div class="loadingBox">—</div>';
-  $('todayBiasList').innerHTML=`<div class="biasListHead"><div class="biasListHeadMain"><span class="biasDot ${cls}"></span><div><div class="biasListTitle">${esc(active.label)}</div><div class="biasListMeta">${active.count} 個</div></div></div></div><div class="biasListRows">${rows}</div>`;
+  const cls=biasClassName(active.key),shown=active.items||[];
+  const rows=shown.map((x,i)=>`<div class="biasRow ${cls}"><div class="biasRank">${i+1}</div><div class="biasNameCell"><button type="button" class="tvNameLink biasName" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)}</button><div class="biasExtra">${fmtVol(x.quoteVolume)} · F ${signed(x.fundingPct,4)}</div></div><div class="biasMetrics"><span class="biasChange">${signed(x.changePct,2)}</span><span class="biasFlow">${x.flowScore>0?'+':''}${Number(x.flowScore||0).toFixed(1)}</span></div></div>`).join('')||'<div class="loadingBox">—</div>';
+  $('todayBiasList').innerHTML=`<div class="biasListHead"><div class="biasListHeadMain"><span class="biasDot ${cls}"></span><div><div class="biasListTitle">${esc(active.label)}</div><div class="biasListMeta">前 ${shown.length} / 共 ${Number(active.count||0)}</div></div></div></div><div class="biasListRows">${rows}</div>`;
 }
 function renderMatrix(t){
-  const items=Array.isArray(t?.bubbleMap?.items)?t.bubbleMap.items:[];
-  const groups={LONG:[],SHORT_WATCH:[],LONG_WATCH:[],SHORT:[]};
-  for(const x of items){if(groups[x.bias])groups[x.bias].push(x)}
-  const order=[
-    ['LONG','做多','流入＋漲'],
-    ['SHORT_WATCH','空觀','流出＋漲'],
-    ['LONG_WATCH','多觀','流入＋跌'],
-    ['SHORT','做空','流出＋跌'],
-  ];
-  $('matrixChart').innerHTML=order.map(([key,label,sub])=>{
-    const cls=biasClassName(key),coins=groups[key].slice(0,3).map(x=>`<button type="button" class="matrixCoin" data-tv-symbol="${esc(x.symbol)}"><b>${esc(x.symbol)}</b><span>${signed(x.changePct,1)}</span></button>`).join('');
-    return `<div class="matrixCell ${cls}"><div class="matrixHead"><b>${label}</b><small>${sub}</small></div><div class="matrixCoins">${coins||'<div class="matrixEmpty">—</div>'}</div></div>`;
-  }).join('');
+  const items=Array.isArray(t?.bubbleMap?.items)?t.bubbleMap.items:[],groups={LONG:[],SHORT_WATCH:[],LONG_WATCH:[],SHORT:[]};for(const x of items){if(groups[x.bias])groups[x.bias].push(x)}
+  const order=[['LONG','做多','流入＋漲'],['SHORT_WATCH','空觀','流出＋漲'],['LONG_WATCH','多觀','流入＋跌'],['SHORT','做空','流出＋跌']];
+  $('matrixChart').innerHTML=order.map(([key,label,sub])=>{const cls=biasClassName(key),coins=groups[key].slice(0,3).map(x=>`<button type="button" class="matrixCoin" data-tv-symbol="${esc(x.symbol)}"><b>${esc(x.symbol)}</b><span>${signed(x.changePct,1)}</span></button>`).join('');return `<div class="matrixCell ${cls}"><div class="matrixHead"><b>${label}</b><small>${sub}</small></div><div class="matrixCoins">${coins||'<div class="matrixEmpty">—</div>'}</div></div>`}).join('');
 }
 function renderToday(d){
-  const t=d.today||{},score=Math.max(0,Math.min(100,Number(t.sentimentScore||50))),mood=score>=62?'long':score<=38?'short':'neutral';
-  $('todayHero').className='todayHero';
-  $('todayHero').innerHTML=`<div class="todayHeroTop"><div><div class="todayHeroTitle ${mood}">${esc(t.opinionTitle||'今日')}</div><div class="todayHeroMeta">08:00 基準 · ↑ ${(d.summary||{}).advancers||0} / ↓ ${(d.summary||{}).decliners||0}</div></div><div class="todayScore">${score}<small>多空</small></div></div><div class="todayBar"><div class="todayKnob" style="left:${score}%;"></div></div><div class="todayAxis"><span>空</span><span>${esc(t.sentimentLabel||'中性')}</span><span>多</span></div>`;
-  const biases=Array.isArray(t.biases)?t.biases:[];
-  if(biases.length){
-    if(!biases.some(x=>x.key===todayBiasKey))todayBiasKey=t.defaultBias||biases[0].key;
-    $('todayBiases').innerHTML=biases.map(x=>{const cls=biasClassName(x.key);const active=x.key===todayBiasKey;const shortSub=({LONG:'流入＋漲',LONG_WATCH:'流入＋跌',SHORT_WATCH:'流出＋漲',SHORT:'流出＋跌'})[x.key]||'';return `<button type="button" class="biasCard ${cls} ${active?'active':''}" data-bias-key="${esc(x.key)}"><span class="label">${esc(x.label)}</span><span class="count">${Number(x.count||0)}</span><span class="sub">${shortSub}</span></button>`}).join('');
-    renderBiasList(t,todayBiasKey);
-  }else{$('todayBiases').innerHTML='<div class="loadingBox">—</div>';$('todayBiasList').innerHTML='<div class="loadingBox">—</div>'}
+  const t=d.today||{},biases=Array.isArray(t.biases)?t.biases:[];
+  if(biases.length){if(!biases.some(x=>x.key===todayBiasKey))todayBiasKey=t.defaultBias||biases[0].key;$('todayBiases').innerHTML=biases.map(x=>{const cls=biasClassName(x.key),active=x.key===todayBiasKey,shortSub=({LONG:'流入＋漲',LONG_WATCH:'流入＋跌',SHORT_WATCH:'流出＋漲',SHORT:'流出＋跌'})[x.key]||'';return `<button type="button" class="biasCard ${cls} ${active?'active':''}" data-bias-key="${esc(x.key)}"><span class="label">${esc(x.label)}</span><span class="count">${Number(x.count||0)}</span><span class="sub">${shortSub}</span></button>`}).join('');renderBiasList(t,todayBiasKey)}else{$('todayBiases').innerHTML='<div class="loadingBox">—</div>';$('todayBiasList').innerHTML='<div class="loadingBox">—</div>'}
   renderMatrix(t);
 }
-function renderMarketFlow(d){
+function renderDailyBrief(d){
   if(!d?.ok)return;
-  marketFlowState=d;marketFlowFetchedAt=Date.now();
+  dailyBriefState=d;dailyBriefFetchedAt=Date.now();
+  const score=Math.max(0,Math.min(100,Number(d.score||50))),mood=d.bias==='偏多'?'long':d.bias==='偏空'?'short':'neutral';
+  const bullets=(d.bullets||[]).slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
+  const sources=(d.sources||[]).slice(0,3).map((x,i)=>`<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${i+1}</a>`).join(' ');
+  $('todayHero').className='todayHero briefHero';
+  $('todayHero').innerHTML=`<div class="todayHeroTop"><div><div class="todayHeroTitle ${mood}">${esc(d.title||'今日市場')}</div><div class="todayHeroMeta">${d.mode==='AI_WEB'?'GPT網搜＋市場':'市場資料'} · ${ageText(d.generatedAt)}</div></div><div class="todayScore">${Math.round(score)}<small>${esc(d.bias||'中性')}</small></div></div><ul class="briefBullets">${bullets}</ul>${d.action?`<div class="briefAction">${esc(d.action)}</div>`:''}${sources?`<div class="briefSources">來源 ${sources}</div>`:''}`;
+  $('todayAge').textContent=ageText(d.generatedAt);
+}
+async function refreshDailyBrief(force=false){
+  if(dailyBriefBusy)return;if(!force&&dailyBriefState&&Date.now()-dailyBriefFetchedAt<60_000){renderDailyBrief(dailyBriefState);return}
+  dailyBriefBusy=true;if($('briefRefresh'))$('briefRefresh').disabled=true;
+  try{const qs=new URLSearchParams({hours:String(loadBriefInterval())});if(force)qs.set('force','1');const r=await fetch(`/api/daily-brief?${qs.toString()}`,{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderDailyBrief(d);$('briefMsg').textContent=d.mode==='AI_WEB'?'':'未設定 OPENAI_API_KEY：目前只用市場資料'}catch(e){$('briefMsg').textContent='整理暫時不可用'}finally{dailyBriefBusy=false;if($('briefRefresh'))$('briefRefresh').disabled=false}
+}
+function renderRankedIdeas(d){
+  if(!d?.ok)return;rankedIdeasState=d;rankedIdeasFetchedAt=Date.now();
+  const rows=d.rows||[];
+  $('recGrid').innerHTML=rows.map((x,i)=>{const long=x.direction==='LONG',hit=Number.isFinite(Number(x.historicalHitRate))?`${Number(x.historicalHitRate).toFixed(1)}%`:'—',sample=Number(x.backtestSample||0);return `<div class="rankCard"><div class="rankNo">${i+1}</div><div class="rankMain"><div class="rankTop"><button class="tvNameLink rankSymbol" type="button" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)}</button><span class="recTag ${long?'long':'short'}">${long?'做多':'做空'}</span></div><div class="rankReason">${esc(x.reason||'')}</div><div class="rankMini">模型 ${Number(x.modelScore||0)} · 歷史命中 ${hit} / ${sample} · OI ${signed(x.metrics?.oiChangePct||0,1)}</div></div><div class="rankWin"><b>${Number(x.estimatedWinRate||0).toFixed(1)}%</b><span>估算</span><small>${Number(x.rankScore||0).toFixed(0)}分</small></div></div>`}).join('')||'<div class="loadingBox">目前沒有高一致性方向。</div>';
+  $('ideaAge').textContent=d.stale?'快照':ageText(d.generatedAt);
+}
+async function refreshRankedIdeas(force=false){
+  if(rankedIdeasBusy)return;if(!force&&rankedIdeasState&&Date.now()-rankedIdeasFetchedAt<60_000){renderRankedIdeas(rankedIdeasState);return}
+  rankedIdeasBusy=true;try{const r=await fetch('/api/ranked-ideas',{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderRankedIdeas(d)}catch(e){if(rankedIdeasState)renderRankedIdeas({...rankedIdeasState,stale:true});else $('recGrid').innerHTML='<div class="loadingBox">量化排名暫時不可用。</div>'}finally{rankedIdeasBusy=false}
+}
+function renderMarketFlow(d){
+  if(!d?.ok)return;marketFlowState=d;marketFlowFetchedAt=Date.now();
   const sm=d.summary||{},dir=sm.direction==='LONG'?'long':sm.direction==='SHORT'?'short':'neutral';
-  $('flowHero').className='flowHero';$('flowHero').innerHTML=`<div class="flowHeroTop"><div><div class="flowHeroTitle ${dir}">${esc(sm.label||'多空拉鋸')}</div><div class="flowHeroMeta">成交額加權 ${signed(sm.weightedChangePct||0,2)} · 上漲 ${sm.advancers||0} / 下跌 ${sm.decliners||0}</div></div><div class="flowConfidence">${Number(sm.confidence||0)}<small>流向強度 / 100</small></div></div><div class="flowStats"><div class="flowStat"><span>市場廣度</span><b class="${Number(sm.breadth||0)>=0?'longText':'shortText'}">${signed(Number(sm.breadth||0)*100,1)}</b></div><div class="flowStat"><span>資料來源</span><b class="goldText">Binance</b></div><div class="flowStat"><span>更新</span><b>${ageText(d.generatedAt)}</b></div></div>`;
-  const rows=(d.leaders||[]).slice(0,16);$('marketList').innerHTML=rows.map(x=>`<div class="marketRow"><div><button class="tvNameLink marketSym" type="button" data-tv-symbol="${esc(x.symbol)}" aria-label="開啟 ${esc(x.symbol)} TradingView">${esc(x.symbol)}</button><div class="marketSub">${price(x.price)}</div></div><div class="marketMetric"><span>24h</span><b class="${Number(x.changePct)>=0?'longText':'shortText'}">${signed(x.changePct)}</b></div><div class="marketMetric"><span>成交額 / 資金費</span><b>${fmtVol(x.quoteVolume)}</b><div class="marketSub">${signed(x.fundingPct,4)}</div></div></div>`).join('')||'<div class="loadingBox">暫無資料</div>';
-  const recs=(d.recommendations||[]).slice(0,10);$('recGrid').innerHTML=recs.map(x=>{const r=x.recommendation||{},long=r.direction==='LONG';return`<div class="recCard"><div class="recTop"><div class="recSymbolWrap"><button class="tvNameLink recSymbol" type="button" data-tv-symbol="${esc(x.symbol)}" aria-label="開啟 ${esc(x.symbol)} TradingView">${esc(x.symbol)}</button></div><span class="recTag ${long?'long':'short'}">${esc(r.label||'等待')}</span></div><div class="recScore"><span>評分核心：動能 × 流動性 × 擁擠修正</span><b>${Number(r.score||0)}/100</b></div><div class="recReason">${esc(r.reason||'')} · 24h ${signed(x.changePct)} · 成交額 ${fmtVol(x.quoteVolume)} · 資金費 ${signed(x.fundingPct,4)}</div></div>`}).join('')||'<div class="loadingBox">目前沒有足夠強的方向建議。</div>';
+  $('flowHero').className='flowHero';$('flowHero').innerHTML=`<div class="flowHeroTop"><div><div class="flowHeroTitle ${dir}">${esc(sm.label||'多空拉鋸')}</div><div class="flowHeroMeta">加權 ${signed(sm.weightedChangePct||0,2)} · ↑ ${sm.advancers||0} / ↓ ${sm.decliners||0}</div></div><div class="flowConfidence">${Number(sm.confidence||0)}<small>/100</small></div></div><div class="flowStats"><div class="flowStat"><span>廣度</span><b class="${Number(sm.breadth||0)>=0?'longText':'shortText'}">${signed(Number(sm.breadth||0)*100,1)}</b></div><div class="flowStat"><span>來源</span><b class="goldText">Binance</b></div><div class="flowStat"><span>更新</span><b>${ageText(d.generatedAt)}</b></div></div>`;
+  const rows=(d.leaders||[]).slice(0,16);$('marketList').innerHTML=rows.map(x=>`<div class="marketRow"><div><button class="tvNameLink marketSym" type="button" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)}</button><div class="marketSub">${price(x.price)}</div></div><div class="marketMetric"><span>24h</span><b class="${Number(x.changePct)>=0?'longText':'shortText'}">${signed(x.changePct)}</b></div><div class="marketMetric"><span>額 / F</span><b>${fmtVol(x.quoteVolume)}</b><div class="marketSub">${signed(x.fundingPct,4)}</div></div></div>`).join('')||'<div class="loadingBox">—</div>';
   renderToday(d);
-  const stale=$('flowStale');if(d.stale){stale.classList.add('show');stale.textContent=`Binance 即時清單逾時，先保留上一份成功快照（${Math.round(Number(d.cacheAgeMs||0)/1000)} 秒前），避免整頁空白。`}else{stale.classList.remove('show');stale.textContent=''}
-  $('todayAge').textContent=d.stale?'快照回退':ageText((d.today||{}).generatedAt||d.generatedAt);$('flowAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);$('ideaAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);
+  const stale=$('flowStale');if(d.stale){stale.classList.add('show');stale.textContent='使用上一份市場快照'}else{stale.classList.remove('show');stale.textContent=''}
+  $('flowAge').textContent=d.stale?'快照':ageText(d.generatedAt);
 }
 async function refreshMarketFlow(force=false){
   if(marketFlowBusy)return;if(!force&&marketFlowState&&Date.now()-marketFlowFetchedAt<15000){renderMarketFlow(marketFlowState);return}
-  marketFlowBusy=true;
-  try{const r=await fetch('/api/market-flow',{cache:'no-store'});const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderMarketFlow(d)}catch(e){if(marketFlowState){renderMarketFlow({...marketFlowState,stale:true,error:String(e?.message||e),cacheAgeMs:Date.now()-marketFlowFetchedAt})}else{$('todayHero').className='loadingBox';$('todayHero').textContent='資料暫時不可用';$('todayBiases').innerHTML='<div class="loadingBox">—</div>';$('todayBiasList').innerHTML='<div class="loadingBox">—</div>';$('matrixChart').innerHTML='<div class="loadingBox">—</div>';$('flowHero').className='loadingBox';$('flowHero').textContent='市場資料暫時讀不到，稍後自動重試。';$('marketList').innerHTML='<div class="loadingBox">保留空間，避免版面跳動。</div>';$('recGrid').innerHTML='<div class="loadingBox">市場資料恢復後自動顯示建議。</div>'}}finally{marketFlowBusy=false}
+  marketFlowBusy=true;try{const r=await fetch('/api/market-flow',{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderMarketFlow(d)}catch(e){if(marketFlowState)renderMarketFlow({...marketFlowState,stale:true});else{$('todayBiases').innerHTML='<div class="loadingBox">—</div>';$('todayBiasList').innerHTML='<div class="loadingBox">—</div>';$('matrixChart').innerHTML='<div class="loadingBox">—</div>';$('flowHero').className='loadingBox';$('flowHero').textContent='市場資料暫時不可用';$('marketList').innerHTML='<div class="loadingBox">—</div>'}}finally{marketFlowBusy=false}
 }
+
+function initBriefControls(){
+  if($('briefInterval'))$('briefInterval').value=String(loadBriefInterval());if($('briefNotify'))$('briefNotify').checked=loadBriefNotify();
+  $('briefInterval')?.addEventListener('change',async e=>{saveBriefInterval(e.currentTarget.value);await syncPreferences().catch(()=>{});$('briefMsg').textContent=`每 ${loadBriefInterval()} 小時`});
+  $('briefNotify')?.addEventListener('change',async e=>{saveBriefNotify(e.currentTarget.checked);const sub=await getPushSubscription();if(!sub&&e.currentTarget.checked){$('briefMsg').textContent='先到「監控」同步 iPhone 通知';return}await syncPreferences().catch(()=>{});$('briefMsg').textContent=e.currentTarget.checked?'整理通知已開':'整理通知已關'});
+  $('briefRefresh')?.addEventListener('click',()=>refreshDailyBrief(true));
+}
+initBriefControls();
 document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
-try{setPage(localStorage.getItem('position-alert-page-v68')||'today')}catch{setPage('today')}
-setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active&&active!=='monitor')void refreshMarketFlow(false)},15000);
+try{setPage(localStorage.getItem('position-alert-page-v72')||'today')}catch{setPage('today')}
+setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}else if(active==='flow')void refreshMarketFlow(false);else if(active==='ideas')void refreshRankedIdeas(false)},60_000);
+
