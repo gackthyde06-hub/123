@@ -137,7 +137,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V9.4';
+const BUILD_VERSION = 'V9.5';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -3623,6 +3623,13 @@ async function testFetchDerivatives(symbol) {
     ideaFetchJson(`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
     ideaFetchJson(`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
   ]);
+  const health={
+    oi:Array.isArray(oi)&&oi.length>=2,
+    taker:Array.isArray(taker)&&taker.length>=1,
+    globalLs:Array.isArray(globalLs)&&globalLs.length>=1,
+    topPos:Array.isArray(topPos)&&topPos.length>=1,
+    fetchedAt:new Date().toISOString()
+  };
   const data={
     oiChangePct:ratioChangePct(oi,'sumOpenInterestValue') ?? ratioChangePct(oi,'sumOpenInterest') ?? 0,
     takerRatio:ratioLast(taker,'buySellRatio') ?? 1,
@@ -3630,6 +3637,7 @@ async function testFetchDerivatives(symbol) {
     globalLongShortChangePct:ratioChangePct(globalLs,'longShortRatio') ?? 0,
     topPositionRatio:ratioLast(topPos,'longShortRatio') ?? 1,
     topPositionChangePct:ratioChangePct(topPos,'longShortRatio') ?? 0,
+    _health:health
   };
   testDerivCache.set(key,{at:now,data});
   return data;
@@ -3645,19 +3653,22 @@ async function testFetchMicrostructure(symbol) {
   const imbalance=total>0?(bidNotional-askNotional)/total:0;
   const bid=Number(bids?.[0]?.[0]||0),ask=Number(asks?.[0]?.[0]||0),mid=bid>0&&ask>0?(bid+ask)/2:0;
   const spreadBps=mid>0?(ask-bid)/mid*10000:null;
-  const data={depthImbalance:Number(imbalance.toFixed(4)),spreadBps:Number.isFinite(spreadBps)?Number(spreadBps.toFixed(2)):null,bidNotional:Number(bidNotional.toFixed(2)),askNotional:Number(askNotional.toFixed(2))};
+  const data={depthImbalance:Number(imbalance.toFixed(4)),spreadBps:Number.isFinite(spreadBps)?Number(spreadBps.toFixed(2)):null,bidNotional:Number(bidNotional.toFixed(2)),askNotional:Number(askNotional.toFixed(2)),_health:{depth:bids.length>0&&asks.length>0,fetchedAt:new Date().toISOString()}};
   testMicroCache.set(key,{at:now,data});return data;
 }
 async function testFetchRiskContext(symbol) {
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testRiskCache.get(key);
   if(cached&&now-cached.at<10*60*1000)return cached.data;
-  const [adl,premium]=await Promise.all([
+  const [adl,premium,basisRows]=await Promise.all([
     ideaFetchJson(`https://fapi.binance.com/fapi/v1/symbolAdlRisk?symbol=${encodeURIComponent(key)}`,6500).catch(()=>null),
     ideaFetchJson(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${encodeURIComponent(key)}`,6500).catch(()=>null),
+    ideaFetchJson(`${FUTURES_DATA}/basis?pair=${encodeURIComponent(key)}&contractType=PERPETUAL&period=5m&limit=2`,6500).catch(()=>null),
   ]);
   const adlRisk=String((Array.isArray(adl)?adl[0]?.adlRisk:adl?.adlRisk)||'unknown').toLowerCase();
-  const fundingPct=Number(premium?.lastFundingRate);
-  const data={adlRisk,fundingPct:Number.isFinite(fundingPct)?Number((fundingPct*100).toFixed(4)):null};
+  const fundingPct=Number(premium?.lastFundingRate),markPrice=Number(premium?.markPrice),indexPrice=Number(premium?.indexPrice),basisLast=Array.isArray(basisRows)?basisRows.at(-1):null;
+  const basisRate=Number(basisLast?.basisRate),basisPct=Number.isFinite(basisRate)?basisRate*100:Number.isFinite(markPrice)&&Number.isFinite(indexPrice)&&indexPrice>0?(markPrice-indexPrice)/indexPrice*100:null;
+  const annualizedBasisRate=Number(basisLast?.annualizedBasisRate);
+  const data={adlRisk,fundingPct:Number.isFinite(fundingPct)?Number((fundingPct*100).toFixed(4)):null,markPrice:Number.isFinite(markPrice)?markPrice:null,indexPrice:Number.isFinite(indexPrice)?indexPrice:null,basisPct:Number.isFinite(basisPct)?Number(basisPct.toFixed(4)):null,annualizedBasisPct:Number.isFinite(annualizedBasisRate)?Number((annualizedBasisRate*100).toFixed(2)):null,nextFundingTime:Number.isFinite(Number(premium?.nextFundingTime))?Number(premium.nextFundingTime):null,_health:{funding:Number.isFinite(fundingPct),basis:Number.isFinite(basisPct),adl:adlRisk!=='unknown',fetchedAt:new Date().toISOString()}};
   testRiskCache.set(key,{at:now,data});return data;
 }
 async function testMarketContext() {
@@ -3666,8 +3677,8 @@ async function testMarketContext() {
     testFetchCandles('ETHUSDT','5m',160).catch(()=>null),testFetchCandles('ETHUSDT','15m',160).catch(()=>null),testFetchCandles('ETHUSDT','1h',120).catch(()=>null),
   ]);
   const scoreOne=(a,b,c)=>{if(!a||!b)return 0;const x=technicalSnapshot(closedTestCandles(a)),y=technicalSnapshot(closedTestCandles(b)),z=c?technicalSnapshot(closedTestCandles(c)):null;return x.trend+y.trend+x.momentum*.5+y.momentum*.5+(z?.trend||0)*.8+(z?.momentum||0)*.35};
-  const raw=scoreOne(b5,b15,b1)+scoreOne(e5,e15,e1);
-  return {raw,dir:raw>=2.8?1:raw<=-2.8?-1:0};
+  const raw=scoreOne(b5,b15,b1)+scoreOne(e5,e15,e1),valid=[b5,b15,b1,e5,e15,e1].filter(Boolean).length;
+  return {raw,dir:raw>=2.8?1:raw<=-2.8?-1:0,ok:valid>=4,valid,total:6};
 }
 function testLiveAggregate() {
   const calc=(rows)=>{const wins=rows.filter(x=>x.result==='WIN').length,losses=rows.length-wins,avg=rows.length?rows.reduce((a,x)=>a+Number(x.returnPct||0),0)/rows.length:null;return {sample:rows.length,wins,losses,hitRate:rows.length?Number((wins/rows.length*100).toFixed(1)):null,avgReturnPct:Number.isFinite(avg)?Number(avg.toFixed(2)):null}};
@@ -3727,6 +3738,8 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
     if(ev.breakoutHeld)meanRate+=.8;
   }
   const effectiveSample=Math.max(1,Math.round((histN*histWeight)+(regN?regN*Math.min(.18,.06+regN/300):0)+live.effectiveSample+priorN));
+  const coverage=Number(t.dataHealth?.coveragePct);
+  if(Number.isFinite(coverage)&&coverage<95)meanRate-=clamp((95-coverage)*.12,0,5.5); // 缺資料只降可信度/勝率，不把缺值當成中性利多
   meanRate=clamp(meanRate,40,84);
   const meanWins=meanRate/100*effectiveSample,meanLosses=effectiveSample-meanWins,rawCi=testWilsonInterval(meanWins,meanLosses);
   // 顯示值往保守下界收斂；樣本愈少，收斂愈強。
@@ -3735,12 +3748,12 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
   const maxRate=effectiveSample>=120?78:effectiveSample>=80?75:effectiveSample>=50?71:67;
   rate=clamp(rate,40,maxRate);
   const pseudoWins=rate/100*effectiveSample,pseudoLosses=effectiveSample-pseudoWins,ci=testWilsonInterval(pseudoWins,pseudoLosses);
-  const confidence=effectiveSample>=80?'高':effectiveSample>=45?'中':'低';
+  let confidence=effectiveSample>=80?'高':effectiveSample>=45?'中':'低';if(Number.isFinite(coverage)&&coverage<85)confidence='低';else if(Number.isFinite(coverage)&&coverage<92&&confidence==='高')confidence='中';
   return {
     rate:Number(rate.toFixed(1)),posteriorMean:Number(meanRate.toFixed(1)),confidence,effectiveSample,liveSample:live.raw,historicalSample:histN,regime:t.setup?.volatilityRegime||'NORMAL',regimeSample:regN,
     rankAtConfirm:Number.isFinite(rankRef)?rankRef:null,rankHeat:Number(rankHeat.toFixed(0)),
     conservativeLow:Number.isFinite(ci.low)?Number(ci.low.toFixed(1)):null,confidenceHigh:Number.isFinite(ci.high)?Number(ci.high.toFixed(1)):null,
-    method:'嚴格校準勝率：模型先驗降權＋擴大5分K回測＋波動分層＋APP實測＋當日排名熱度＋即時高週期/委託簿/擁擠風險；低樣本強制向Wilson下界收斂並限制最高值'
+    method:'嚴格校準勝率：模型先驗降權＋擴大5分K回測＋波動分層＋APP實測＋當日排名熱度＋即時高週期/委託簿/擁擠風險＋資料完整度懲罰；缺資料不以0/中性冒充有效訊號，低樣本向Wilson下界收斂並限制最高值'
   };
 }
 function terminalTestStatus(status){return ['WIN','LOSS','TIMEOUT','DROPPED','EXPIRED'].includes(status)}
@@ -3864,14 +3877,18 @@ function testSignalTier(t,{reentry=false}={}) {
   if(fundingCrowded)blockers.push('Funding擁擠');
   if(t.status==='INVALID'||t.status==='DROPPED')blockers.push('結構失效');
   if(t.monitorState==='WEAKENING')blockers.push('目前轉弱');
+  const coverage=Number(t.dataHealth?.coveragePct);
+  if(Number.isFinite(coverage)&&coverage<72)blockers.push('資料完整度<72%');
   const hardSafe=blockers.length===0;
   const highMissing=[];
+  if(Number.isFinite(coverage)&&coverage<90)highMissing.push('資料完整度<90%');
   if(rate<TEST_SIGNAL_HIGH_RATE)highMissing.push(`校準勝率<${TEST_SIGNAL_HIGH_RATE}%`);
   if(low<50)highMissing.push('保守下界<50%');
   if(score<TEST_SIGNAL_HIGH_SCORE)highMissing.push(`品質<${TEST_SIGNAL_HIGH_SCORE}`);
   if(rank>6)highMissing.push('排名>6');
   if(Number.isFinite(chaseAtr)&&chaseAtr>TEST_SIGNAL_HIGH_MAX_CHASE_ATR)highMissing.push(`追價>${TEST_SIGNAL_HIGH_MAX_CHASE_ATR.toFixed(2)}ATR`);
   const normalMissing=[];
+  if(Number.isFinite(coverage)&&coverage<80)normalMissing.push('資料完整度<80%');
   if(rate<TEST_SIGNAL_NORMAL_RATE)normalMissing.push(`校準勝率<${TEST_SIGNAL_NORMAL_RATE}%`);
   if(low<43)normalMissing.push('保守下界<43%');
   if(score<TEST_SIGNAL_NORMAL_SCORE)normalMissing.push(`品質<${TEST_SIGNAL_NORMAL_SCORE}`);
@@ -4191,6 +4208,15 @@ async function analyzeTestTracker(t, market) {
   t.lastEvaluationError=null;
   t.lastEvaluationErrorAt=null;
   if(Number.isFinite(liveMark)&&liveMark>0)t.livePrice=liveMark;
+  const sourceFlags={
+    k5:rows5.length>=80,k15:rows15.length>=80,k30:rows30.length>=60,h1:rows1h.length>=60,
+    oi:deriv?._health?.oi===true,taker:deriv?._health?.taker===true,globalLs:deriv?._health?.globalLs===true,topPos:deriv?._health?.topPos===true,
+    depth:micro?._health?.depth===true,funding:riskCtx?._health?.funding===true,basis:riskCtx?._health?.basis===true,adl:riskCtx?._health?.adl===true,mark:Number.isFinite(liveMark)&&liveMark>0,
+    market:market?.ok===true,backtest:Number(t.setup?.backtest?.sample||0)>=20
+  };
+  const qualityKeys=['k5','k15','k30','h1','oi','taker','globalLs','topPos','depth','funding','basis','adl','mark','market','backtest'];
+  const validCount=qualityKeys.filter(k=>sourceFlags[k]).length,coveragePct=Math.round(validCount/qualityKeys.length*100);
+  t.dataHealth={coveragePct,validCount,total:qualityKeys.length,sources:sourceFlags,checkedAt:evaluatedAt,adlNote:'Binance 公開 ADL Risk（約30分鐘更新）已納入資料健康檢查；抓不到時顯示無資料，不會假裝低風險'};
 
   if(t.status==='INVALID'){
     t=await updateInvalidMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,market,rsi,macd,micro});
@@ -4267,7 +4293,7 @@ async function analyzeTestTracker(t, market) {
   const reasons=testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio:t5.volumeRatio,deriv,marketAlign,direction:t.direction});
   if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');if(t1h?.trend===dir)reasons.push('1小時趨勢同向');
   t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','等待',new Date().toISOString());t.updatedAt=new Date().toISOString();
-  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),oiChangePct:Number(Number(deriv.oiChangePct||0).toFixed(2)),takerRatio:Number(Number(deriv.takerRatio||1).toFixed(2)),topPositionRatio:Number(Number(deriv.topPositionRatio||1).toFixed(2)),globalLongShortRatio:Number(Number(deriv.globalLongShortRatio||1).toFixed(2)),depthImbalance:Number(depth.toFixed(3)),spreadBps:Number.isFinite(Number(micro?.spreadBps))?Number(Number(micro.spreadBps).toFixed(2)):null,chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:Number.isFinite(fundingPct)?Number(fundingPct.toFixed(4)):null,fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
+  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:Number(Number(deriv.oiChangePct||0).toFixed(2)),takerRatio:Number(Number(deriv.takerRatio||1).toFixed(2)),topPositionRatio:Number(Number(deriv.topPositionRatio||1).toFixed(2)),globalLongShortRatio:Number(Number(deriv.globalLongShortRatio||1).toFixed(2)),depthImbalance:Number(depth.toFixed(3)),spreadBps:Number.isFinite(Number(micro?.spreadBps))?Number(Number(micro.spreadBps).toFixed(2)):null,bidNotional:Number.isFinite(Number(micro?.bidNotional))?Number(micro.bidNotional):null,askNotional:Number.isFinite(Number(micro?.askNotional))?Number(micro.askNotional):null,chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:Number.isFinite(fundingPct)?Number(fundingPct.toFixed(4)):null,basisPct:Number.isFinite(Number(riskCtx?.basisPct))?Number(riskCtx.basisPct):null,annualizedBasisPct:Number.isFinite(Number(riskCtx?.annualizedBasisPct))?Number(riskCtx.annualizedBasisPct):null,nextFundingTime:Number.isFinite(Number(riskCtx?.nextFundingTime))?Number(riskCtx.nextFundingTime):null,fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
   const confirm=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketAlign>=0&&!h1Opposed&&!t30Opposed&&depthDir>=0&&spreadOk&&chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR&&adlRisk!=='high'&&!fundingCrowded&&score>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
     const entry=last.close,rawRisk=Math.abs(entry-setup.invalidation),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.65,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
@@ -4311,7 +4337,7 @@ function publicTestTracker(t) {
     currentPrice:livePrice,barClosePrice:t.currentPrice??null,confirmationPrice:t.confirmationPrice??null,qualityScore:t.qualityScore??t.setup?.setupScore??null,
     idea:{modelScore:t.idea?.modelScore??null,rankScore:t.idea?.rankScore??null,estimatedWinRate:t.idea?.estimatedWinRate??null,historicalHitRate:t.idea?.historicalHitRate??null,backtestSample:t.idea?.backtestSample??0,reason:t.idea?.reason||''},
     setup:t.setup?{zoneLow:t.setup.zoneLow,zoneHigh:t.setup.zoneHigh,invalidation:t.setup.invalidation,confluenceCount:t.setup.confluenceCount,setupScore:t.setup.setupScore,volatilityRegime:t.setup.volatilityRegime,adx15:t.setup.adx15,backtest:t.setup.backtest}:null,
-    lastCheck:t.lastCheck,monitorEvidence:t.monitorEvidence??null,breakoutLevel:t.breakoutLevel??null,breakoutAt:t.breakoutAt??null,structureProtection:t.structureProtection??null,
+    lastCheck:t.lastCheck,dataHealth:t.dataHealth??null,monitorEvidence:t.monitorEvidence??null,breakoutLevel:t.breakoutLevel??null,breakoutAt:t.breakoutAt??null,structureProtection:t.structureProtection??null,
     stop:t.stop??null,target1R:t.target1R??null,target15R:t.target15R??null,riskPct:t.riskPct??null,mfePct:t.mfePct??null,maePct:t.maePct??null,resultReturnPct:t.resultReturnPct??null,
     outcomeFirstTouch:t.outcomeFirstTouch??null,outcomeFirstTouchAt:t.outcomeFirstTouchAt??null
   };
@@ -4320,7 +4346,7 @@ function publicTestTracker(t) {
 async function runTestSignalScan(force=false) {
   if(testSignalBusy)return;const now=Date.now();if(!force&&now-testSignalLastRunAt<TEST_SIGNAL_SCAN_MS*.75)return;testSignalBusy=true;
   try{
-    const [ideas,market]=await Promise.all([getRankedIdeas(),testMarketContext().catch(()=>({raw:0,dir:0}))]);syncTestIdeas(ideas);
+    const [ideas,market]=await Promise.all([getRankedIdeas(),testMarketContext().catch(()=>({raw:0,dir:0,ok:false,valid:0,total:6}))]);syncTestIdeas(ideas);
     const active=[...testSignalTrackers.values()].filter(t=>!terminalTestStatus(t.status)).sort((a,b)=>(a.rank||99)-(b.rank||99)).slice(0,TEST_SIGNAL_MAX);
     await mapPool(active,3,async t=>{try{const next=await analyzeTestTracker(t,market);testSignalTrackers.set(t.key,next)}catch(e){t.lastError=String(e?.message||e);t.lastEvaluationError=t.lastError;t.lastEvaluationErrorAt=new Date().toISOString();testSignalTrackers.set(t.key,t)}});
     testSignalLastRunAt=Date.now();testSignalLastError=null;persistTestSignals();
@@ -4334,7 +4360,7 @@ function testSignalResponse() {
   const now=Date.now(),scanAgeMs=testSignalLastRunAt?Math.max(0,now-testSignalLastRunAt):null,priceAgeMs=markPriceUpdatedAt?Math.max(0,now-new Date(markPriceUpdatedAt).getTime()):null;
   const staleCount=rows.filter(r=>r.freshness?.state==='STALE').length,delayedCount=rows.filter(r=>r.freshness?.state==='DELAYED').length;
   const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError};
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.4 嚴格通知＋可解釋門檻：高＋普通仍只推回踩確認後、非追價、無高週期/大盤逆向、無高ADL/Funding擁擠且價差安全的訊號。每筆顯示未達通知原因；衍生品資料加入25秒共用快取，降低重複API請求。詳細網搜維持按需啟動與2小時快取，畫面會顯示快取狀態。推播傳送失敗會保留下一輪重試，不再把失敗誤記成已通知。',error:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.5 免費交叉比對＋資料完整度校驗：高勝率通知要求資料完整度至少90%，普通至少80%，低於72%直接阻擋。5/15/30/60分、OI、主動買賣、大戶/全市場多空、Funding/Basis、20檔委託簿、Mark Price、回測與BTC/ETH大盤共同交叉；缺值不再用中性值冒充有效資料。AI網搜完全改成手動按需啟動，2小時快取。',error:testSignalLastError};
 }
 
 
