@@ -410,7 +410,7 @@ function renderDailyBrief(d){
 async function refreshDailyBrief(force=false){
   if(dailyBriefBusy)return;if(!force&&dailyBriefState&&Date.now()-dailyBriefFetchedAt<60_000){renderDailyBrief(dailyBriefState);return}
   dailyBriefBusy=true;if($('briefRefresh'))$('briefRefresh').disabled=true;
-  try{const qs=new URLSearchParams();if(force)qs.set('force','1');const r=await fetch(`/api/daily-brief${qs.toString()?`?${qs.toString()}`:''}`,{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderDailyBrief(d);if(d.mode==='AI_WEB')$('briefMsg').textContent=force?'已手動更新 · 下一次自動 08:05':'每日 08:05 自動整理';else if(d.aiConfigured===false)$('briefMsg').textContent='AI Key 未設定 · 目前只用市場資料';else if(d.aiError)$('briefMsg').textContent=`AI 呼叫失敗 · ${d.aiError}`;else $('briefMsg').textContent='目前只用市場資料'}catch(e){$('briefMsg').textContent='整理暫時不可用'}finally{dailyBriefBusy=false;if($('briefRefresh'))$('briefRefresh').disabled=false}
+  try{const qs=new URLSearchParams();if(force)qs.set('force','1');const r=await fetch(`/api/daily-brief${qs.toString()?`?${qs.toString()}`:''}`,{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderDailyBrief(d);if(d.mode==='AI_WEB')$('briefMsg').textContent=force?'AI 已更新':'AI 已連線';else if(d.aiConfigured===false){const svc=d.runtime?.service?` · ${d.runtime.service}`:'';$('briefMsg').textContent=`AI 未連線${svc}`}else if(d.aiError)$('briefMsg').textContent=`AI：${d.aiError}`;else $('briefMsg').textContent='市場資料'}catch(e){$('briefMsg').textContent='整理暫時不可用'}finally{dailyBriefBusy=false;if($('briefRefresh'))$('briefRefresh').disabled=false}
 }
 function renderRankedIdeas(d){
   if(!d?.ok)return;rankedIdeasState=d;rankedIdeasFetchedAt=Date.now();
@@ -438,7 +438,7 @@ async function refreshMarketFlow(force=false){
 
 function initBriefControls(){
   if($('briefNotify'))$('briefNotify').checked=loadBriefNotify();
-  $('briefNotify')?.addEventListener('change',async e=>{saveBriefNotify(e.currentTarget.checked);const sub=await getPushSubscription();if(!sub&&e.currentTarget.checked){$('briefMsg').textContent='先到「監控」同步 iPhone 通知';return}await syncPreferences().catch(()=>{});$('briefMsg').textContent=e.currentTarget.checked?'每日 08:05 通知已開':'每日通知已關'});
+  $('briefNotify')?.addEventListener('change',async e=>{saveBriefNotify(e.currentTarget.checked);const sub=await getPushSubscription();if(!sub&&e.currentTarget.checked){$('briefMsg').textContent='先到「監控」同步 iPhone 通知';return}await syncPreferences().catch(()=>{});$('briefMsg').textContent=e.currentTarget.checked?'08:05 通知開':'通知關'});
   $('briefRefresh')?.addEventListener('click',()=>refreshDailyBrief(true));
 }
 initBriefControls();
