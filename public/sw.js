@@ -2,8 +2,8 @@ self.addEventListener('push',event=>{
   let data={};try{data=event.data?.json()||{}}catch{}
   event.waitUntil(self.registration.showNotification(data.title||'倉位',{
     body:data.body||'',
-    icon:'/app-icon-192.png?v=840',
-    badge:'/badge-96.png?v=840',
+    icon:'/app-icon-192.png?v=851',
+    badge:'/badge-96.png?v=851',
     tag:data.tag||`position-${Date.now()}`,
     renotify:data.renotify??true,
     data:data.data||{url:'/'}
