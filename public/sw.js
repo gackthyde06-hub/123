@@ -3,8 +3,8 @@ self.addEventListener('push',event=>{
   const meta=data.data||{},noticeId=meta.noticeId||null,receivedAt=Date.now();
   const shown=self.registration.showNotification(data.title||'倉位',{
     body:data.body||'',
-    icon:'/app-icon-192.png?v=1000',
-    badge:'/badge-96.png?v=1000',
+    icon:'/app-icon-192.png?v=1014',
+    badge:'/badge-96.png?v=1014',
     tag:data.tag||`position-${Date.now()}`,
     renotify:data.renotify??true,
     data:{...meta,url:meta.url||'/'}

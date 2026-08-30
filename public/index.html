@@ -757,7 +757,7 @@ a.openTv{display:inline-flex;align-items:center;justify-content:center;box-sizin
   <section id="page-test" class="page">
     <div class="sectionBar"><div class="sectionTitle">觀察中</div><div id="testAge" class="radarCount">—</div></div>
     <div class="testToolbar"><div class="testToolbarLeft"><div class="testToolbarTitle">多策略觀察引擎</div><div class="testToolbarSub">同時交叉比對回踩、突破、掃流動性、動能、區間與市場資料，自動累積完成度後判斷是否通知。</div></div></div>
-    <div id="testSummary" class="testSummary"><div class="testSummaryCell"><span>觀察</span><b>—</b></div><div class="testSummaryCell testSummaryXpCell"><span>接近完成</span><b>—</b><div class="testSummaryXp"><div class="testSummaryXpBar"><i style="width:0%"></i></div><small>總經驗 —%</small></div></div><div class="testSummaryCell"><span>可通知</span><b>—</b></div><div class="testSummaryCell"><span>實測勝率</span><b>—</b></div></div>
+    <div id="testSummary" class="testSummary"><div class="testSummaryCell"><span>觀察中</span><b>—</b><small>後台持續交叉驗證</small></div><div class="testSummaryCell"><span>接近完成</span><b>—</b><small>條件接近通知門檻</small></div><div class="testSummaryCell"><span>可通知</span><b>—</b><small>高勝率＋普通勝率</small></div><div class="testSummaryCell"><span>實測勝率</span><b>—</b><small>通知後真實追蹤</small></div></div>
     <div id="testGrid" class="testGrid"><div class="loadingBox">建立多策略觀察模型中…</div></div>
     <div class="testNotifyPanel">
       <div class="testNotifyMaster"><div><b>策略進場通知</b><span>任一策略完成並通過資料、風險與二次確認後才通知</span></div><label class="switch"><input id="testSignalNotify" type="checkbox"><span class="slider"></span></label></div>
@@ -822,6 +822,54 @@ html,body,.wrap{background:#0a0c0d!important;background-image:none!important}
   .testXpHead{grid-template-columns:auto 1fr auto;gap:7px}
   .testStrategyNext{font-size:10.5px!important}
 }
+
+/* V10.1.4 UI SYSTEM — OBSERVE -> NOTIFY -> MONITOR */
+:root{--bg:#090b0c;--surface:#0f1213;--surface2:#131617;--surface3:#171a1b;--line:#2b2f30;--line2:#353a3b;--text:#eee8de;--muted:#8c867d;--muted2:#aaa299;--gold:#d8ad55;--gold2:#f0c66d;--goldDim:#7a5d27;--red:#d85b5b;--green:#67bd83;--shadow:0 14px 40px rgba(0,0,0,.28)}
+html,body,.wrap{background:var(--bg)!important;color:var(--text)!important;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif!important;letter-spacing:.01em}
+body{font-size:15px;line-height:1.5}
+header,.topbar,.pageTabs{background:var(--bg)!important}
+.pageTabs{border-bottom:1px solid #171a1b!important;padding:7px 0 8px!important;margin-bottom:4px!important}
+.pageTab{background:transparent!important;border:0!important;border-radius:0!important;color:#8f8981!important;font-weight:800!important;box-shadow:none!important;min-height:48px}
+.pageTab.active{color:var(--gold2)!important;background:transparent!important;box-shadow:inset 0 -2px 0 var(--gold)!important}
+.pageSection h2,.testToolbarTitle{color:#dfc994!important;letter-spacing:.02em}
+.testToolbarSub,.testMethod{color:var(--muted)!important}
+.testSummary{gap:10px!important}
+.testSummaryCell{background:var(--surface)!important;border:1px solid var(--line)!important;border-radius:18px!important;min-height:112px!important;padding:15px 12px!important;box-shadow:none!important}
+.testSummaryCell span{color:#969087!important;font-size:12px!important;font-weight:750!important}
+.testSummaryCell b{color:var(--gold2)!important;font-size:26px!important;line-height:1.05!important;margin-top:5px!important}
+.testSummaryCell small{display:block;margin-top:7px;color:#696d6d;font-size:9.5px;line-height:1.35;text-align:center}
+.testGrid{gap:16px!important}
+.testCard{background:linear-gradient(180deg,#101213 0%,#0d0f10 100%)!important;border:1px solid #36312a!important;border-radius:22px!important;padding:18px!important;box-shadow:var(--shadow)!important}
+.testCard.confirmed,.testCard.high{border-color:#806329!important}
+.testHead{padding-bottom:12px;border-bottom:1px solid var(--line)!important}
+.testRank{color:#8b847a!important;font-weight:900!important}
+.testSymbol{color:#f2ede5!important;font-size:24px!important;letter-spacing:.01em}
+.testState b{color:var(--gold2)!important;font-size:18px!important}
+.testState small{color:#817b73!important}
+.testStrategyTag,.testTrendTag,.testDir,.testTierTag{border-radius:999px!important;font-weight:850!important}
+.testQuality{margin-top:14px!important;padding:0!important;background:transparent!important;border:0!important}
+.testXpHead{display:grid!important;grid-template-columns:auto minmax(90px,1fr) auto!important;gap:10px!important;align-items:center!important}
+.testXpHead>span{color:#bdb5a8!important;font-size:11px!important}
+.testQualityBar{height:9px!important;background:#222627!important;border:0!important;border-radius:999px!important;overflow:hidden!important}
+.testQualityFill{background:linear-gradient(90deg,#765825,#d9ad55,#f0c66d)!important;border-radius:999px!important}
+.testXpHead strong{color:var(--gold2)!important;font-size:15px!important}
+.testStrategyNext{margin-top:12px!important;background:#111415!important;border:1px solid var(--line)!important;border-radius:13px!important;padding:11px 12px!important;color:#afa79b!important;line-height:1.45!important}
+.testStrategyNext b{color:#e4ba62!important}
+.testQuickGrid{gap:10px!important;margin-top:12px!important}
+.testQuickGrid>div{background:var(--surface2)!important;border:1px solid var(--line)!important;border-radius:14px!important;padding:12px!important}
+.testQuickGrid span{color:#8c857b!important;font-size:11px!important}
+.testQuickGrid b{color:#e6dfd4!important;font-size:17px!important;margin-top:5px!important}
+.testCardMore,.testDeepDetail,.testAiWebDetail{background:#0d1011!important;border:1px solid var(--line)!important;border-radius:14px!important;overflow:hidden!important}
+.testCardMore>summary,.testDeepDetail>summary,.testAiWebDetail>summary{padding:13px 14px!important;color:#d9c69e!important;font-weight:900!important}
+.testReasons{gap:7px!important;margin-top:12px!important}
+.testReason{background:#101314!important;border-color:#343839!important;color:#9d978e!important}
+.testActions{margin-top:12px!important}
+.monitorBtn{background:linear-gradient(180deg,#b98c39,#8e6828)!important;border:0!important;color:#120f09!important;font-weight:950!important;border-radius:13px!important}
+.monitorGateNote{width:100%;padding:11px 12px;border:1px dashed #3a352e;border-radius:12px;background:#0d0f10;color:#7f796f;font-size:10.5px;line-height:1.45;text-align:center}
+.testNotifyGate{margin-top:9px!important;border-radius:12px!important}
+.testMonitorItem,.testFocusPanel,.reachedPool,.moreMonitorPool{background:var(--surface)!important;border-color:var(--line)!important}
+.testMonitorTitle{color:var(--gold2)!important}
+@media(max-width:520px){.testCard{padding:15px!important;border-radius:18px!important}.testSymbol{font-size:22px!important}.testSummaryCell{min-height:104px!important}.testSummaryCell b{font-size:24px!important}.testXpHead{grid-template-columns:auto 1fr auto!important}.testQuickGrid>div{padding:11px!important}}
 </style>
 
 </body>
