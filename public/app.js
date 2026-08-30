@@ -353,7 +353,7 @@ $('useAutoTp')?.addEventListener('change',()=>applyAutoChoice('TP'));$('useAutoS
 $('autoRefresh')?.addEventListener('click',()=>loadReferenceLevels(true));
 $('calcPosition')?.addEventListener('change',()=>applyCalcPosition(false,true));$('tradeCalc')?.addEventListener('toggle',saveCalc);loadCalc();
 
-document.addEventListener('click',e=>{const button=e.target.closest('[data-tv-symbol]');if(button)openTradingViewApp(button.dataset.tvSymbol)});
+document.addEventListener('click',e=>{const biasButton=e.target.closest('[data-bias-key]');if(biasButton){todayBiasKey=biasButton.dataset.biasKey;if(marketFlowState?.today)renderToday(marketFlowState);return}const button=e.target.closest('[data-tv-symbol]');if(button)openTradingViewApp(button.dataset.tvSymbol)});
 function launchTvFromNotification(){const symbol=new URLSearchParams(location.search).get('tv');if(!symbol||!/^[A-Z0-9]{5,24}$/.test(symbol))return false;history.replaceState(null,'',location.pathname);setTimeout(()=>openTradingViewApp(symbol),80);return true}
 refresh();
 launchTvFromNotification();
@@ -361,31 +361,69 @@ setInterval(refresh,8000);
 setInterval(updateSync,1000);
 
 // V6.6 recovery: page switching + Binance market flow + recommendation view.
-let marketFlowState=null,marketFlowFetchedAt=0,marketFlowBusy=false;
+let marketFlowState=null,marketFlowFetchedAt=0,marketFlowBusy=false,todayBiasKey='LONG';
 function setPage(name){
-  const valid=['monitor','flow','ideas'];if(!valid.includes(name))name='monitor';
+  const valid=['today','monitor','flow','ideas'];if(!valid.includes(name))name='today';
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${name}`));
   document.querySelectorAll('.pageTab').forEach(x=>x.classList.toggle('active',x.dataset.page===name));
-  try{localStorage.setItem('position-alert-page-v66',name)}catch{}
+  try{localStorage.setItem('position-alert-page-v68',name)}catch{}
   if(name!=='monitor')void refreshMarketFlow(false);
 }
 function fmtVol(v){const x=Number(v||0);if(x>=1e9)return`${(x/1e9).toFixed(x>=10e9?1:2)}B`;if(x>=1e6)return`${(x/1e6).toFixed(1)}M`;return x.toLocaleString('en-US',{maximumFractionDigits:0})}
 function signed(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}%`}
+function fmtSignedPlain(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}`}
+function bubbleClass(q){return q==='LONG'?'long':q==='SHORT'?'short':'watch'}
+function biasClassName(key){return({LONG:'long',LONG_WATCH:'longWatch',SHORT_WATCH:'shortWatch',SHORT:'short'})[key]||'watch'}
+function renderBiasList(t, activeKey){
+  const biases=Array.isArray(t?.biases)?t.biases:[];
+  const active=biases.find(x=>x.key===activeKey)||biases[0];
+  if(!active){$('todayBiasList').innerHTML='<div class="loadingBox">名單整理中…</div>';return}
+  const cls=biasClassName(active.key);
+  const rows=(active.items||[]).map((x,i)=>`<div class="biasRow ${cls}"><div class="biasRank">${i+1}</div><div class="biasNameCell"><button type="button" class="tvNameLink biasName" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)}</button><div class="biasExtra">成交額 ${fmtVol(x.quoteVolume)} · 資金費 ${signed(x.fundingPct,4)}</div></div><div class="biasMetrics"><span class="biasChange">${signed(x.changePct,2)}</span><span class="biasFlow">流向 ${x.flowScore>0?'+':''}${Number(x.flowScore||0).toFixed(1)}</span></div></div>`).join('')||'<div class="loadingBox">目前沒有標的。</div>';
+  $('todayBiasList').innerHTML=`<div class="biasListHead"><div class="biasListHeadMain"><span class="biasDot ${cls}"></span><div><div class="biasListTitle">${esc(active.label)}</div><div class="biasListMeta">${active.count} 個標的 · ${esc(active.sub||'')} · 依「資金流向 × 漲跌」排序</div></div></div></div><div class="biasListRows">${rows}</div>`;
+}
+function renderToday(d){
+  const t=d.today||{},score=Math.max(0,Math.min(100,Number(t.sentimentScore||50))),mood=score>=62?'long':score<=38?'short':'neutral';
+  $('todayHero').className='todayHero';
+  $('todayHero').innerHTML=`<div class="todayHeroTop"><div><div class="todayHeroTitle ${mood}">${esc(t.opinionTitle||'今日觀點')}</div><div class="todayHeroMeta">每日基準開盤：${esc(t.openTimeUtc||'00:00 UTC')} ／ ${esc(t.openTimeTaiwan||'08:00 台灣')}<br>市場主摘要：${esc((d.summary||{}).label||'多空拉鋸')} · 上漲 ${(d.summary||{}).advancers||0} / 下跌 ${(d.summary||{}).decliners||0}</div></div><div class="todayScore">${score}<small>今日多空強度 / 100</small></div></div><div class="todayBar"><div class="todayKnob" style="left:${score}%;"></div></div><div class="todayAxis"><span>偏空</span><span>${esc(t.sentimentLabel||'中性')}</span><span>偏多</span></div>`;
+  const longs=(t.topLongs||[]).map(x=>`<button type="button" class="pillLink long" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)} ${fmtSignedPlain(x.changePct,2)}%</button>`).join('');
+  const shorts=(t.topShorts||[]).map(x=>`<button type="button" class="pillLink short" data-tv-symbol="${esc(x.symbol)}">${esc(x.symbol)} ${fmtSignedPlain(x.changePct,2)}%</button>`).join('');
+  $('todayKeys').innerHTML=`<div class="todayKeyCard"><b>做多優先</b><div>${longs||'目前沒有夠強的做多候選。'}</div></div><div class="todayKeyCard"><b>做空優先</b><div>${shorts||'目前沒有夠強的做空候選。'}</div></div>`;
+  $('todaySummary').innerHTML=`<b>今日總結</b><p>${esc(t.opinionText||'等待資料…')}</p>`;
+  const biases=Array.isArray(t.biases)?t.biases:[];
+  if(biases.length){
+    if(!biases.some(x=>x.key===todayBiasKey))todayBiasKey=t.defaultBias||biases[0].key;
+    $('todayBiases').innerHTML=biases.map(x=>{const cls=biasClassName(x.key);const active=x.key===todayBiasKey;return `<button type="button" class="biasCard ${cls} ${active?'active':''}" data-bias-key="${esc(x.key)}"><span class="label">${esc(x.label)}</span><span class="count">${Number(x.count||0)}</span><span class="sub">${esc(x.sub||'')}</span></button>`}).join('');
+    renderBiasList(t,todayBiasKey);
+  }else{$('todayBiases').innerHTML='<div class="loadingBox">多空分類整理中…</div>';$('todayBiasList').innerHTML='<div class="loadingBox">名單整理中…</div>'}
+  const items=t.bubbleMap?.items||[];
+  if(!items.length){$('bubbleChart').innerHTML='<div class="loadingBox">目前沒有足夠資料可繪出泡泡圖。</div>';return}
+  const bubbles=items.map((x,i)=>{
+    const flow=Math.max(-12,Math.min(12,Number(x.flowScore||0))),momentum=Math.max(-12,Math.min(12,Number(x.momentumScore||0)));
+    const left=50-(flow/12)*38 + ((i%3)-1)*2.5;
+    const top=50-(momentum/12)*33 + (((i%4)-1.5)*2.5);
+    const size=Math.max(74,Math.min(158,Number(x.bubbleSize||26)*2.2));
+    const cls=bubbleClass(x.quadrant);
+    return `<button type="button" class="bubbleDot ${cls}" data-tv-symbol="${esc(x.symbol)}" title="${esc(x.symbol)}｜${esc(x.biasLabel||'觀察')}｜24h ${signed(x.changePct,2)}｜資金費 ${signed(x.fundingPct,4)}" style="left:${left}%;top:${top}%;width:${size}px;height:${size}px;"><span><span class="sym">${esc(x.symbol)}</span><span class="pct">${signed(x.changePct,2)}</span></span></button>`;
+  }).join('');
+  $('bubbleChart').innerHTML=`<div class="quadBg q1"></div><div class="quadBg q2"></div><div class="quadBg q3"></div><div class="quadBg q4"></div><div class="axisLabel top">↑ ${esc(t.bubbleMap?.yAxisTop||'上漲')}</div><div class="axisLabel bottom">↓ ${esc(t.bubbleMap?.yAxisBottom||'下跌')}</div><div class="axisLabel left">← ${esc(t.bubbleMap?.xAxisLeft||'資金流入')}</div><div class="axisLabel right">${esc(t.bubbleMap?.xAxisRight||'資金流出')} →</div>${bubbles}`;
+}
 function renderMarketFlow(d){
   if(!d?.ok)return;
   marketFlowState=d;marketFlowFetchedAt=Date.now();
   const sm=d.summary||{},dir=sm.direction==='LONG'?'long':sm.direction==='SHORT'?'short':'neutral';
   $('flowHero').className='flowHero';$('flowHero').innerHTML=`<div class="flowHeroTop"><div><div class="flowHeroTitle ${dir}">${esc(sm.label||'多空拉鋸')}</div><div class="flowHeroMeta">成交額加權 ${signed(sm.weightedChangePct||0,2)} · 上漲 ${sm.advancers||0} / 下跌 ${sm.decliners||0}</div></div><div class="flowConfidence">${Number(sm.confidence||0)}<small>流向強度 / 100</small></div></div><div class="flowStats"><div class="flowStat"><span>市場廣度</span><b class="${Number(sm.breadth||0)>=0?'longText':'shortText'}">${signed(Number(sm.breadth||0)*100,1)}</b></div><div class="flowStat"><span>資料來源</span><b class="goldText">Binance</b></div><div class="flowStat"><span>更新</span><b>${ageText(d.generatedAt)}</b></div></div>`;
-  const rows=(d.leaders||[]).slice(0,16);$('marketList').innerHTML=rows.map(x=>`<div class="marketRow"><div><div class="marketSym">${esc(x.symbol)}</div><div class="marketSub">${price(x.price)}</div></div><div class="marketMetric"><span>24h</span><b class="${Number(x.changePct)>=0?'longText':'shortText'}">${signed(x.changePct)}</b></div><div class="marketMetric"><span>成交額 / 資金費</span><b>${fmtVol(x.quoteVolume)}</b><div class="marketSub">${signed(x.fundingPct,4)}</div></div><button class="tvMini" type="button" data-tv-symbol="${esc(x.symbol)}" aria-label="開啟 ${esc(x.symbol)} TradingView">TV</button></div>`).join('')||'<div class="loadingBox">暫無資料</div>';
-  const recs=(d.recommendations||[]).slice(0,10);$('recGrid').innerHTML=recs.map(x=>{const r=x.recommendation||{},long=r.direction==='LONG';return`<div class="recCard"><div class="recTop"><div class="recSymbolWrap"><div class="recSymbol">${esc(x.symbol)}</div><button class="tvMini" type="button" data-tv-symbol="${esc(x.symbol)}" aria-label="開啟 ${esc(x.symbol)} TradingView">開TV</button></div><span class="recTag ${long?'long':'short'}">${esc(r.label||'等待')}</span></div><div class="recScore"><span>評分核心：動能 × 流動性 × 擁擠修正</span><b>${Number(r.score||0)}/100</b></div><div class="recReason">${esc(r.reason||'')} · 24h ${signed(x.changePct)} · 成交額 ${fmtVol(x.quoteVolume)} · 資金費 ${signed(x.fundingPct,4)}</div></div>`}).join('')||'<div class="loadingBox">目前沒有足夠強的方向建議。</div>';
+  const rows=(d.leaders||[]).slice(0,16);$('marketList').innerHTML=rows.map(x=>`<div class="marketRow"><div><button class="tvNameLink marketSym" type="button" data-tv-symbol="${esc(x.symbol)}" aria-label="開啟 ${esc(x.symbol)} TradingView">${esc(x.symbol)}</button><div class="marketSub">${price(x.price)}</div></div><div class="marketMetric"><span>24h</span><b class="${Number(x.changePct)>=0?'longText':'shortText'}">${signed(x.changePct)}</b></div><div class="marketMetric"><span>成交額 / 資金費</span><b>${fmtVol(x.quoteVolume)}</b><div class="marketSub">${signed(x.fundingPct,4)}</div></div></div>`).join('')||'<div class="loadingBox">暫無資料</div>';
+  const recs=(d.recommendations||[]).slice(0,10);$('recGrid').innerHTML=recs.map(x=>{const r=x.recommendation||{},long=r.direction==='LONG';return`<div class="recCard"><div class="recTop"><div class="recSymbolWrap"><button class="tvNameLink recSymbol" type="button" data-tv-symbol="${esc(x.symbol)}" aria-label="開啟 ${esc(x.symbol)} TradingView">${esc(x.symbol)}</button></div><span class="recTag ${long?'long':'short'}">${esc(r.label||'等待')}</span></div><div class="recScore"><span>評分核心：動能 × 流動性 × 擁擠修正</span><b>${Number(r.score||0)}/100</b></div><div class="recReason">${esc(r.reason||'')} · 24h ${signed(x.changePct)} · 成交額 ${fmtVol(x.quoteVolume)} · 資金費 ${signed(x.fundingPct,4)}</div></div>`}).join('')||'<div class="loadingBox">目前沒有足夠強的方向建議。</div>';
+  renderToday(d);
   const stale=$('flowStale');if(d.stale){stale.classList.add('show');stale.textContent=`Binance 即時清單逾時，先保留上一份成功快照（${Math.round(Number(d.cacheAgeMs||0)/1000)} 秒前），避免整頁空白。`}else{stale.classList.remove('show');stale.textContent=''}
-  $('flowAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);$('ideaAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);
+  $('todayAge').textContent=d.stale?'快照回退':ageText((d.today||{}).generatedAt||d.generatedAt);$('flowAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);$('ideaAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);
 }
 async function refreshMarketFlow(force=false){
   if(marketFlowBusy)return;if(!force&&marketFlowState&&Date.now()-marketFlowFetchedAt<15000){renderMarketFlow(marketFlowState);return}
   marketFlowBusy=true;
-  try{const r=await fetch('/api/market-flow',{cache:'no-store'});const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderMarketFlow(d)}catch(e){if(marketFlowState){renderMarketFlow({...marketFlowState,stale:true,error:String(e?.message||e),cacheAgeMs:Date.now()-marketFlowFetchedAt})}else{$('flowHero').className='loadingBox';$('flowHero').textContent='市場資料暫時讀不到，稍後自動重試。';$('marketList').innerHTML='<div class="loadingBox">保留空間，避免版面跳動。</div>';$('recGrid').innerHTML='<div class="loadingBox">市場資料恢復後自動顯示建議。</div>'}}finally{marketFlowBusy=false}
+  try{const r=await fetch('/api/market-flow',{cache:'no-store'});const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderMarketFlow(d)}catch(e){if(marketFlowState){renderMarketFlow({...marketFlowState,stale:true,error:String(e?.message||e),cacheAgeMs:Date.now()-marketFlowFetchedAt})}else{$('todayHero').className='loadingBox';$('todayHero').textContent='今日資料暫時讀不到，稍後自動重試。';$('todayKeys').innerHTML='<div class="loadingBox">整理重點暫時不可用。</div>';$('todaySummary').innerHTML='<b>今日總結</b><p>市場資料恢復後自動整理。</p>';$('todayBiases').innerHTML='<div class="loadingBox">多空分類暫時不可用。</div>';$('todayBiasList').innerHTML='<div class="loadingBox">名單會在資料恢復後自動顯示。</div>';$('bubbleChart').innerHTML='<div class="loadingBox">泡泡圖會在資料恢復後自動顯示。</div>';$('flowHero').className='loadingBox';$('flowHero').textContent='市場資料暫時讀不到，稍後自動重試。';$('marketList').innerHTML='<div class="loadingBox">保留空間，避免版面跳動。</div>';$('recGrid').innerHTML='<div class="loadingBox">市場資料恢復後自動顯示建議。</div>'}}finally{marketFlowBusy=false}
 }
 document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
-try{setPage(localStorage.getItem('position-alert-page-v66')||'monitor')}catch{setPage('monitor')}
+try{setPage(localStorage.getItem('position-alert-page-v68')||'today')}catch{setPage('today')}
 setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active&&active!=='monitor')void refreshMarketFlow(false)},15000);
