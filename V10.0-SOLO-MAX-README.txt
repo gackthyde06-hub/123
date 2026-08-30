@@ -1,0 +1,47 @@
+V10.0 SOLO MAX — 私人加密永續監控 / 通知 / 績效工具
+版本：V10.0
+用途：單人使用；Binance USDT 永續為主資料源，Bybit / OKX 為明確標示的備援與交叉驗證。
+
+核心能力
+1. 即時層
+   - Binance Futures WebSocket：市場雷達、Mark Price、aggTrade、bookTicker、20檔深度、清算事件。
+   - REST 保守備援；WS 斷線時不停止監控。
+   - 約 100 標的市場雷達、約 24 標的進階候選、約 12 標的深度即時監控（可用環境變數調整）。
+
+2. 資料完整度
+   - 5m / 15m / 30m / 1h K線與 RSI / ADX / MACD / ATR / 量比自行計算。
+   - OI、Taker、Top/Global L/S、Funding、Basis、ADL、Mark、20檔深度。
+   - Binance 失敗：K線 / 深度 / OI / Taker / Mark / Funding 優先切 Bybit；再切 OKX 可取得的資料。
+   - 缺資料不轉成 0，不把不同交易所的絕對值直接平均。
+
+3. 通知層
+   - HIGH / NORMAL / VALID / BLOCKED 分級。
+   - 完整度、可信度、高週期、大盤、OI/Taker、深度、Funding、ADL、追價距離、RR、跨所逆向都可阻擋通知。
+   - 進場型通知前約 3.5 秒再驗證一次，避免剛成立就失效。
+   - 生命週期通知（失效 / 續強 / 轉弱 / 收復 / 二次回踩 / 二次確認）保留專屬文案，不會被通用進場文案覆蓋。
+
+4. 通知後績效帳本
+   - 只要真正成功送出的進場型通知才建立 V10 績效紀錄。
+   - 追蹤 5 / 15 / 30 / 60 / 90 / 240 分鐘、MFE / MAE、1R目標 / SL 首觸、Gross / Net Return、R。
+   - 統計 Win Rate、PF、Expectancy R、校準誤差、Brier Score。
+   - iPhone Service Worker 回報「實際收到通知」與「點擊通知」時間，可量測 Push 延遲。
+   - /api/performance.csv 可匯出績效明細。
+
+5. 診斷
+   - /api/data-probe?symbol=BTCUSDT：單一標的資料來源診斷。
+   - /api/self-test：本機核心測試。
+   - /api/self-test?live=1：部署在 Railway 後，用 BTC / ETH 真實打交易所資料源驗收。
+   - /api/realtime：WS連線 / 延遲 / 雷達 / 清算健康度。
+
+部署
+A. Railway：上傳 ROOT 壓縮包內容（server.js、package.json、railway.json 等），維持既有環境變數。
+B. Vercel：上傳 PUBLIC 壓縮包內容。
+C. Railway 上線後先開：/api/self-test?live=1
+   - ok:true 才算資料層線上驗收通過。
+D. iPhone 開 APP → 通知設定 → 重新同步通知 → 發送測試通知。
+E. 收到通知後到「績效」頁確認 Push 延遲有開始累積。
+
+重要
+- 不要任意更換既有 VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY；更換會讓舊的 iPhone Push 訂閱失效，需要重新訂閱。
+- V10 統計的是「通知策略績效」，不是 Binance 帳戶實際成交損益。
+- OKX 在 Binance + Bybit 都失敗時可補 K線、深度、Taker、Mark、Funding；OI 若沒有可靠歷史來源會保留空白，而不是捏造。

@@ -1,0 +1,53 @@
+V10.0 SOLO MAX — Release Test Report
+測試日期：2026-08-31
+
+已通過：
+- server.js / public/app.js / public/sw.js Node 語法檢查：PASS
+- 原 V10 unit test：PASS
+- Release core test：PASS
+  * 20檔深度計算
+  * RSI / ATR / ADX 指標
+  * Binance /public + /market WS URL 生成
+  * 績效 Aggregate / Calibration
+  * 生命週期專屬通知文案不被覆蓋
+  * 關鍵 API 路由存在
+  * /api/self-test 核心檢查全過
+- Binance 主來源整合模擬：BTC / ETH PASS
+  * K線 Binance
+  * Depth Binance
+  * OI Binance
+  * Taker Binance
+  * Mark Binance
+  * Funding Binance
+- Bybit 備援整合模擬：BTC / ETH PASS
+  * K線 Bybit
+  * Depth Bybit備援
+  * OI Bybit備援
+  * Taker Bybit成交備援
+  * Mark / Funding Bybit備援
+- OKX 第三級備援整合模擬：BTC / ETH PASS
+  * K線 OKX
+  * Depth OKX備援
+  * Taker OKX成交備援
+  * Mark / Funding OKX備援
+  * OI 無可靠值時維持 null（預期行為）
+- 完整 Signal Pipeline 模擬：PASS
+  * data coverage 100%
+  * confidence 100%
+  * RSI / ADX / OI / Taker 全有值
+  * 狀態機正常進 WAIT_PULLBACK
+- 前端靜態完整性：PASS
+  * HTML ID 105 / unique 105
+  * JS 固定 ID 引用 98 / missing 0
+  * duplicate ID 0
+  * manifest JSON valid
+  * app icon 180 / 192 / 512 與 badge 96 尺寸正確
+- ZIP integrity：打包後另執行 unzip -t 驗證。
+
+線上限制：
+目前 ChatGPT container 的 DNS 對 fapi.binance.com 被封鎖，因此無法在此環境假裝做真實 Binance / Bybit / OKX 網路連線驗收。
+已提供 /api/self-test?live=1；部署到 Railway 後請以該端點完成最後的真實網路驗收。
+
+Release 判定：
+OFFLINE / MOCK / FALLBACK / UI / PWA / NOTIFICATION LOGIC / PERFORMANCE LOGIC：PASS
+RAILWAY LIVE NETWORK：待部署後用 /api/self-test?live=1 驗收

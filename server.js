@@ -101,13 +101,23 @@ const MARKET_24H_URL = 'https://fapi.binance.com/fapi/v1/ticker/24hr';
 const MARKET_FLOW_CACHE_MS = Math.max(5000, Number(process.env.MARKET_FLOW_CACHE_MS || 15000));
 const MARKET_FLOW_TIMEOUT_MS = Math.max(12000, Number(process.env.MARKET_FLOW_TIMEOUT_MS || 18000));
 const MARKET_FLOW_STALE_MS = Math.max(60_000, Number(process.env.MARKET_FLOW_STALE_MS || 10 * 60 * 1000));
-const IDEA_CACHE_MS = Math.max(60_000, Number(process.env.IDEA_CACHE_MS || 3 * 60 * 1000));
+const IDEA_CACHE_MS = Math.max(30_000, Number(process.env.IDEA_CACHE_MS || 60_000));
 const IDEA_STALE_MS = Math.max(5 * 60_000, Number(process.env.IDEA_STALE_MS || 20 * 60 * 1000));
-const IDEA_SYMBOLS = Math.max(8, Math.min(24, Number(process.env.IDEA_SYMBOLS || 16)));
+const IDEA_SYMBOLS = Math.max(12, Math.min(32, Number(process.env.IDEA_SYMBOLS || 24)));
+const RADAR_MAX_SYMBOLS = Math.max(50, Math.min(180, Number(process.env.RADAR_MAX_SYMBOLS || 100)));
+const REALTIME_MAX_SYMBOLS = Math.max(12, Math.min(32, Number(process.env.REALTIME_MAX_SYMBOLS || 24)));
+const REALTIME_DEPTH_SYMBOLS = Math.max(8, Math.min(16, Number(process.env.REALTIME_DEPTH_SYMBOLS || 12)));
+const ENABLE_REALTIME_WS = String(process.env.ENABLE_REALTIME_WS || '1') !== '0';
+const REALTIME_RESTART_MS = Math.max(15_000, Number(process.env.REALTIME_RESTART_MS || 30_000));
+const REALTIME_STALE_MS = Math.max(5_000, Number(process.env.REALTIME_STALE_MS || 12_000));
 const IDEA_CONCURRENCY = Math.max(2, Math.min(6, Number(process.env.IDEA_CONCURRENCY || 4)));
-const TEST_SIGNAL_SCAN_MS = Math.max(45000, Number(process.env.TEST_SIGNAL_SCAN_MS || 60000));
-const TEST_MONITOR_DELAY_MS = Math.max(TEST_SIGNAL_SCAN_MS, Number(process.env.TEST_MONITOR_DELAY_MS || 90_000));
-const TEST_MONITOR_STALE_MS = Math.max(TEST_MONITOR_DELAY_MS + 30_000, Number(process.env.TEST_MONITOR_STALE_MS || 180_000));
+const TEST_SIGNAL_SCAN_MS = Math.max(20_000, Number(process.env.TEST_SIGNAL_SCAN_MS || 30_000));
+const TEST_MONITOR_DELAY_MS = Math.max(TEST_SIGNAL_SCAN_MS, Number(process.env.TEST_MONITOR_DELAY_MS || 60_000));
+const TEST_MONITOR_STALE_MS = Math.max(TEST_MONITOR_DELAY_MS + 30_000, Number(process.env.TEST_MONITOR_STALE_MS || 120_000));
+const TEST_ENTRY_DEBOUNCE_MS = Math.max(0, Math.min(8_000, Number(process.env.TEST_ENTRY_DEBOUNCE_MS || 3_500)));
+const PERF_MAX_HORIZON_MS = Math.max(90*60*1000, Math.min(12*60*60*1000, Number(process.env.PERF_MAX_HORIZON_MS || 4*60*60*1000)));
+const PERF_ROUND_TRIP_COST_BPS = Math.max(0, Math.min(100, Number(process.env.PERF_ROUND_TRIP_COST_BPS || 12)));
+const REGIME_LIQUIDATION_5M_USD = Math.max(1_000_000, Number(process.env.REGIME_LIQUIDATION_5M_USD || 15_000_000));
 const TEST_SIGNAL_MAX = Math.max(4, Math.min(12, Number(process.env.TEST_SIGNAL_MAX || 12)));
 const TEST_SIGNAL_IDEA_TTL_MS = Math.max(10 * 60 * 1000, Number(process.env.TEST_SIGNAL_IDEA_TTL_MS || 25 * 60 * 1000));
 const TEST_SIGNAL_OUTCOME_MS = Math.max(60 * 60 * 1000, Number(process.env.TEST_SIGNAL_OUTCOME_MS || 90 * 60 * 1000));
@@ -141,7 +151,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V9.6';
+const BUILD_VERSION = 'V10.0';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -166,6 +176,7 @@ const PULLBACK_FILE = path.join(DATA_DIR, 'pullback-trackers-v65.json');
 const DAILY_BRIEF_FILE = path.join(DATA_DIR, 'daily-brief-v73.json');
 const TEST_SIGNAL_FILE = path.join(DATA_DIR, 'test-signals-v78.json'); // keep filename so upgrades retain accumulated live history
 const TEST_SIGNAL_HISTORY_FILE = path.join(DATA_DIR, 'test-signal-history-v78.json');
+const SIGNAL_PERFORMANCE_FILE = path.join(DATA_DIR, 'signal-performance-v10.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -180,7 +191,16 @@ function loadJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; }
 }
 function saveJson(file, data) {
-  try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
+  let tmp = '';
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    if (tmp) { try { fs.unlinkSync(tmp); } catch {} }
+    console.warn(`[persist] ${path.basename(file)}: ${String(e?.message || e)}`);
+  }
 }
 const persistedDailyBrief = loadJson(DAILY_BRIEF_FILE, null);
 if (persistedDailyBrief?.data) {
@@ -189,6 +209,10 @@ if (persistedDailyBrief?.data) {
 const persistedTestSignals = loadJson(TEST_SIGNAL_FILE, {});
 const testSignalTrackers = new Map(Object.entries(persistedTestSignals && typeof persistedTestSignals === 'object' ? persistedTestSignals : {}));
 let testSignalHistory = Array.isArray(loadJson(TEST_SIGNAL_HISTORY_FILE, [])) ? loadJson(TEST_SIGNAL_HISTORY_FILE, []) : [];
+let signalPerformance = Array.isArray(loadJson(SIGNAL_PERFORMANCE_FILE, [])) ? loadJson(SIGNAL_PERFORMANCE_FILE, []) : [];
+let performanceSaveTimer = null;
+let performanceTimer = null;
+let testBarTimer = null;
 let testSignalTimer = null;
 let testSignalBusy = false;
 let testSignalLastRunAt = 0;
@@ -1523,6 +1547,171 @@ let markPriceLastAttempt = 0;
 let markPriceError = null;
 let markPriceBusy = false;
 
+// V10 SOLO MAX — realtime market bus. REST remains the fallback; WebSocket only improves freshness/first-touch ordering.
+const realtimeBook = new Map();
+const realtimeFlow = new Map();
+const realtimeFunding = new Map();
+const realtimeMarketTickers = new Map();
+let realtimeLiquidations = [];
+let realtimePublicWs = null, realtimeMarketWs = null;
+let realtimeGeneration = 0, realtimeSymbolSignature = '';
+let realtimeRefreshTimer = null;
+const realtimeLatencySamples={public:[],market:[]};
+const realtimeHealth = {
+  public:{connected:false,connectedAt:null,lastMessageAt:null,lastError:null,reconnects:0,urlPath:'/public'},
+  market:{connected:false,connectedAt:null,lastMessageAt:null,lastError:null,reconnects:0,urlPath:'/market'},
+};
+function realtimeTrackedSymbols() {
+  const out=new Set(['BTCUSDT','ETHUSDT']);
+  try { for(const t of [...testSignalTrackers.values()].sort((a,b)=>(a.rank||99)-(b.rank||99))) { if(out.size>=REALTIME_MAX_SYMBOLS)break; if(!terminalTestStatus(t.status))out.add(cleanFuturesSymbol(t.symbol)); } } catch {}
+  try { for(const x of rankedIdeasCache?.data?.rows||[]) { if(out.size>=REALTIME_MAX_SYMBOLS)break; out.add(cleanFuturesSymbol(x.symbol)); } } catch {}
+  try { for(const st of states?.values?.()||[]) for(const pos of st.positions?.values?.()||[]) { if(out.size>=REALTIME_MAX_SYMBOLS)break; out.add(cleanFuturesSymbol(pos.symbol)); } } catch {}
+  return [...out].filter(x=>/^[A-Z0-9]{5,24}$/.test(x)).slice(0,REALTIME_MAX_SYMBOLS);
+}
+function realtimePruneTrades(symbol, now=Date.now()) {
+  const x=realtimeFlow.get(symbol); if(!x)return;
+  x.trades=(x.trades||[]).filter(t=>now-t.ts<=65_000).slice(-5000);
+}
+function realtimeTakerSnapshot(symbol) {
+  const key=cleanFuturesSymbol(symbol),now=Date.now(),x=realtimeFlow.get(key);if(!x)return {ratio:null,buyUsd:0,sellUsd:0,tradeUsd:0,ageMs:null};
+  realtimePruneTrades(key,now);let buy=0,sell=0;for(const t of x.trades||[]){if(t.buy)buy+=t.usd;else sell+=t.usd}
+  return {ratio:sell>0?buy/sell:(buy>0?9:null),buyUsd:buy,sellUsd:sell,tradeUsd:buy+sell,ageMs:x.lastAt?now-x.lastAt:null,lastAt:x.lastAt||null};
+}
+function realtimeSnapshot(symbol) {
+  const key=cleanFuturesSymbol(symbol),now=Date.now(),b=realtimeBook.get(key)||{},f=realtimeFunding.get(key)||{},flow=realtimeTakerSnapshot(key);
+  const mark=Number(markPrices.get(key));
+  return {symbol:key,markPrice:Number.isFinite(mark)&&mark>0?mark:null,lastTradePrice:finiteMetric(realtimeFlow.get(key)?.lastPrice),bid:finiteMetric(b.bid),ask:finiteMetric(b.ask),spreadBps:finiteMetric(b.spreadBps),depthImbalance:finiteMetric(b.depthImbalance),bidNotional:finiteMetric(b.bidNotional),askNotional:finiteMetric(b.askNotional),bookAgeMs:b.at?now-b.at:null,takerRatio60s:flow.ratio,takerBuyUsd60s:flow.buyUsd,takerSellUsd60s:flow.sellUsd,takerTradeUsd60s:flow.tradeUsd,takerAgeMs:flow.ageMs,fundingPct:finiteMetric(f.fundingPct),indexPrice:finiteMetric(f.indexPrice),markAgeMs:f.at?now-f.at:(markPriceUpdatedAt?now-new Date(markPriceUpdatedAt).getTime():null),source:f.at?'Binance WS':'REST fallback'};
+}
+function realtimeBestPrice(symbol) { const r=realtimeSnapshot(symbol);if(r.lastTradePrice&&r.takerAgeMs!=null&&r.takerAgeMs<=REALTIME_STALE_MS)return r.lastTradePrice;if(r.markPrice&&r.markAgeMs!=null&&r.markAgeMs<=Math.max(REALTIME_STALE_MS,15_000))return r.markPrice;const fallback=Number(markPrices.get(cleanFuturesSymbol(symbol)));return Number.isFinite(fallback)&&fallback>0?fallback:null; }
+function realtimeLiquidationSnapshot(now=Date.now()) {
+  realtimeLiquidations=realtimeLiquidations.filter(x=>now-x.ts<=10*60_000).slice(-2500);
+  const rows=realtimeLiquidations.filter(x=>now-x.ts<=5*60_000);let longUsd=0,shortUsd=0;
+  for(const x of rows){ if(x.side==='SELL')longUsd+=x.usd; else if(x.side==='BUY')shortUsd+=x.usd; }
+  return {totalUsd:longUsd+shortUsd,longLiquidationUsd:longUsd,shortLiquidationUsd:shortUsd,count:rows.length,updatedAt:rows.at(-1)?.ts||null};
+}
+function realtimeRadarCandidates(limit=RADAR_MAX_SYMBOLS) {
+  const rows=[];
+  for(const [symbol,x] of realtimeMarketTickers){
+    if(!symbol.endsWith('USDT'))continue;const quoteVolume=Number(x.quoteVolume||0),price=Number(x.price||0),changePct=Number(x.changePct||0);if(!(quoteVolume>0&&price>0))continue;
+    const activity=Math.log10(Math.max(1,quoteVolume))*10+Math.min(30,Math.abs(changePct)*2.2);
+    rows.push({symbol,price,changePct,quoteVolume,fundingPct:finiteMetric(realtimeFunding.get(symbol)?.fundingPct)||0,activityScore:Number(activity.toFixed(2)),source:'Binance WS radar'});
+  }
+  return rows.sort((a,b)=>b.activityScore-a.activityScore||b.quoteVolume-a.quoteVolume).slice(0,limit);
+}
+function realtimeRadarSummary(){const rows=realtimeRadarCandidates(RADAR_MAX_SYMBOLS),up=rows.filter(x=>x.changePct>0).length,down=rows.filter(x=>x.changePct<0).length;return {scanned:realtimeMarketTickers.size,eligible:rows.length,deepCandidates:Math.min(IDEA_SYMBOLS,rows.length),advancers:up,decliners:down,updatedAt:realtimeHealth.market.lastMessageAt};}
+function realtimeUnwrap(payload){return payload&&typeof payload==='object'&&'data'in payload?payload.data:payload}
+function realtimeHandlePublic(payload){
+  const d=realtimeUnwrap(payload);if(!d||typeof d!=='object'||Array.isArray(d))return;const symbol=cleanFuturesSymbol(d.s);if(!symbol)return;const now=Date.now();
+  if(d.e==='bookTicker'||(d.b!=null&&d.a!=null&&!Array.isArray(d.b))){const bid=Number(d.b),ask=Number(d.a);if(bid>0&&ask>0){const old=realtimeBook.get(symbol)||{};realtimeBook.set(symbol,{...old,bid,ask,spreadBps:(ask-bid)/((ask+bid)/2)*10000,at:now});}}
+  if(d.e==='depthUpdate'&&Array.isArray(d.b)&&Array.isArray(d.a)){const sm=summarizeDepth(d.b,d.a),old=realtimeBook.get(symbol)||{};realtimeBook.set(symbol,{...old,...sm,at:now});}
+}
+function realtimeHandleMarketOne(d){
+  if(!d||typeof d!=='object')return;const now=Date.now(),eventTs=Number(d.E||d.T||now)||now;
+  if(d.e==='aggTrade'){
+    const symbol=cleanFuturesSymbol(d.s),px=Number(d.p),qty=Number(d.q);if(symbol&&px>0&&qty>=0){let x=realtimeFlow.get(symbol)||{trades:[]};x.lastPrice=px;x.lastAt=eventTs;x.trades.push({ts:eventTs,usd:px*qty,buy:d.m===false});if(x.trades.length>5200)x.trades=x.trades.slice(-5000);realtimeFlow.set(symbol,x);performanceOnPrice(symbol,px,eventTs,'Binance WS aggTrade');}
+  } else if(d.e==='markPriceUpdate'){
+    const symbol=cleanFuturesSymbol(d.s),px=Number(d.p);if(symbol&&px>0){markPrices.set(symbol,px);markPriceUpdatedAt=new Date(eventTs).toISOString();realtimeFunding.set(symbol,{markPrice:px,indexPrice:finiteMetric(d.i),fundingPct:finiteMetric(d.r)!=null?Number(d.r)*100:null,nextFundingTime:finiteMetric(d.T),at:eventTs});performanceOnPrice(symbol,px,eventTs,'Binance WS markPrice');}
+  } else if(d.e==='24hrTicker'){
+    const symbol=cleanFuturesSymbol(d.s),price=Number(d.c),quoteVolume=Number(d.q),changePct=Number(d.P);if(symbol&&price>0)realtimeMarketTickers.set(symbol,{price,quoteVolume:Number.isFinite(quoteVolume)?quoteVolume:0,changePct:Number.isFinite(changePct)?changePct:0,at:eventTs});
+  } else if(d.e==='forceOrder'){
+    const o=d.o||{},symbol=cleanFuturesSymbol(o.s),px=Number(o.ap||o.p),qty=Number(o.z||o.q);if(symbol&&px>0&&qty>0)realtimeLiquidations.push({symbol,side:String(o.S||''),usd:px*qty,ts:Number(o.T||eventTs)});
+  }
+}
+function realtimeHandleMarket(payload){const d=realtimeUnwrap(payload);if(Array.isArray(d)){for(const x of d)realtimeHandleMarketOne(x)}else realtimeHandleMarketOne(d)}
+function realtimeDecodeMessage(ev){try{const raw=typeof ev.data==='string'?ev.data:String(ev.data);return JSON.parse(raw)}catch{return null}}
+function realtimeSocketUrl(kind,symbols){
+  const lower=symbols.map(x=>x.toLowerCase());
+  if(kind==='public'){const streams=[...lower.map(x=>`${x}@bookTicker`),...lower.slice(0,REALTIME_DEPTH_SYMBOLS).map(x=>`${x}@depth20@100ms`)];return `wss://fstream.binance.com/public/stream?streams=${streams.join('/')}`;}
+  const streams=['!markPrice@arr@1s','!ticker@arr','!forceOrder@arr',...lower.map(x=>`${x}@aggTrade`)];return `wss://fstream.binance.com/market/stream?streams=${streams.join('/')}`;
+}
+function realtimeEventTime(payload){const d=realtimeUnwrap(payload),x=Array.isArray(d)?d[0]:d;const ts=Number(x?.E||x?.T||0);return ts>0?ts:null}
+function recordRealtimeLatency(kind,payload){const ts=realtimeEventTime(payload);if(!ts)return;const v=Math.max(0,Math.min(60_000,Date.now()-ts)),a=realtimeLatencySamples[kind];a.push(v);if(a.length>300)a.splice(0,a.length-300)}
+function realtimeLatencyStats(kind){const a=[...(realtimeLatencySamples[kind]||[])].sort((x,y)=>x-y);if(!a.length)return {p50Ms:null,p95Ms:null,samples:0};const q=p=>a[Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*p)))];return {p50Ms:Math.round(q(.5)),p95Ms:Math.round(q(.95)),samples:a.length}}
+function connectRealtimeSocket(kind,generation,symbols){
+  if(!ENABLE_REALTIME_WS||typeof WebSocket!=='function'||generation!==realtimeGeneration)return;const health=realtimeHealth[kind],url=realtimeSocketUrl(kind,symbols);let ws;
+  try{ws=new WebSocket(url)}catch(e){health.lastError=String(e?.message||e);return scheduleRealtimeReconnect(kind,generation,symbols)}
+  if(kind==='public')realtimePublicWs=ws;else realtimeMarketWs=ws;
+  ws.addEventListener('open',()=>{if(generation!==realtimeGeneration)return;health.connected=true;health.connectedAt=new Date().toISOString();health.lastError=null;});
+  ws.addEventListener('message',ev=>{if(generation!==realtimeGeneration)return;health.lastMessageAt=new Date().toISOString();const d=realtimeDecodeMessage(ev);if(!d)return;recordRealtimeLatency(kind,d);if(kind==='public')realtimeHandlePublic(d);else realtimeHandleMarket(d);});
+  ws.addEventListener('error',()=>{health.lastError='WebSocket error'});
+  ws.addEventListener('close',()=>{health.connected=false;if(generation===realtimeGeneration)scheduleRealtimeReconnect(kind,generation,symbols)});
+}
+function scheduleRealtimeReconnect(kind,generation,symbols){if(generation!==realtimeGeneration)return;const health=realtimeHealth[kind];health.reconnects++;const delay=Math.min(15_000,1000+health.reconnects*650);setTimeout(()=>{if(generation===realtimeGeneration)connectRealtimeSocket(kind,generation,symbols)},delay).unref?.()}
+function restartRealtime(force=false){
+  if(!ENABLE_REALTIME_WS)return;const symbols=realtimeTrackedSymbols(),sig=symbols.join(','),now=Date.now(),stale=x=>!x.connected||!x.lastMessageAt||now-new Date(x.lastMessageAt).getTime()>30_000;if(!force&&sig===realtimeSymbolSignature&&!stale(realtimeHealth.public)&&!stale(realtimeHealth.market))return;realtimeSymbolSignature=sig;realtimeGeneration++;const gen=realtimeGeneration;
+  try{realtimePublicWs?.close()}catch{}try{realtimeMarketWs?.close()}catch{}realtimeHealth.public.connected=false;realtimeHealth.market.connected=false;realtimeHealth.public.reconnects=0;realtimeHealth.market.reconnects=0;
+  setTimeout(()=>{connectRealtimeSocket('public',gen,symbols);connectRealtimeSocket('market',gen,symbols)},150).unref?.();
+}
+function startRealtime(){if(!ENABLE_REALTIME_WS)return;restartRealtime(true);realtimeRefreshTimer=setInterval(()=>restartRealtime(false),REALTIME_RESTART_MS);realtimeRefreshTimer.unref?.()}
+function stopRealtime(){realtimeGeneration++;if(realtimeRefreshTimer)clearInterval(realtimeRefreshTimer);try{realtimePublicWs?.close()}catch{}try{realtimeMarketWs?.close()}catch{}}
+function realtimeHealthSnapshot(){const now=Date.now(),age=x=>x.lastMessageAt?Math.max(0,now-new Date(x.lastMessageAt).getTime()):null;return {enabled:ENABLE_REALTIME_WS,trackedSymbols:realtimeSymbolSignature?realtimeSymbolSignature.split(','):[],depthSymbols:Math.min(REALTIME_DEPTH_SYMBOLS,realtimeSymbolSignature?realtimeSymbolSignature.split(',').length:0),public:{...realtimeHealth.public,messageAgeMs:age(realtimeHealth.public),latency:realtimeLatencyStats('public')},market:{...realtimeHealth.market,messageAgeMs:age(realtimeHealth.market),latency:realtimeLatencyStats('market')},radar:realtimeRadarSummary(),liquidations:realtimeLiquidationSnapshot()};}
+
+function applyRealtimeOverlay(symbol,deriv,micro,riskCtx){
+  const rt=realtimeSnapshot(symbol),freshBook=rt.bookAgeMs!=null&&rt.bookAgeMs<=REALTIME_STALE_MS,freshTaker=rt.takerAgeMs!=null&&rt.takerAgeMs<=REALTIME_STALE_MS&&rt.takerTradeUsd60s>=1000,freshMark=rt.markAgeMs!=null&&rt.markAgeMs<=REALTIME_STALE_MS;
+  if(freshBook&&finiteMetric(rt.depthImbalance)!=null){micro.depthImbalance=rt.depthImbalance;micro.spreadBps=rt.spreadBps;micro.bidNotional=rt.bidNotional;micro.askNotional=rt.askNotional;micro._health={...(micro._health||{}),depth:true};micro._source={...(micro._source||{}),depth:'Binance WS depth20@100ms'};}
+  if(freshTaker&&finiteMetric(rt.takerRatio60s)!=null){deriv.takerRatio=rt.takerRatio60s;deriv._health={...(deriv._health||{}),taker:true};deriv._source={...(deriv._source||{}),taker:'Binance WS aggTrade 60s'};deriv.takerBuyUsd60s=rt.takerBuyUsd60s;deriv.takerSellUsd60s=rt.takerSellUsd60s;}
+  if(freshMark&&finiteMetric(rt.markPrice)!=null){riskCtx.markPrice=rt.markPrice;riskCtx._health={...(riskCtx._health||{}),mark:true};riskCtx._source={...(riskCtx._source||{}),mark:'Binance WS markPrice@1s'};if(finiteMetric(rt.fundingPct)!=null){riskCtx.fundingPct=rt.fundingPct;riskCtx._health.funding=true;riskCtx._source.funding='Binance WS markPrice@1s';}if(finiteMetric(rt.indexPrice)!=null)riskCtx.indexPrice=rt.indexPrice;}
+  return rt;
+}
+
+const PERF_HORIZONS_MIN=[5,15,30,60,90,240];
+const performanceActiveSymbols=new Set(signalPerformance.filter(x=>x?.version==='V10.0'&&x.status==='ACTIVE').map(x=>cleanFuturesSymbol(x.symbol)));
+const notificationAckPending={received:new Map(),clicked:new Map()};
+function schedulePerformanceSave(){if(performanceSaveTimer)return;performanceSaveTimer=setTimeout(()=>{performanceSaveTimer=null;signalPerformance=signalPerformance.slice(0,1200);saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance)},1500);performanceSaveTimer.unref?.()}
+function performanceAckTime(payloadTs, fallback=Date.now()){
+  const n=Number(payloadTs);if(Number.isFinite(n)&&Math.abs(n-fallback)<10*60_000)return n;return fallback;
+}
+function performanceApplyNotificationAck(kind,id,clientTs){
+  const key=String(id||'').slice(0,180);if(!key)return false;const now=Date.now(),ts=performanceAckTime(clientTs,now),rec=signalPerformance.find(x=>x?.version==='V10.0'&&x.id===key);
+  if(!rec){notificationAckPending[kind]?.set(key,{ts,serverAt:now});return false;}
+  const start=new Date(rec.notificationAt||0).getTime();
+  if(kind==='received'&&!rec.receivedAt){rec.receivedAt=new Date(ts).toISOString();rec.receivedAckAt=new Date(now).toISOString();rec.deliveryLatencyMs=start>0?Math.max(0,ts-start):null;}
+  if(kind==='clicked'&&!rec.clickedAt){rec.clickedAt=new Date(ts).toISOString();rec.clickedAckAt=new Date(now).toISOString();rec.clickLatencyMs=start>0?Math.max(0,ts-start):null;}
+  schedulePerformanceSave();return true;
+}
+function performanceMergePendingAcks(rec){
+  for(const kind of ['received','clicked']){const x=notificationAckPending[kind].get(rec.id);if(!x)continue;notificationAckPending[kind].delete(rec.id);performanceApplyNotificationAck(kind,rec.id,x.ts);}
+}
+function performanceRecordForNotification(t,code,tier,delivery,options={}){
+  if(!(delivery?.sent>0))return null;const phase=options.reentry?'REENTRY':'FIRST_ENTRY';const isEntry=code==='CONFIRMED'||(phase==='REENTRY'&&String(options.statusLabel||'').includes('二次確認'));if(!isEntry)return null;
+  const dir=testSignalDirection(t.direction),rt=options.noticeSnapshot||realtimeSnapshot(t.symbol),entry=finiteMetric(options.noticeEntryPrice)??finiteMetric(realtimeBestPrice(t.symbol))??finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),stop=finiteMetric(options.reentry?t.reentryStop:t.stop),target=finiteMetric(options.reentry?t.reentryTarget1R:t.target1R);if(!(entry>0&&stop>0&&target>0))return null;
+  const sentMs=performanceAckTime(new Date(options.noticeSentAt||Date.now()).getTime()),now=new Date(sentMs).toISOString(),risk=Math.abs(entry-stop);if(!(risk>0))return null;const cal=testCalibratedWinRate(t,{dynamic:true}),zone=testCurrentEntryZone(t),id=String(options.noticeId||`${t.key}:${phase}:${now}`),confirmedAt=options.reentry?t.reentryConfirmAt:t.confirmedAt,confirmedMs=new Date(confirmedAt||0).getTime();
+  const rec={id,version:'V10.0',signalKey:t.key,symbol:t.symbol,direction:t.direction,phase,tier:String(tier||'VALID'),notificationAt:now,pushAcceptedAt:options.pushAcceptedAt||new Date().toISOString(),pushServiceMs:finiteMetric(options.pushServiceMs),confirmedAt,signalToPushMs:Number.isFinite(confirmedMs)&&confirmedMs>0?Math.max(0,sentMs-confirmedMs):null,entryPrice:entry,signalConfirmationPrice:finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),stop,target,riskDistance:risk,targetR:Number((dir*(target-entry)/risk).toFixed(3)),zoneLow:finiteMetric(zone?.low),zoneHigh:finiteMetric(zone?.high),rank:Number(t.rank||0)||null,qualityScore:finiteMetric(options.reentry?t.reentryScore:(t.monitorScore||t.qualityScore)),calibratedWinRate:finiteMetric(cal.rate),marketRegime:t.marketRegime||t.lastCheck?.marketRegime||'UNKNOWN',dataCoverage:finiteMetric(t.dataHealth?.coveragePct),dataConfidence:finiteMetric(t.dataHealth?.confidencePct),notificationPriceSource:rt.lastTradePrice?'Binance WS aggTrade':rt.markPrice?'Binance mark':'tracker',sourceSnapshot:{spreadBps:rt.spreadBps,depthImbalance:rt.depthImbalance,takerRatio60s:rt.takerRatio60s,fundingPct:rt.fundingPct},status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:entry,lastPriceAt:now,lastSource:'notification',costBps:PERF_ROUND_TRIP_COST_BPS,deliveryCount:Number(delivery.sent||0),receivedAt:null,deliveryLatencyMs:null,clickedAt:null,clickLatencyMs:null};
+  signalPerformance.unshift(rec);performanceActiveSymbols.add(cleanFuturesSymbol(t.symbol));performanceMergePendingAcks(rec);schedulePerformanceSave();performanceOnPrice(t.symbol,entry,sentMs,'notification');return rec;
+}
+function performanceFinalize(rec,result,price,ts,source){if(rec.status!=='ACTIVE')return;const dir=testSignalDirection(rec.direction),gross=dir*(price-rec.entryPrice)/rec.entryPrice*100,r=dir*(price-rec.entryPrice)/rec.riskDistance;rec.status='RESOLVED';rec.result=result;rec.resultAt=new Date(ts).toISOString();rec.exitPrice=price;rec.grossReturnPct=Number(gross.toFixed(4));rec.netReturnPct=Number((gross-PERF_ROUND_TRIP_COST_BPS/100).toFixed(4));rec.realizedR=Number(r.toFixed(3));rec.resultSource=source;if(!signalPerformance.some(x=>x!==rec&&x.status==='ACTIVE'&&x.symbol===rec.symbol))performanceActiveSymbols.delete(cleanFuturesSymbol(rec.symbol));schedulePerformanceSave()}
+function performanceOnPrice(symbol,price,ts=Date.now(),source='price'){
+  const px=Number(price);if(!(px>0))return;const key=cleanFuturesSymbol(symbol);if(!performanceActiveSymbols.has(key))return;const now=Number(ts)||Date.now();let dirty=false;
+  for(const rec of signalPerformance){if(rec.status!=='ACTIVE'||rec.symbol!==key)continue;const start=new Date(rec.notificationAt).getTime();if(!(now>=start))continue;const dir=testSignalDirection(rec.direction),signed=dir*(px-rec.entryPrice)/rec.entryPrice*100,r=dir*(px-rec.entryPrice)/rec.riskDistance;rec.lastPrice=px;rec.lastPriceAt=new Date(now).toISOString();rec.lastSource=source;rec.mfePct=Number(Math.max(Number(rec.mfePct||0),signed).toFixed(4));rec.maePct=Number(Math.max(Number(rec.maePct||0),-signed).toFixed(4));rec.maxR=Number(Math.max(Number(rec.maxR||0),r).toFixed(3));rec.minR=Number(Math.min(Number(rec.minR||0),r).toFixed(3));const elapsed=now-start;
+    for(const min of PERF_HORIZONS_MIN){if(elapsed>=min*60_000&&!rec.snapshots?.[min]){rec.snapshots=rec.snapshots||{};rec.snapshots[min]={at:new Date(now).toISOString(),price:px,returnPct:Number(signed.toFixed(4)),r:Number(r.toFixed(3)),source};}}
+    const hitStop=dir>0?px<=rec.stop:px>=rec.stop,hitTarget=dir>0?px>=rec.target:px<=rec.target;if(hitStop)performanceFinalize(rec,'LOSS',rec.stop,now,source);else if(hitTarget)performanceFinalize(rec,'WIN',rec.target,now,source);else if(elapsed>=PERF_MAX_HORIZON_MS)performanceFinalize(rec,'TIMEOUT',px,now,source);dirty=true;
+  }
+  if(dirty)schedulePerformanceSave();
+}
+function performanceTrackerFallback(){
+  const now=Date.now();for(const rec of signalPerformance){if(rec.status!=='ACTIVE')continue;const t=testSignalTrackers.get(rec.signalKey);if(t){if(rec.phase==='FIRST_ENTRY'&&t.outcomeFirstTouch&&new Date(t.outcomeFirstTouchAt||0).getTime()>=new Date(rec.notificationAt).getTime()){performanceFinalize(rec,t.outcomeFirstTouch==='WIN'?'WIN':'LOSS',t.outcomeFirstTouch==='WIN'?rec.target:rec.stop,new Date(t.outcomeFirstTouchAt).getTime()||now,'5m candle fallback');continue}if(rec.phase==='REENTRY'&&['WIN','LOSS'].includes(t.reentryResult)&&new Date(t.reentryResultAt||0).getTime()>=new Date(rec.notificationAt).getTime()){performanceFinalize(rec,t.reentryResult,t.reentryResult==='WIN'?rec.target:rec.stop,new Date(t.reentryResultAt).getTime()||now,'tracker fallback');continue}}
+    const px=realtimeBestPrice(rec.symbol)||markPrices.get(rec.symbol);if(px)performanceOnPrice(rec.symbol,px,now,'heartbeat fallback');
+  }
+}
+function performancePercentile(values,p=.95){const a=values.map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;return a[Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*p)))]}
+function performanceCalibration(input){
+  const rows=input.filter(x=>x?.version==='V10.0'&&x.status==='RESOLVED'&&Number.isFinite(Number(x.calibratedWinRate)));if(!rows.length)return {sample:0,brierScore:null,meanPredicted:null,actualHitRate:null,gapPct:null,calibrationMaePct:null,bins:[]};
+  const bins=[{key:'<55%',lo:0,hi:55},{key:'55–59%',lo:55,hi:60},{key:'60–64%',lo:60,hi:65},{key:'65–69%',lo:65,hi:70},{key:'70%+',lo:70,hi:101}],bucket=[];let brier=0,predSum=0;
+  for(const x of rows){const p=Math.max(0,Math.min(1,Number(x.calibratedWinRate)/100)),y=x.result==='WIN'?1:0;brier+=(p-y)**2;predSum+=p;}
+  for(const b of bins){const a=rows.filter(x=>Number(x.calibratedWinRate)>=b.lo&&Number(x.calibratedWinRate)<b.hi);if(!a.length)continue;const predicted=a.reduce((z,x)=>z+Number(x.calibratedWinRate),0)/a.length,actual=a.filter(x=>x.result==='WIN').length/a.length*100;bucket.push({key:b.key,sample:a.length,predicted:Number(predicted.toFixed(1)),actual:Number(actual.toFixed(1)),gapPct:Number((actual-predicted).toFixed(1))});}
+  const meanPred=predSum/rows.length*100,actual=rows.filter(x=>x.result==='WIN').length/rows.length*100,mae=bucket.reduce((a,x)=>a+Math.abs(x.actual-x.predicted)*x.sample,0)/rows.length;
+  return {sample:rows.length,brierScore:Number((brier/rows.length).toFixed(4)),meanPredicted:Number(meanPred.toFixed(1)),actualHitRate:Number(actual.toFixed(1)),gapPct:Number((actual-meanPred).toFixed(1)),calibrationMaePct:Number(mae.toFixed(1)),bins:bucket};
+}
+function performanceGroup(rows,keyFn){const m=new Map();for(const x of rows){const k=String(keyFn(x)||'UNKNOWN');if(!m.has(k))m.set(k,[]);m.get(k).push(x)}return [...m.entries()].map(([key,a])=>({key,...performanceAggregate(a,false)})).sort((a,b)=>b.sample-a.sample)}
+function performanceAggregate(input=signalPerformance,includeBreakdowns=true){
+  const all=input.filter(x=>x?.version==='V10.0'),resolved=all.filter(x=>x.status==='RESOLVED'),binary=resolved.filter(x=>['WIN','LOSS'].includes(x.result)),wins=resolved.filter(x=>x.result==='WIN').length,losses=resolved.filter(x=>x.result==='LOSS').length;
+  const avg=(arr,fn)=>arr.length?arr.reduce((a,x)=>a+Number(fn(x)||0),0)/arr.length:null,profits=resolved.map(x=>Number(x.realizedR||0)).filter(x=>x>0).reduce((a,b)=>a+b,0),lossSum=Math.abs(resolved.map(x=>Number(x.realizedR||0)).filter(x=>x<0).reduce((a,b)=>a+b,0));
+  const recv=all.filter(x=>Number.isFinite(Number(x.deliveryLatencyMs))),clicks=all.filter(x=>Number.isFinite(Number(x.clickLatencyMs))),signalLag=all.map(x=>Number(x.signalToPushMs)).filter(Number.isFinite),pushMs=all.map(x=>Number(x.pushServiceMs)).filter(Number.isFinite);
+  const base={sample:all.length,active:all.length-resolved.length,resolved:resolved.length,wins,losses,timeouts:resolved.filter(x=>x.result==='TIMEOUT').length,hitRate:resolved.length?Number((wins/resolved.length*100).toFixed(1)):null,decisiveHitRate:binary.length?Number((binary.filter(x=>x.result==='WIN').length/binary.length*100).toFixed(1)):null,profitFactor:lossSum>0?Number((profits/lossSum).toFixed(2)):(profits>0?99:null),expectancyR:resolved.length?Number(avg(resolved,x=>x.realizedR).toFixed(3)):null,avgGrossReturnPct:resolved.length?Number(avg(resolved,x=>x.grossReturnPct).toFixed(3)):null,avgNetReturnPct:resolved.length?Number(avg(resolved,x=>x.netReturnPct).toFixed(3)):null,avgMfePct:all.length?Number(avg(all,x=>x.mfePct).toFixed(3)):null,avgMaePct:all.length?Number(avg(all,x=>x.maePct).toFixed(3)):null,cumulativeGrossReturnPct:resolved.length?Number(resolved.reduce((a,x)=>a+Number(x.grossReturnPct||0),0).toFixed(4)):0,cumulativePer1000Notional:resolved.length?Number(resolved.reduce((a,x)=>a+1000*Number(x.netReturnPct||0)/100,0).toFixed(2)):0,receivedAcks:recv.length,deliveryAckRate:all.length?Number((recv.length/all.length*100).toFixed(1)):null,avgDeliveryLatencyMs:recv.length?Math.round(avg(recv,x=>x.deliveryLatencyMs)):null,p95DeliveryLatencyMs:recv.length?Math.round(performancePercentile(recv.map(x=>x.deliveryLatencyMs),.95)):null,clicked:clicks.length,clickRate:recv.length?Number((clicks.length/recv.length*100).toFixed(1)):null,avgClickLatencyMs:clicks.length?Math.round(avg(clicks,x=>x.clickLatencyMs)):null,avgSignalToPushMs:signalLag.length?Math.round(signalLag.reduce((a,b)=>a+b,0)/signalLag.length):null,p95SignalToPushMs:signalLag.length?Math.round(performancePercentile(signalLag,.95)):null,avgPushServiceMs:pushMs.length?Math.round(pushMs.reduce((a,b)=>a+b,0)/pushMs.length):null,p95PushServiceMs:pushMs.length?Math.round(performancePercentile(pushMs,.95)):null,calibration:performanceCalibration(all)};
+  if(!includeBreakdowns)return base;return {...base,byTier:performanceGroup(all,x=>x.tier),byDirection:performanceGroup(all,x=>x.direction),byRegime:performanceGroup(all,x=>x.marketRegime),bySymbol:performanceGroup(all,x=>x.symbol).slice(0,20)};
+}
+function performanceResponse(){return {ok:true,generatedAt:new Date().toISOString(),version:'V10.0',preciseSampleStarts:'V10.0 deployment',defaultCostBps:PERF_ROUND_TRIP_COST_BPS,maxHorizonMinutes:Math.round(PERF_MAX_HORIZON_MS/60000),summary:performanceAggregate(),records:signalPerformance.filter(x=>x.version==='V10.0').slice(0,500),recent:signalPerformance.filter(x=>x.version==='V10.0').slice(0,100),methodology:'只統計真正成功送出的進場型通知；以通知當下即時成交/Mark作可執行參考進場，WebSocket逐筆追蹤目標/停損首觸、MFE/MAE與5～240分鐘報酬。Service Worker 會回報手機收到推播與點擊時間；WS失聯則以 Mark/5分K保守備援。統計是通知策略的實測表現，不冒充使用者帳戶真實成交損益。'};}
+
 async function refreshMarkPrices(force = false) {
   if (markPriceBusy) return false;
   if (!force && markPriceLastAttempt && Date.now() - markPriceLastAttempt < MARK_PRICE_REFRESH_MS) {
@@ -2165,7 +2354,7 @@ function normalizeSubRecord(x) {
       dailyBriefIntervalHours: cleanBriefInterval(x.dailyBriefIntervalHours),
       lastDailyBriefPushAt: x.lastDailyBriefPushAt || null,
       lastDailyBriefPushDay: x.lastDailyBriefPushDay || null,
-      preferenceVersion: 80,
+      preferenceVersion:100,
     };
   }
 
@@ -2182,7 +2371,7 @@ function normalizeSubRecord(x) {
       dailyBriefIntervalHours: 24,
       lastDailyBriefPushAt: null,
       lastDailyBriefPushDay: null,
-      preferenceVersion: 80,
+      preferenceVersion:100,
     };
   }
 
@@ -3238,7 +3427,7 @@ async function ideaFetchJson(url, timeoutMs = 8000, attempts = 2) {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const r = await fetch(url, {
-        headers:{accept:'application/json','cache-control':'no-cache','user-agent':'Mozilla/5.0 PositionAlert/9.6'},
+        headers:{accept:'application/json','cache-control':'no-cache','user-agent':'Mozilla/5.0 PositionAlert/10.0'},
         signal:controller.signal
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -3328,6 +3517,9 @@ function ratioChangePct(rows, key) {
   const a=finiteMetric(ordered[0]?.[key]),b=finiteMetric(ordered.at(-1)?.[key]);
   if (a==null || !(a > 0) || b==null) return null;
   return (b / a - 1) * 100;
+}
+function ratioRecentChangePct(rows,key,barsAgo=1){
+  if(!Array.isArray(rows)||rows.length<2)return null;const ordered=rows.some(x=>x?.timestamp!=null)?[...rows].sort((a,b)=>Number(a?.timestamp||0)-Number(b?.timestamp||0)):rows,idx=Math.max(0,ordered.length-1-Math.max(1,Number(barsAgo)||1)),a=finiteMetric(ordered[idx]?.[key]),b=finiteMetric(ordered.at(-1)?.[key]);if(a==null||!(a>0)||b==null)return null;return (b/a-1)*100;
 }
 
 function technicalSnapshot(candles) {
@@ -3510,11 +3702,12 @@ async function mapPool(items, concurrency, fn) {
 }
 
 async function fetchRankedIdeasFresh() {
-  const flow=await getMarketFlow();
-  const candidates=(flow.leaders||[]).slice(0,IDEA_SYMBOLS);
+  const flow=await getMarketFlow(),radar=realtimeRadarCandidates(RADAR_MAX_SYMBOLS),merged=new Map();
+  for(const x of [...radar,...(flow.leaders||[])])if(x?.symbol&&!merged.has(x.symbol))merged.set(x.symbol,x);
+  const candidates=[...merged.values()].sort((a,b)=>Number(b.activityScore||0)-Number(a.activityScore||0)||Number(b.quoteVolume||0)-Number(a.quoteVolume||0)).slice(0,IDEA_SYMBOLS);
   const analyzed=await mapPool(candidates,IDEA_CONCURRENCY,analyzeIdeaSymbol);
   const rows=analyzed.filter(x=>x && !x.error && x.direction!=='WAIT').sort((a,b)=>b.rankScore-a.rankScore || b.estimatedWinRate-a.estimatedWinRate || b.quoteVolume-a.quoteVolume);
-  return { ok:true, generatedAt:new Date().toISOString(), methodology:'15m+1h EMA/RSI/MACD/ATR/volume + OI + taker + top/global L/S + funding + rolling 1h condition backtest', analyzed:candidates.length, rows:rows.slice(0,12), errors:analyzed.filter(x=>x?.error).length };
+  return { ok:true, generatedAt:new Date().toISOString(), methodology:'V10：全市場WS雷達先掃描，僅對前段候選做 15m+1h EMA/RSI/MACD/ATR/volume + OI + taker + top/global L/S + funding + backtest 深度分析', radar:realtimeRadarSummary(), analyzed:candidates.length, rows:rows.slice(0,12), errors:analyzed.filter(x=>x?.error).length };
 }
 
 async function getRankedIdeas() {
@@ -3690,7 +3883,7 @@ function finiteMetric(v){if(v===null||v===undefined||v==='')return null;const x=
 function rowsByTimestamp(rows){return [...(Array.isArray(rows)?rows:[])].sort((a,b)=>Number(a?.timestamp||0)-Number(b?.timestamp||0))}
 function percentChangeSeries(rows,key){const a=rowsByTimestamp(rows).map(x=>Number(x?.[key])).filter(Number.isFinite);return a.length>=2&&a[0]!==0?(a.at(-1)/a[0]-1)*100:null}
 async function fetchBybitOiFallback(symbol){
-  let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/open-interest?category=linear&symbol=${encodeURIComponent(cand.symbol)}&intervalTime=5min&limit=12`,7500,2);const rows=rowsByTimestamp(json?.result?.list);const vals=rows.map(x=>Number(x?.openInterest)).filter(Number.isFinite);if(vals.length>=2&&vals[0]>0)return {changePct:(vals.at(-1)/vals[0]-1)*100,rows,symbol:cand.symbol};throw new Error('Bybit OI short')}catch(e){lastError=e}throw lastError||new Error('BYBIT_OI_UNAVAILABLE');
+  let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/open-interest?category=linear&symbol=${encodeURIComponent(cand.symbol)}&intervalTime=5min&limit=12`,7500,2);const rows=rowsByTimestamp(json?.result?.list);const vals=rows.map(x=>Number(x?.openInterest)).filter(Number.isFinite);if(vals.length>=2&&vals[0]>0){const ch=n=>{const i=Math.max(0,vals.length-1-n),a=vals[i],b=vals.at(-1);return a>0?(b/a-1)*100:null};return {changePct:(vals.at(-1)/vals[0]-1)*100,change5mPct:ch(1),change15mPct:ch(3),change1hPct:ch(11),rows,symbol:cand.symbol};}throw new Error('Bybit OI short')}catch(e){lastError=e}throw lastError||new Error('BYBIT_OI_UNAVAILABLE');
 }
 async function fetchBybitAccountRatioFallback(symbol){
   let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/account-ratio?category=linear&symbol=${encodeURIComponent(cand.symbol)}&period=5min&limit=12`,7500,2);const rows=rowsByTimestamp(json?.result?.list),x=rows.at(-1),buy=Number(x?.buyRatio),sell=Number(x?.sellRatio);if(buy>=0&&sell>0)return {ratio:buy/sell,rows,symbol:cand.symbol};throw new Error('Bybit L/S empty')}catch(e){lastError=e}throw lastError||new Error('BYBIT_LS_UNAVAILABLE');
@@ -3701,6 +3894,17 @@ async function fetchBinanceAggTakerFallback(symbol){
 }
 async function fetchBybitRecentTakerFallback(symbol){
   let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/recent-trade?category=linear&symbol=${encodeURIComponent(cand.symbol)}&limit=1000`,7500,2);const rows=Array.isArray(json?.result?.list)?json.result.list:[];let buy=0,sell=0;for(const x of rows){const q=Number(x?.size),p=Number(x?.price),notional=Number.isFinite(q)&&Number.isFinite(p)?q*p:0;if(!(notional>0))continue;if(String(x?.side||'').toLowerCase()==='buy')buy+=notional;else if(String(x?.side||'').toLowerCase()==='sell')sell+=notional}if(buy>0&&sell>0)return {ratio:buy/sell,buyNotional:buy,sellNotional:sell,sample:rows.length,symbol:cand.symbol};throw new Error('Bybit trades empty')}catch(e){lastError=e}throw lastError||new Error('BYBIT_TRADES_UNAVAILABLE');
+}
+async function fetchOkxRecentTakerFallback(symbol){
+  let lastError=null;
+  for(const cand of okxCandidates(symbol))try{
+    const json=await ideaFetchJson(`${OKX_API}/api/v5/market/trades?instId=${encodeURIComponent(cand.instId)}&limit=500`,7500,2),rows=Array.isArray(json?.data)?json.data:[];
+    let buy=0,sell=0;
+    for(const x of rows){const q=Number(x?.sz),p=Number(x?.px),notional=Number.isFinite(q)&&Number.isFinite(p)?q*p:0;if(!(notional>0))continue;if(String(x?.side||'').toLowerCase()==='buy')buy+=notional;else if(String(x?.side||'').toLowerCase()==='sell')sell+=notional}
+    if(buy>0&&sell>0)return {ratio:buy/sell,buyNotional:buy,sellNotional:sell,sample:rows.length,instId:cand.instId};
+    throw new Error('OKX trades empty');
+  }catch(e){lastError=e}
+  throw lastError||new Error('OKX_TRADES_UNAVAILABLE');
 }
 async function testFetchDerivatives(symbol) {
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testDerivCache.get(key);
@@ -3715,18 +3919,22 @@ async function testFetchDerivatives(symbol) {
   const raw=await Promise.all(Object.entries(urls).map(async([name,url])=>{try{return [name,await ideaFetchJson(url,7000,2),null]}catch(e){return [name,null,String(e?.message||e)]}}));
   const got=Object.fromEntries(raw.map(([n,v])=>[n,v])),errors=Object.fromEntries(raw.filter(([,v,e])=>!v&&e).map(([n,,e])=>[n,e]));
   const oiRows=Array.isArray(got.oi)?got.oi:[],takerRows=Array.isArray(got.taker)?got.taker:[],globalRows=Array.isArray(got.global)?got.global:[],topRows=Array.isArray(got.top)?got.top:[],topAccountRows=Array.isArray(got.topAccount)?got.topAccount:[];
-  let oiChangePct=ratioChangePct(oiRows,'sumOpenInterestValue') ?? ratioChangePct(oiRows,'sumOpenInterest'), oiSource=oiChangePct!=null?'Binance':null;
+  let oi1hChangePct=ratioChangePct(oiRows,'sumOpenInterestValue') ?? ratioChangePct(oiRows,'sumOpenInterest'),oi5mChangePct=ratioRecentChangePct(oiRows,'sumOpenInterestValue',1) ?? ratioRecentChangePct(oiRows,'sumOpenInterest',1),oi15mChangePct=ratioRecentChangePct(oiRows,'sumOpenInterestValue',3) ?? ratioRecentChangePct(oiRows,'sumOpenInterest',3),oiChangePct=oi1hChangePct,oiSource=oiChangePct!=null?'Binance':null;
   let takerRatio=ratioLast(takerRows,'buySellRatio'),takerSource=takerRatio!=null?'Binance':null;
   let globalLongShortRatio=ratioLast(globalRows,'longShortRatio'),globalSource=globalLongShortRatio!=null?'Binance':null;
   let topPositionRatio=ratioLast(topRows,'longShortRatio'),topSource=topPositionRatio!=null?'Binance':null;
   const topAccountRatio=ratioLast(topAccountRows,'longShortRatio');
-  if(ENABLE_CROSS_EXCHANGE&&oiChangePct==null){try{const r=await fetchBybitOiFallback(key);if(r){oiChangePct=r.changePct;oiSource='Bybit備援'}}catch(e){errors.oiFallback=String(e?.message||e)}}
+  if(ENABLE_CROSS_EXCHANGE&&oiChangePct==null){try{const r=await fetchBybitOiFallback(key);if(r){oiChangePct=r.changePct;oi1hChangePct=r.change1hPct??r.changePct;oi15mChangePct=r.change15mPct??null;oi5mChangePct=r.change5mPct??null;oiSource='Bybit備援'}}catch(e){errors.oiFallback=String(e?.message||e)}}
   if(takerRatio==null){try{const r=await fetchBinanceAggTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Binance成交備援'}}catch(e){errors.takerFallback=String(e?.message||e)}}
   if(ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchBybitRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Bybit成交備援'}}catch(e){errors.takerBybitFallback=String(e?.message||e)}}
+  if(ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchOkxRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='OKX成交備援'}}catch(e){errors.takerOkxFallback=String(e?.message||e)}}
   if(ENABLE_CROSS_EXCHANGE&&globalLongShortRatio==null){try{const r=await fetchBybitAccountRatioFallback(key);if(r){globalLongShortRatio=r.ratio;globalSource='Bybit備援'}}catch(e){errors.globalFallback=String(e?.message||e)}}
   const health={oi:Number.isFinite(oiChangePct),taker:Number.isFinite(takerRatio),globalLs:Number.isFinite(globalLongShortRatio),topPos:Number.isFinite(topPositionRatio),topAccount:Number.isFinite(topAccountRatio),fetchedAt:new Date().toISOString()};
   const data={
     oiChangePct:Number.isFinite(oiChangePct)?oiChangePct:null,
+    oi5mChangePct:Number.isFinite(oi5mChangePct)?oi5mChangePct:null,
+    oi15mChangePct:Number.isFinite(oi15mChangePct)?oi15mChangePct:null,
+    oi1hChangePct:Number.isFinite(oi1hChangePct)?oi1hChangePct:null,
     takerRatio:Number.isFinite(takerRatio)?takerRatio:null,
     globalLongShortRatio:Number.isFinite(globalLongShortRatio)?globalLongShortRatio:null,
     globalLongShortChangePct:ratioChangePct(globalRows,'longShortRatio'),
@@ -3755,6 +3963,20 @@ async function testFetchMicrostructure(symbol) {
   const sm=summarizeDepth(book?.bids,book?.asks);const data={...sm,_health:{depth:sm.ok,fetchedAt:new Date().toISOString()},_source:{depth:sm.ok?source:null},_errors:error?{depth:error}:null};testMicroCache.set(key,{at:now,data});return data;
 }
 async function fetchBybitTicker(symbol){let lastError=null;for(const cand of externalSymbolCandidates(symbol))try{const json=await ideaFetchJson(`${BYBIT_API}/v5/market/tickers?category=linear&symbol=${encodeURIComponent(cand.symbol)}`,6500,2),row=Array.isArray(json?.result?.list)?json.result.list[0]:null;if(!row)throw new Error('Bybit ticker empty');if(cand.scale!==1){row.markPrice=finiteMetric(row.markPrice)!=null?String(Number(row.markPrice)*cand.scale):row.markPrice;row.indexPrice=finiteMetric(row.indexPrice)!=null?String(Number(row.indexPrice)*cand.scale):row.indexPrice;row.lastPrice=finiteMetric(row.lastPrice)!=null?String(Number(row.lastPrice)*cand.scale):row.lastPrice}return row}catch(e){lastError=e}throw lastError||new Error('BYBIT_TICKER_UNAVAILABLE')}
+async function fetchOkxRiskFallback(symbol){
+  let lastError=null;
+  for(const cand of okxCandidates(symbol))try{
+    const [markR,fundingR]=await Promise.all([
+      ideaFetchJson(`${OKX_API}/api/v5/public/mark-price?instType=SWAP&instId=${encodeURIComponent(cand.instId)}`,6500,2).then(v=>({v})).catch(e=>({e})),
+      ideaFetchJson(`${OKX_API}/api/v5/public/funding-rate?instId=${encodeURIComponent(cand.instId)}`,6500,1).then(v=>({v,source:'current'})).catch(async()=>{try{return {v:await ideaFetchJson(`${OKX_API}/api/v5/public/funding-rate-history?instId=${encodeURIComponent(cand.instId)}&limit=1`,6500,2),source:'history'}}catch(e2){return {e:e2}}})
+    ]);
+    const markRow=Array.isArray(markR.v?.data)?markR.v.data[0]:null,fundRow=Array.isArray(fundingR.v?.data)?fundingR.v.data[0]:null;
+    const mark=finiteMetric(markRow?.markPx),funding=finiteMetric(fundRow?.fundingRate??fundRow?.realizedRate),nextFundingTime=finiteMetric(fundRow?.nextFundingTime??fundRow?.fundingTime);
+    if(mark==null&&funding==null)throw markR.e||fundingR.e||new Error('OKX risk empty');
+    return {markPrice:mark!=null?mark*cand.scale:null,fundingRate:funding,nextFundingTime,instId:cand.instId,fundingSource:fundingR.source||null};
+  }catch(e){lastError=e}
+  throw lastError||new Error('OKX_RISK_UNAVAILABLE');
+}
 async function testFetchRiskContext(symbol) {
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testRiskCache.get(key);if(cached&&now-cached.at<60*1000)return cached.data;
   const [adlR,premiumR,basisR]=await Promise.all([
@@ -3767,6 +3989,7 @@ async function testFetchRiskContext(symbol) {
   let adlRisk=String((Array.isArray(adl)?adl[0]?.adlRisk:adl?.adlRisk)||'unknown').toLowerCase();
   let fundingRate=finiteMetric(premium?.lastFundingRate),markPrice=finiteMetric(premium?.markPrice),indexPrice=finiteMetric(premium?.indexPrice),nextFundingTime=finiteMetric(premium?.nextFundingTime),fundSource=fundingRate!=null?'Binance':null,markSource=markPrice!=null?'Binance':null;
   if(ENABLE_CROSS_EXCHANGE&&(fundingRate==null||markPrice==null||indexPrice==null)){try{const t=await fetchBybitTicker(key);if(fundingRate==null&&finiteMetric(t?.fundingRate)!=null){fundingRate=Number(t.fundingRate);fundSource='Bybit備援'}if(markPrice==null&&finiteMetric(t?.markPrice)!=null){markPrice=Number(t.markPrice);markSource='Bybit備援'}if(indexPrice==null&&finiteMetric(t?.indexPrice)!=null)indexPrice=Number(t.indexPrice);if(nextFundingTime==null&&finiteMetric(t?.nextFundingTime)!=null)nextFundingTime=Number(t.nextFundingTime)}catch(e){errors.bybitTicker=String(e?.message||e)}}
+  if(ENABLE_CROSS_EXCHANGE&&(fundingRate==null||markPrice==null)){try{const t=await fetchOkxRiskFallback(key);if(fundingRate==null&&finiteMetric(t?.fundingRate)!=null){fundingRate=Number(t.fundingRate);fundSource=t.fundingSource==='history'?'OKX歷史備援':'OKX備援'}if(markPrice==null&&finiteMetric(t?.markPrice)!=null){markPrice=Number(t.markPrice);markSource='OKX備援'}if(nextFundingTime==null&&finiteMetric(t?.nextFundingTime)!=null)nextFundingTime=Number(t.nextFundingTime)}catch(e){errors.okxRisk=String(e?.message||e)}}
   const basisLast=Array.isArray(basisRows)?basisRows.at(-1):null,basisRate=finiteMetric(basisLast?.basisRate);let basisPct=basisRate!=null?basisRate*100:(markPrice!=null&&indexPrice!=null&&indexPrice>0?(markPrice-indexPrice)/indexPrice*100:null);let basisSource=basisRate!=null?'Binance':basisPct!=null?(markSource==='Binance'?'Binance推導':`${markSource||'跨所'}推導`):null;
   const annualizedBasisRate=finiteMetric(basisLast?.annualizedBasisRate);
   const data={adlRisk,fundingPct:fundingRate!=null?Number((fundingRate*100).toFixed(4)):null,markPrice,indexPrice,basisPct:basisPct!=null?Number(basisPct.toFixed(4)):null,annualizedBasisPct:annualizedBasisRate!=null?Number((annualizedBasisRate*100).toFixed(2)):null,nextFundingTime,_health:{funding:fundingRate!=null,basis:basisPct!=null,adl:adlRisk!=='unknown',mark:markPrice!=null,fetchedAt:new Date().toISOString()},_source:{funding:fundSource,basis:basisSource,adl:adlRisk!=='unknown'?'Binance':null,mark:markSource},_errors:errors};
@@ -3774,7 +3997,7 @@ async function testFetchRiskContext(symbol) {
 }
 async function testFetchCrossExchange(symbol){
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testCrossExchangeCache.get(key);if(cached&&now-cached.at<45000)return cached.data;if(!ENABLE_CROSS_EXCHANGE)return {enabled:false};
-  const bybit=await (async()=>{try{const [c,oi,ls,depth,ticker]=await Promise.all([fetchBybitCandles(key,'15m',140),fetchBybitOiFallback(key).catch(()=>null),fetchBybitAccountRatioFallback(key).catch(()=>null),fetchBybitDepth(key).catch(()=>null),fetchBybitTicker(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,oiChangePct:oi?.changePct??null,longShortRatio:ls?.ratio??null,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null,fundingPct:finiteMetric(ticker?.fundingRate)!=null?Number(ticker.fundingRate)*100:null,markPrice:finiteMetric(ticker?.markPrice)} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
+  const bybit=await (async()=>{try{const [c,oi,ls,depth,ticker]=await Promise.all([fetchBybitCandles(key,'15m',140),fetchBybitOiFallback(key).catch(()=>null),fetchBybitAccountRatioFallback(key).catch(()=>null),fetchBybitDepth(key).catch(()=>null),fetchBybitTicker(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,oiChangePct:oi?.changePct??null,oi5mChangePct:oi?.change5mPct??null,oi15mChangePct:oi?.change15mPct??null,oi1hChangePct:oi?.change1hPct??oi?.changePct??null,longShortRatio:ls?.ratio??null,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null,fundingPct:finiteMetric(ticker?.fundingRate)!=null?Number(ticker.fundingRate)*100:null,markPrice:finiteMetric(ticker?.markPrice)} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
   const okx=await (async()=>{try{const [c,depth]=await Promise.all([fetchOkxCandles(key,'15m',140),fetchOkxDepth(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
   const dirs=[bybit.ok?bybit.trend:0,okx.ok?okx.trend:0].filter(x=>x!==0),consensus=dirs.length?(dirs.every(x=>x>0)?1:dirs.every(x=>x<0)?-1:0):0;const data={enabled:true,checkedAt:new Date().toISOString(),bybit,okx,consensus,available:[bybit.ok,okx.ok].filter(Boolean).length,total:2};testCrossExchangeCache.set(key,{at:now,data});return data;
 }
@@ -3783,9 +4006,11 @@ async function testMarketContext() {
     testFetchCandles('BTCUSDT','5m',160).catch(()=>null),testFetchCandles('BTCUSDT','15m',160).catch(()=>null),testFetchCandles('BTCUSDT','1h',120).catch(()=>null),
     testFetchCandles('ETHUSDT','5m',160).catch(()=>null),testFetchCandles('ETHUSDT','15m',160).catch(()=>null),testFetchCandles('ETHUSDT','1h',120).catch(()=>null),
   ]);
-  const scoreOne=(a,b,c)=>{if(!a||!b)return 0;const x=technicalSnapshot(closedTestCandles(a)),y=technicalSnapshot(closedTestCandles(b)),z=c?technicalSnapshot(closedTestCandles(c)):null;return x.trend+y.trend+x.momentum*.5+y.momentum*.5+(z?.trend||0)*.8+(z?.momentum||0)*.35};
-  const raw=scoreOne(b5,b15,b1)+scoreOne(e5,e15,e1),valid=[b5,b15,b1,e5,e15,e1].filter(Boolean).length;
-  return {raw,dir:raw>=2.8?1:raw<=-2.8?-1:0,ok:valid>=4,valid,total:6};
+  const snaps=[];const scoreOne=(a,b,c)=>{if(!a||!b)return 0;const x=technicalSnapshot(closedTestCandles(a)),y=technicalSnapshot(closedTestCandles(b)),z=c?technicalSnapshot(closedTestCandles(c)):null;snaps.push(x,y);if(z)snaps.push(z);return x.trend+y.trend+x.momentum*.5+y.momentum*.5+(z?.trend||0)*.8+(z?.momentum||0)*.35};
+  const raw=scoreOne(b5,b15,b1)+scoreOne(e5,e15,e1),valid=[b5,b15,b1,e5,e15,e1].filter(Boolean).length,dir=raw>=2.8?1:raw<=-2.8?-1:0;
+  const adxVals=snaps.map(x=>Number(x?.adx14)).filter(Number.isFinite),atrVals=snaps.map(x=>Number(x?.atrPct)).filter(Number.isFinite),avgAdx=adxVals.length?adxVals.reduce((a,b)=>a+b,0)/adxVals.length:null,maxAtrPct=atrVals.length?Math.max(...atrVals):null,liq=realtimeLiquidationSnapshot(),radar=realtimeRadarSummary(),breadth=(radar.advancers+radar.decliners)>0?(radar.advancers-radar.decliners)/(radar.advancers+radar.decliners):null;
+  let regime='NORMAL';if(liq.totalUsd>=REGIME_LIQUIDATION_5M_USD)regime='LIQUIDATION';else if((maxAtrPct||0)>=1.0)regime='HIGH_VOL';else if(dir>0&&(avgAdx||0)>=20)regime='TREND_UP';else if(dir<0&&(avgAdx||0)>=20)regime='TREND_DOWN';else if(dir===0||(avgAdx||0)<17)regime='CHOP';
+  return {raw,dir,ok:valid>=4,valid,total:6,regime,avgAdx:Number.isFinite(avgAdx)?Number(avgAdx.toFixed(1)):null,maxAtrPct:Number.isFinite(maxAtrPct)?Number(maxAtrPct.toFixed(3)):null,liquidation5mUsd:Number(liq.totalUsd.toFixed(0)),longLiquidation5mUsd:Number(liq.longLiquidationUsd.toFixed(0)),shortLiquidation5mUsd:Number(liq.shortLiquidationUsd.toFixed(0)),breadth:Number.isFinite(breadth)?Number(breadth.toFixed(3)):null,radar};
 }
 function testLiveAggregate() {
   const calc=(rows)=>{const wins=rows.filter(x=>x.result==='WIN').length,losses=rows.length-wins,avg=rows.length?rows.reduce((a,x)=>a+Number(x.returnPct||0),0)/rows.length:null;return {sample:rows.length,wins,losses,hitRate:rows.length?Number((wins/rows.length*100).toFixed(1)):null,avgReturnPct:Number.isFinite(avg)?Number(avg.toFixed(2)):null}};
@@ -3988,6 +4213,9 @@ function testSignalTier(t,{reentry=false}={}) {
   if(Number.isFinite(coverage)&&coverage<72)blockers.push('資料完整度<72%');
   if(Number.isFinite(dataConfidence)&&dataConfidence<65)blockers.push('資料可信度<65%');
   if(Number(cross?.available||0)>0&&Number(cross?.consensus||0)===-dir)blockers.push('跨交易所趨勢逆向');
+  const regime=String(t.marketRegime||ev.marketRegime||'NORMAL');
+  if(regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol)&&score<90)blockers.push('清算行情山寨品質<90');
+  if(['LIQUIDATION','HIGH_VOL'].includes(regime)&&Number.isFinite(spread)&&spread>8)blockers.push('高波動價差>8bps');
   const hardSafe=blockers.length===0;
   const highMissing=[];
   if(Number.isFinite(coverage)&&coverage<90)highMissing.push('資料完整度<90%');
@@ -3999,6 +4227,8 @@ function testSignalTier(t,{reentry=false}={}) {
   if(score<TEST_SIGNAL_HIGH_SCORE)highMissing.push(`品質<${TEST_SIGNAL_HIGH_SCORE}`);
   if(rank>6)highMissing.push('排名>6');
   if(Number.isFinite(chaseAtr)&&chaseAtr>TEST_SIGNAL_HIGH_MAX_CHASE_ATR)highMissing.push(`追價>${TEST_SIGNAL_HIGH_MAX_CHASE_ATR.toFixed(2)}ATR`);
+  if(regime==='CHOP'&&score<90)highMissing.push('震盪行情品質<90');
+  if(['LIQUIDATION','HIGH_VOL'].includes(regime)&&(coverage<95||dataConfidence<90))highMissing.push('高波動需完整度95/可信度90');
   const normalMissing=[];
   if(Number.isFinite(coverage)&&coverage<80)normalMissing.push('資料完整度<80%');
   if(Number.isFinite(dataConfidence)&&dataConfidence<76)normalMissing.push('資料可信度<76%');
@@ -4008,6 +4238,8 @@ function testSignalTier(t,{reentry=false}={}) {
   if(low<43)normalMissing.push('保守下界<43%');
   if(score<TEST_SIGNAL_NORMAL_SCORE)normalMissing.push(`品質<${TEST_SIGNAL_NORMAL_SCORE}`);
   if(rank>9)normalMissing.push('排名>9');
+  if(regime==='CHOP'&&score<84)normalMissing.push('震盪行情品質<84');
+  if(regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol))normalMissing.push('清算行情山寨只允許最高級確認');
   if(!hardSafe)return {tier:'BLOCKED',rate,low,score,rank,blockers,highMissing,normalMissing};
   if(highMissing.length===0)return {tier:'HIGH',rate,low,score,rank,blockers,highMissing,normalMissing};
   if(normalMissing.length===0)return {tier:'NORMAL',rate,low,score,rank,blockers,highMissing,normalMissing};
@@ -4022,19 +4254,27 @@ function testPushCopy(t,statusLabel='') {
     body:`進場 ${entry}｜${testEntryStrategy(t,label)}`
   };
 }
-async function sendTestLifecyclePush(t, code, _title, _body, options={}) {
+function testLifecycleMessage(t,explicitTitle='',explicitBody='',statusLabel=''){
+  const fallback=testPushCopy(t,statusLabel||'');
+  return {title:String(explicitTitle||'').trim()||fallback.title,body:String(explicitBody||'').trim()||fallback.body};
+}
+async function sendTestLifecyclePush(t, code, explicitTitle, explicitBody, options={}) {
   t.lifecycleNotifications=t.lifecycleNotifications&&typeof t.lifecycleNotifications==='object'?t.lifecycleNotifications:{};
   if(t.lifecycleNotifications[code])return {processed:true,duplicate:true,sent:0};
   const tier=String(options.tier||(options.reentry?t.reentryNotificationTier:t.confirmNotificationTier)||t.confirmNotificationTier||testSignalTier(t,{reentry:!!options.reentry}).tier);
   if(tier==='BLOCKED')return {processed:false,blocked:true,sent:0};
-  const copy=testPushCopy(t,options.statusLabel||'');
-  const delivery=await sendPush({title:copy.title,body:copy.body,tag:`test-life-${code}-${t.symbol}-${t.direction}-${Date.now()}`,renotify:true,data:{url:testMonitorRoute(t)}},{testSignal:true,testSignalTier:tier});
+  const entryType=code==='CONFIRMED'||(options.reentry&&String(options.statusLabel||'').includes('二次確認'));
+  if(entryType&&TEST_ENTRY_DEBOUNCE_MS>0){await new Promise(r=>setTimeout(r,TEST_ENTRY_DEBOUNCE_MS));const px=finiteMetric(realtimeBestPrice(t.symbol)),stop=finiteMetric(options.reentry?t.reentryStop:t.stop),zone=testCurrentEntryZone(t),atr=finiteMetric(t.setup?.atr5);if(px!=null&&stop!=null){const dir=testSignalDirection(t.direction),target=finiteMetric(options.reentry?t.reentryTarget1R:t.target1R),invalid=dir>0?px<=stop:px>=stop;if(invalid)return {processed:false,blocked:true,sent:0,tier,reason:'debounce-invalidated'};if(target!=null){const passed=dir>0?px>=target:px<=target,rr=dir*(target-px)/Math.max(1e-12,Math.abs(px-stop));if(passed||rr<.85)return {processed:false,blocked:true,sent:0,tier,reason:passed?'debounce-target-passed':'debounce-rr-degraded'};}}if(px!=null&&zone&&atr>0){const dist=t.direction==='LONG'?Math.max(0,px-Number(zone.high)):Math.max(0,Number(zone.low)-px);if(dist/atr>TEST_SIGNAL_FIRST_MAX_CHASE_ATR)return {processed:false,blocked:true,sent:0,tier,reason:'debounce-chased'};}}
+  const {title,body}=testLifecycleMessage(t,explicitTitle,explicitBody,options.statusLabel||'');
+  const noticeId=`notice-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,noticeSentAt=new Date().toISOString(),noticeSnapshot=realtimeSnapshot(t.symbol),noticeEntryPrice=finiteMetric(realtimeBestPrice(t.symbol))??finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),route=testMonitorRoute(t),sep=route.includes('?')?'&':'?';
+  const pushStarted=Date.now();
+  const delivery=await sendPush({title,body,tag:`test-life-${code}-${t.symbol}-${t.direction}-${Date.now()}`,renotify:true,data:{url:`${route}${sep}notice=${encodeURIComponent(noticeId)}`,noticeId,serverSentAt:noticeSentAt}},{testSignal:true,testSignalTier:tier});
+  const pushAcceptedAt=new Date().toISOString(),pushServiceMs=Date.now()-pushStarted;
   // 被使用者通知模式過濾＝事件已處理；若本來符合推播但傳送失敗，保留下一輪重試機會。
   if(delivery.sent>0||delivery.eligible===0)t.lifecycleNotifications[code]=new Date().toISOString();
-  t.lastPushAttemptAt=new Date().toISOString();
-  t.lastPushTier=tier;
-  t.lastPushDelivery=delivery;
-  return {processed:delivery.sent>0||delivery.eligible===0,tier,...delivery};
+  t.lastPushAttemptAt=new Date().toISOString();t.lastPushTier=tier;t.lastPushDelivery={...delivery,pushServiceMs};
+  if(delivery.sent>0)performanceRecordForNotification(t,code,tier,delivery,{...options,noticeId,noticeSentAt,noticeSnapshot,noticeEntryPrice,pushAcceptedAt,pushServiceMs});
+  return {processed:delivery.sent>0||delivery.eligible===0,tier,pushServiceMs,...delivery};
 }
 function testMonitorEvidence({dir,last,prev,t5,t15,t30,t1h,rsiNow,rsiPrev,macdNow,macdPrev,deriv,market,breakoutLevel,micro}) {
   const belowBreakout2=Number.isFinite(breakoutLevel)&&(dir>0?(last.close<breakoutLevel&&prev.close<breakoutLevel):(last.close>breakoutLevel&&prev.close>breakoutLevel));
@@ -4315,7 +4555,7 @@ function testBuildLiveSnapshot(t,{rows5,rows15,t5,t15,t30,t1h,deriv,micro,riskCt
     oiChangePct:finiteMetric(deriv?.oiChangePct),takerRatio:finiteMetric(deriv?.takerRatio),topPositionRatio:finiteMetric(deriv?.topPositionRatio),topAccountRatio:finiteMetric(deriv?.topAccountRatio),globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio),
     depthImbalance:finiteMetric(micro?.depthImbalance),spreadBps:finiteMetric(micro?.spreadBps),bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:finiteMetric(chaseAtr),
     adlRisk:String(riskCtx?.adlRisk||'unknown').toLowerCase(),fundingPct:finiteMetric(riskCtx?.fundingPct),basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),markPrice:finiteMetric(riskCtx?.markPrice),indexPrice:finiteMetric(riskCtx?.indexPrice),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),
-    fundingCrowded:finiteMetric(riskCtx?.fundingPct)!=null&&(dir>0?Number(riskCtx.fundingPct)>=.08:Number(riskCtx.fundingPct)<=-.08),t30Trend:t30?.trend??null,h1Trend:t1h?.trend??null,marketAlign,crossAlign,crossExchange:crossCtx||null,
+    fundingCrowded:finiteMetric(riskCtx?.fundingPct)!=null&&(dir>0?Number(riskCtx.fundingPct)>=.08:Number(riskCtx.fundingPct)<=-.08),t30Trend:t30?.trend??null,h1Trend:t1h?.trend??null,marketAlign,crossAlign,crossExchange:crossCtx||null,marketRegime:market?.regime||'UNKNOWN',liquidation5mUsd:finiteMetric(market?.liquidation5mUsd),realtime:realtimeSnapshot(t.symbol),
     metricSources:{...(t.lastCheck?.metricSources||{}),...(deriv?._source||{}),...(micro?._source||{}),...(riskCtx?._source||{})}
   };
 }
@@ -4335,12 +4575,14 @@ async function analyzeTestTracker(t, market) {
     needSetup?testFetchBacktestCandles(t.symbol,'5m',2).catch(()=>null):Promise.resolve(null)
   ]);
   const rows5=closedTestCandles(c5),rows15=closedTestCandles(c15),rows30=c30?closedTestCandles(c30):[],rows1h=c1h?closedTestCandles(c1h):[];
+  const realtime=applyRealtimeOverlay(t.symbol,deriv,micro,riskCtx);t.marketRegime=market?.regime||'UNKNOWN';
   if(rows5.length<80||rows15.length<80)throw new Error('candles short');
   if(!t.setup)t.setup=buildTestSetup(t.idea,c5,c15,backtest5?.length?backtest5:c5);
   const setup=t.setup,dir=testSignalDirection(t.direction),last=rows5.at(-1),prev=rows5.at(-2),t5=technicalSnapshot(rows5),t15=technicalSnapshot(rows15),t30=rows30.length>=60?technicalSnapshot(rows30):null,t1h=rows1h.length>=60?technicalSnapshot(rows1h):null,rsi=ideaRsiSeries(rows5.map(x=>x.close),14),macd=ideaMacdSeries(rows5.map(x=>x.close));
   // V9.0：時間顯示簡化；盤整/等待與資料延遲分離。指標以已收 K 判讀，現價用最新 mark price。
   const evaluatedAt=new Date().toISOString();
-  const liveMark=Number(markPrices.get(cleanFuturesSymbol(t.symbol)));
+  const realtimePx=Number(realtimeBestPrice(t.symbol));
+  const liveMark=Number.isFinite(realtimePx)&&realtimePx>0?realtimePx:Number(markPrices.get(cleanFuturesSymbol(t.symbol)));
   t.lastEvaluatedAt=evaluatedAt;
   t.lastEvaluatedBarAt=last?.closeTime?new Date(last.closeTime).toISOString():null;
   t.lastEvaluationError=null;
@@ -4359,6 +4601,8 @@ async function analyzeTestTracker(t, market) {
     k5:{source:ksrc('5m',500)?.source||null,fallback:ksrc('5m',500)?.fallback===true,error:ksrc('5m',500)?.error||null},k15:{source:ksrc('15m',260)?.source||null,fallback:ksrc('15m',260)?.fallback===true,error:ksrc('15m',260)?.error||null},k30:{source:ksrc('30m',220)?.source||null,fallback:ksrc('30m',220)?.fallback===true,error:ksrc('30m',220)?.error||null},h1:{source:ksrc('1h',180)?.source||null,fallback:ksrc('1h',180)?.fallback===true,error:ksrc('1h',180)?.error||null},
     oi:{source:deriv?._source?.oi||null,error:deriv?._errors?.oi||deriv?._errors?.oiFallback||null},taker:{source:deriv?._source?.taker||null,error:deriv?._errors?.taker||deriv?._errors?.takerFallback||deriv?._errors?.takerBybitFallback||null},globalLs:{source:deriv?._source?.globalLs||null,error:deriv?._errors?.global||deriv?._errors?.globalFallback||null},topPos:{source:deriv?._source?.topPos||null,error:deriv?._errors?.top||null},topAccount:{source:deriv?._source?.topAccount||null,error:deriv?._errors?.topAccount||null},depth:{source:micro?._source?.depth||null,error:micro?._errors?.depth||null},funding:{source:riskCtx?._source?.funding||null,error:riskCtx?._errors?.premium||riskCtx?._errors?.bybitTicker||null},basis:{source:riskCtx?._source?.basis||null,error:riskCtx?._errors?.basis||null},adl:{source:riskCtx?._source?.adl||null,error:riskCtx?._errors?.adl||null},mark:{source:riskCtx?._source?.mark||(Number.isFinite(liveMark)&&liveMark>0?'Binance':null),error:riskCtx?._errors?.premium||null},market:{source:'Binance BTC/ETH'},backtest:{source:'Binance K線自算',sample:btSample}
   };
+  for(const [k,d] of Object.entries(sourceDetails)){d.status=sourceFlags[k]===true?'OK':d?.error?'FETCH_ERROR':'MISSING';}
+  sourceDetails.realtime={source:realtime?.source||null,status:(realtime?.markAgeMs!=null&&realtime.markAgeMs<=REALTIME_STALE_MS)?'OK':'STALE_OR_FALLBACK',markAgeMs:realtime?.markAgeMs??null,bookAgeMs:realtime?.bookAgeMs??null,takerAgeMs:realtime?.takerAgeMs??null};
   const qualityKeys=['k5','k15','k30','h1','oi','taker','globalLs','topPos','topAccount','depth','funding','basis','adl','mark','market','backtest'];
   const validCount=qualityKeys.filter(k=>sourceFlags[k]).length,coveragePct=Math.round(validCount/qualityKeys.length*100);
   const fallbackCount=Object.values(sourceDetails).filter(x=>x?.fallback||String(x?.source||'').includes('備援')).length;
@@ -4432,7 +4676,7 @@ async function analyzeTestTracker(t, market) {
   const body=Math.max(Math.abs(last.close-last.open),setup.atr5*.04),lower=Math.max(0,Math.min(last.open,last.close)-last.low),upper=Math.max(0,last.high-Math.max(last.open,last.close)),wicker=dir>0?lower/body>=.65:upper/body>=.65;
   const prior=rows5.slice(-7,-1),priorEdge=dir>0?Math.min(...prior.map(x=>x.low)):Math.max(...prior.map(x=>x.high)),sweep=dir>0?(last.low<priorEdge&&last.close>priorEdge):(last.high>priorEdge&&last.close<priorEdge);
   const ri=rows5.length-1,rsiNow=Number(rsi[ri]),rsiPrev=Number(rsi[ri-1]),momentum=dir>0?(rsiNow>=44&&rsiNow<=72&&rsiNow>rsiPrev):(rsiNow<=56&&rsiNow>=28&&rsiNow<rsiPrev),macdImprove=dir>0?macd.hist[ri]>macd.hist[ri-1]:macd.hist[ri]<macd.hist[ri-1];
-  const marketAlign=market.dir===0?0:(market.dir===dir?1:-1),takerVal=finiteMetric(deriv?.takerRatio),topVal=finiteMetric(deriv?.topPositionRatio),oiVal=finiteMetric(deriv?.oiChangePct),derivDir=takerVal==null?0:(dir>0?(takerVal>=1.02?1:takerVal<.94?-1:0):(takerVal<=.98?1:takerVal>1.06?-1:0)),topDir=topVal==null?0:(dir>0?(topVal>=1.02?1:topVal<.96?-1:0):(topVal<=.98?1:topVal>1.04?-1:0)),oiOk=oiVal==null?false:oiVal>-2;
+  const marketAlign=market.dir===0?0:(market.dir===dir?1:-1),takerVal=finiteMetric(deriv?.takerRatio),topVal=finiteMetric(deriv?.topPositionRatio),oiVal=finiteMetric(deriv?.oi15mChangePct)??finiteMetric(deriv?.oiChangePct),derivDir=takerVal==null?0:(dir>0?(takerVal>=1.02?1:takerVal<.94?-1:0):(takerVal<=.98?1:takerVal>1.06?-1:0)),topDir=topVal==null?0:(dir>0?(topVal>=1.02?1:topVal<.96?-1:0):(topVal<=.98?1:topVal>1.04?-1:0)),oiOk=oiVal==null?false:oiVal>-2;
   const depth=finiteMetric(micro?.depthImbalance),depthDir=depth==null?0:(dir>0?(depth>=.06?1:depth<=-.14?-1:0):(depth<=-.06?1:depth>=.14?-1:0));
   const h1Opposed=t1h&&t1h.trend===-dir&&Number(t1h.adx14||0)>=24,t30Opposed=t30&&t30.trend===-dir&&Number(t30.adx14||0)>=22;
   const chaseDistance=dir>0?Math.max(0,last.close-setup.zoneHigh):Math.max(0,setup.zoneLow-last.close),chaseAtr=setup.atr5>0?chaseDistance/setup.atr5:0;
@@ -4442,7 +4686,7 @@ async function analyzeTestTracker(t, market) {
   const reasons=testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio:t5.volumeRatio,deriv,marketAlign,direction:t.direction});
   if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');if(t1h?.trend===dir)reasons.push('1小時趨勢同向');
   t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','等待',new Date().toISOString());t.updatedAt=new Date().toISOString();
-  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
+  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
   const confirm=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketAlign>=0&&!h1Opposed&&!t30Opposed&&depthDir>=0&&spreadOk&&chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR&&adlRisk!=='high'&&!fundingCrowded&&score>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
     const entry=last.close,rawRisk=Math.abs(entry-setup.invalidation),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.65,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
@@ -4480,7 +4724,7 @@ function publicTestTracker(t) {
     monitorState:t.monitorState||'WATCHING',monitorLabel:testMonitorStateLabel(t.monitorState,t.status),monitorClass:testMonitorStateClass(t.monitorState,t.status),monitorScore:t.monitorScore??null,
     notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,score:tier.score,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,
     calibratedWinRate:currentRate,confirmedWinRate:confirmedRate,currentWinRate:currentRate,winRateDelta:confirmedRate!=null&&currentRate!=null?Number((currentRate-confirmedRate).toFixed(1)):null,winRateMeta:dynamic?calibrated:(t.winRateMetaAtConfirm||calibrated),
-    freshness,lastEvaluatedAt:t.lastEvaluatedAt??null,lastEvaluatedBarAt:t.lastEvaluatedBarAt??null,lastEvaluationError:t.lastEvaluationError??null,lastEvaluationErrorAt:t.lastEvaluationErrorAt??null,priceUpdatedAt:markPriceUpdatedAt??null,
+    freshness,marketRegime:t.marketRegime||t.lastCheck?.marketRegime||null,realtime:realtimeSnapshot(t.symbol),lastEvaluatedAt:t.lastEvaluatedAt??null,lastEvaluatedBarAt:t.lastEvaluatedBarAt??null,lastEvaluationError:t.lastEvaluationError??null,lastEvaluationErrorAt:t.lastEvaluationErrorAt??null,priceUpdatedAt:markPriceUpdatedAt??null,
     eventAt,stateChangedAt:t.stateChangedAt??null,finishedAt:t.finishedAt??null,invalidatedAt:t.invalidatedAt??null,invalidReason:t.invalidReason??null,reactivateUntil:t.reactivateUntil??null,reactivatedAt:t.reactivatedAt??null,droppedAt:t.droppedAt??null,targetReachedAt:t.targetReachedAt??null,reentryStage:t.reentryStage??null,reentryStageAt:t.reentryStageAt??null,reentryZoneLow:t.reentryZoneLow??null,reentryZoneHigh:t.reentryZoneHigh??null,reentryZoneMid:t.reentryZoneMid??null,reentryInvalidation:t.reentryInvalidation??null,reentryConfirmAt:t.reentryConfirmAt??null,reentryEntryPrice:t.reentryEntryPrice??null,reentryStop:t.reentryStop??null,reentryTarget1R:t.reentryTarget1R??null,reentryScore:t.reentryScore??null,reentryReasons:t.reentryReasons||[],reentryResult:t.reentryResult??null,reentryResultAt:t.reentryResultAt??null,
     firstSeenAt:t.firstSeenAt,lastSeenIdeaAt:t.lastSeenIdeaAt,updatedAt:t.updatedAt,touchedAt:t.touchedAt,confirmedAt:t.confirmedAt,notificationSentAt:t.notificationSentAt??null,
     currentPrice:livePrice,barClosePrice:t.currentPrice??null,confirmationPrice:t.confirmationPrice??null,qualityScore:t.qualityScore??t.setup?.setupScore??null,
@@ -4502,14 +4746,15 @@ async function runTestSignalScan(force=false) {
   }catch(e){testSignalLastError=String(e?.message||e);console.warn(`[test-signal] ${testSignalLastError}`)}finally{testSignalBusy=false}
 }
 function testSignalLoop(){void runTestSignalScan(false).finally(()=>{testSignalTimer=setTimeout(testSignalLoop,TEST_SIGNAL_SCAN_MS)})}
+function scheduleNextFiveMinuteScan(){if(testBarTimer)clearTimeout(testBarTimer);const now=Date.now(),step=5*60_000,next=(Math.floor(now/step)+1)*step+2500;testBarTimer=setTimeout(()=>{testCandleCache.clear();testMicroCache.clear();testDerivCache.clear();void runTestSignalScan(true).finally(scheduleNextFiveMinuteScan)},Math.max(1000,next-now));testBarTimer.unref?.()}
 function testSignalResponse() {
   const rows=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000).sort((a,b)=>{const pa={CONFIRMED:0,INVALID:1,TOUCHING:2,WAIT_PULLBACK:3,WIN:4,TIMEOUT:5,DROPPED:6,LOSS:7,EXPIRED:8};const sa=(pa[a.status]??9),sb=(pa[b.status]??9);if(sa!==sb)return sa-sb;if(sa<=1)return testMonitorPriority(b)-testMonitorPriority(a)||(a.rank||99)-(b.rank||99);return (a.rank||99)-(b.rank||99)}).slice(0,24).map(publicTestTracker);
   const notifyStats={high:0,normal:0,valid:0,blocked:0,highNormalEligible:0};
   for(const row of rows){const k=String(row.notificationTier||'VALID').toLowerCase();if(k in notifyStats)notifyStats[k]++;if(row.notificationTier==='HIGH'||row.notificationTier==='NORMAL')notifyStats.highNormalEligible++}
   const now=Date.now(),scanAgeMs=testSignalLastRunAt?Math.max(0,now-testSignalLastRunAt):null,priceAgeMs=markPriceUpdatedAt?Math.max(0,now-new Date(markPriceUpdatedAt).getTime()):null;
   const staleCount=rows.filter(r=>r.freshness?.state==='STALE').length,delayedCount=rows.filter(r=>r.freshness?.state==='DELAYED').length;
-  const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError};
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.6 DATA MAX：Binance 主資料源；K線/技術指標自行計算，衍生品、委託簿、Funding/Basis/ADL/Mark Price 優先 Binance；失敗時以 Binance 成交資料、Bybit、OKX 明確標示備援。資料完整度只計可用性，可信度另外扣除小樣本與備援來源；高勝率通知要求完整度≥90%且可信度≥86%，普通≥80%/76%，低於72%或65%直接阻擋。缺值不以0或中性值冒充有效訊號；Bybit/OKX只做交叉驗證，不把不同交易所絕對值直接平均。AI網搜維持手動按需、2小時快取。',error:testSignalLastError};
+  const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError,realtime:realtimeHealthSnapshot(),radar:realtimeRadarSummary()};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V10 SOLO MAX：Binance REST + WebSocket 雙路；depth20 100ms、aggTrade、Mark 1s、全市場 ticker、清算流即時接入，REST/Bybit/OKX 自動備援。深度判讀約30秒＋每根5分K收盤後強制刷新；進場通知先短暫去抖再檢查失效/追價。市場先分 TREND/CHOP/HIGH_VOL/LIQUIDATION 再決定通知門檻。所有成功送達的進場型通知另建精準績效帳本，逐筆追蹤 MFE/MAE、1R首觸、5/15/30/60/90/240分鐘報酬。缺值不以0或中性值冒充有效訊號。',error:testSignalLastError};
 }
 
 
@@ -4657,6 +4902,29 @@ app.get('/api/symbol-analysis', async (req, res) => {
   } catch (err) { res.status(503).json({ok:false,error:String(err?.message||err)}); }
 });
 
+app.get('/api/performance', (_req,res)=>res.json(performanceResponse()));
+app.get('/api/performance.csv', (_req,res)=>{
+  const cols=['notificationAt','receivedAt','clickedAt','symbol','direction','phase','tier','marketRegime','entryPrice','stop','target','targetR','calibratedWinRate','dataCoverage','dataConfidence','status','result','resultAt','exitPrice','mfePct','maePct','realizedR','grossReturnPct','netReturnPct','signalToPushMs','pushServiceMs','deliveryLatencyMs','clickLatencyMs','notificationPriceSource'];
+  const escCsv=v=>{if(v==null)return'';const x=String(v);return /[\",\n\r]/.test(x)?`\"${x.replace(/\"/g,'\"\"')}\"`:x};
+  const rows=signalPerformance.filter(x=>x?.version==='V10.0'),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');
+  res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=signal-performance-v10-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
+});
+app.post('/api/notification-received',(req,res)=>{const id=String(req.body?.id||'');if(!id)return res.status(400).json({ok:false});const found=performanceApplyNotificationAck('received',id,req.body?.at);res.json({ok:true,found});});
+app.post('/api/notification-click',(req,res)=>{const id=String(req.body?.id||'');if(!id)return res.status(400).json({ok:false});const found=performanceApplyNotificationAck('clicked',id,req.body?.at);res.json({ok:true,found});});
+app.get('/api/realtime', (_req,res)=>res.json({ok:true,generatedAt:new Date().toISOString(),...realtimeHealthSnapshot()}));
+
+app.get('/api/self-test', async (req,res)=>{
+  const live=String(req.query?.live||'0')==='1',checks=[];
+  try{const sm=summarizeDepth([['100','2'],['99','3']],[['101','1'],['102','2']]);checks.push({name:'depth-calculation',ok:sm.ok&&sm.bidNotional>0&&sm.askNotional>0&&Number.isFinite(sm.spreadBps)})}catch(e){checks.push({name:'depth-calculation',ok:false,error:String(e?.message||e)})}
+  try{const tech=technicalSnapshot(Array.from({length:90},(_,i)=>({open:100+i*.08,high:100.3+i*.08,low:99.7+i*.08,close:100.1+i*.08,volume:1000+i,openTime:i*300000,closeTime:(i+1)*300000-1})));checks.push({name:'technical-indicators',ok:Number.isFinite(tech.rsi14)&&Number.isFinite(tech.atr14)&&Number.isFinite(tech.adx14)})}catch(e){checks.push({name:'technical-indicators',ok:false,error:String(e?.message||e)})}
+  try{const u1=realtimeSocketUrl('public',['BTCUSDT']),u2=realtimeSocketUrl('market',['BTCUSDT']);checks.push({name:'websocket-url',ok:u1.includes('/public/stream?streams=')&&u1.includes('btcusdt@depth20@100ms')&&u2.includes('/market/stream?streams=')&&u2.includes('btcusdt@aggTrade')})}catch(e){checks.push({name:'websocket-url',ok:false,error:String(e?.message||e)})}
+  try{const perf=performanceAggregate([{version:'V10.0',status:'RESOLVED',result:'WIN',realizedR:1,grossReturnPct:1,netReturnPct:.88,mfePct:1.2,maePct:.2,tier:'HIGH',direction:'LONG',marketRegime:'TREND_UP',symbol:'BTCUSDT',calibratedWinRate:65,signalToPushMs:2800,pushServiceMs:120,deliveryLatencyMs:430}],false);checks.push({name:'performance-ledger',ok:perf.sample===1&&perf.wins===1&&perf.hitRate===100})}catch(e){checks.push({name:'performance-ledger',ok:false,error:String(e?.message||e)})}
+  const liveRows=[];
+  if(live){for(const symbol of ['BTCUSDT','ETHUSDT']){const started=Date.now();try{const [c,m,d,r,x]=await Promise.all([testFetchCandles(symbol,'5m',120),testFetchMicrostructure(symbol),testFetchDerivatives(symbol),testFetchRiskContext(symbol),testFetchCrossExchange(symbol).catch(()=>null)]);const source=testCandleSourceCache.get(`${symbol}:5m:120`);const ok=Array.isArray(c)&&c.length>=60&&m?._health?.depth===true&&(d?._health?.oi===true||d?._health?.taker===true)&&r?._health?.mark===true;const row={name:`live-${symbol}`,ok,elapsedMs:Date.now()-started,sources:{candles:source?.source||source||null,depth:m?._source?.depth||null,oi:d?._source?.oi||null,taker:d?._source?.taker||null,mark:r?._source?.mark||null,funding:r?._source?.funding||null,crossAvailable:x?.available??null}};checks.push(row);liveRows.push(row)}catch(e){const row={name:`live-${symbol}`,ok:false,elapsedMs:Date.now()-started,error:String(e?.message||e)};checks.push(row);liveRows.push(row)}}}
+  const realtime=realtimeHealthSnapshot();
+  res.json({ok:checks.every(x=>x.ok),version:BUILD_VERSION,live,generatedAt:new Date().toISOString(),checks,liveRows,realtime,performance:{records:signalPerformance.filter(x=>x.version==='V10.0').length}});
+});
+
 app.get('/api/test-signals', async (req, res) => {
   try {
     const force = String(req.query?.force || '') === '1';
@@ -4683,7 +4951,7 @@ app.get('/api/data-probe', async (req, res) => {
       testFetchCrossExchange(symbol).catch(e=>({__error:String(e?.message||e)})),
     ]);
     const candleInfo=(rows,interval,limit)=>{const err=rows?.__error;if(err)return {ok:false,error:err};const closed=closedTestCandles(rows),t=closed.length>=60?technicalSnapshot(closed):null,src=testCandleSourceCache.get(`${symbol}:${interval}:${limit}`)||{};return {ok:closed.length>=60,bars:closed.length,source:src.source||null,fallback:src.fallback===true,rsi:t?.rsi14??null,adx:t?.adx14??null,volumeRatio:t?.volumeRatio??null,trend:t?.trend??null,error:src.error||null}};
-    res.json({ok:true,symbol,generatedAt:new Date().toISOString(),elapsedMs:Date.now()-started,mode:'V9.6 DATA MAX',candles:{m5:candleInfo(c5,'5m',180),m15:candleInfo(c15,'15m',180),m30:candleInfo(c30,'30m',120),h1:candleInfo(c1h,'1h',120)},derivatives:deriv,microstructure:micro,risk,crossExchange:cross});
+    res.json({ok:true,symbol,generatedAt:new Date().toISOString(),elapsedMs:Date.now()-started,mode:'V10.0 SOLO MAX',candles:{m5:candleInfo(c5,'5m',180),m15:candleInfo(c15,'15m',180),m30:candleInfo(c30,'30m',120),h1:candleInfo(c1h,'1h',120)},derivatives:deriv,microstructure:micro,risk,crossExchange:cross});
   }catch(e){res.status(502).json({ok:false,symbol,error:String(e?.message||e)})}
 });
 
@@ -4712,7 +4980,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V9_6_DATA_MAX_CROSS_EXCHANGE',
+    mode: 'V10_0_SOLO_MAX_REALTIME_PERFORMANCE',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -4847,13 +5115,15 @@ app.get('/api/reference-levels', async (req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V9.6',
+    mode: 'V10.0',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
     markPriceUpdatedAt,
     markPriceError,
     markPriceSymbols: markPrices.size,
+    realtime: realtimeHealthSnapshot(),
+    performance: { records:signalPerformance.filter(x=>x.version==='V10.0').length, active:signalPerformance.filter(x=>x.version==='V10.0'&&x.status==='ACTIVE').length, summary:performanceAggregate() },
     copyRate: copyRateSnapshot(),
     screenRunning,
     screenCursor,
@@ -4936,7 +5206,7 @@ app.post('/api/subscribe', (req, res) => {
     dailyBriefIntervalHours,
     lastDailyBriefPushAt: idx >= 0 ? records[idx]?.lastDailyBriefPushAt || null : null,
     lastDailyBriefPushDay: idx >= 0 ? records[idx]?.lastDailyBriefPushDay || null : null,
-    preferenceVersion: 80,
+    preferenceVersion:100,
   };
 
   if (idx >= 0) records[idx] = next;
@@ -4953,7 +5223,7 @@ app.post('/api/subscribe', (req, res) => {
     testSignalEnabled,
     testSignalNotifyMode,
     dailyBriefIntervalHours,
-    preferenceVersion: 80,
+    preferenceVersion:100,
   });
 });
 
@@ -4983,7 +5253,7 @@ app.post('/api/preferences', (req, res) => {
   if (typeof req.body?.testSignalEnabled === 'boolean') rec.testSignalEnabled = req.body.testSignalEnabled;
   if (req.body?.testSignalNotifyMode !== undefined) rec.testSignalNotifyMode = cleanTestSignalNotifyMode(req.body.testSignalNotifyMode);
   if (req.body?.dailyBriefIntervalHours !== undefined) rec.dailyBriefIntervalHours = 24;
-  rec.preferenceVersion = 85;
+  rec.preferenceVersion = 100;
 
   saveSubRecords(records);
 
@@ -4996,7 +5266,7 @@ app.post('/api/preferences', (req, res) => {
     testSignalEnabled: rec.testSignalEnabled === true,
     testSignalNotifyMode: cleanTestSignalNotifyMode(rec.testSignalNotifyMode),
     dailyBriefIntervalHours: 24,
-    preferenceVersion: 85,
+    preferenceVersion:100,
   });
 });
 
@@ -5050,20 +5320,25 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V9.6',
+    mode: 'V10.0',
+    realtime: realtimeHealthSnapshot(),
+    performanceRecords: signalPerformance.filter(x=>x.version==='V10.0').length,
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V9.6 DATA MAX CROSS-EXCHANGE started on ${PORT}`);
+    console.log(`Position Alert V10.0 SOLO MAX started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
     referenceTimer = setTimeout(referenceLoop, 12000);
     screenTimer = setTimeout(screenLoop, 16000);
     dailyBriefTimer = setTimeout(dailyBriefLoop, 25000);
-    testSignalTimer = setTimeout(testSignalLoop, 30000);
+    testSignalTimer = setTimeout(testSignalLoop, 8000);
+    performanceTimer=setInterval(performanceTrackerFallback,1000);performanceTimer.unref?.();
+    scheduleNextFiveMinuteScan();
+    startRealtime();
   });
 }
 
@@ -5074,6 +5349,11 @@ process.on('SIGTERM', () => {
   if (screenTimer) clearTimeout(screenTimer);
   if (dailyBriefTimer) clearTimeout(dailyBriefTimer);
   if (testSignalTimer) clearTimeout(testSignalTimer);
+  if (testBarTimer) clearTimeout(testBarTimer);
+  if (performanceTimer) clearInterval(performanceTimer);
+  if (performanceSaveTimer) clearTimeout(performanceSaveTimer);
+  saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance.slice(0,1200));
+  stopRealtime();
   process.exit(0);
 });
 
@@ -5103,4 +5383,15 @@ export {
   buildTodayView,
   testMonitorStateLabel,
   testMonitorEvidence,
+  performanceAggregate,
+  performanceCalibration,
+  realtimeSocketUrl,
+  realtimeSnapshot,
+  realtimeHealthSnapshot,
+  summarizeDepth,
+  testSignalTier,
+  testPushCopy,
+  testLifecycleMessage,
+  sendTestLifecyclePush,
+  analyzeTestTracker,
 };

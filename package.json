@@ -1,15 +1,16 @@
 {
-  "name": "position-alert-v960-data-max-cross-exchange",
-  "version": "9.6.0",
+  "name": "position-alert-v1000-solo-max",
+  "version": "10.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "vapid": "web-push generate-vapid-keys"
+    "vapid": "web-push generate-vapid-keys",
+    "test": "UNIT_TEST=1 node test_v100.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
