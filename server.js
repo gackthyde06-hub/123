@@ -101,8 +101,19 @@ const MARKET_24H_URL = 'https://fapi.binance.com/fapi/v1/ticker/24hr';
 const MARKET_FLOW_CACHE_MS = Math.max(5000, Number(process.env.MARKET_FLOW_CACHE_MS || 15000));
 const MARKET_FLOW_TIMEOUT_MS = Math.max(12000, Number(process.env.MARKET_FLOW_TIMEOUT_MS || 18000));
 const MARKET_FLOW_STALE_MS = Math.max(60_000, Number(process.env.MARKET_FLOW_STALE_MS || 10 * 60 * 1000));
+const IDEA_CACHE_MS = Math.max(60_000, Number(process.env.IDEA_CACHE_MS || 3 * 60 * 1000));
+const IDEA_STALE_MS = Math.max(5 * 60_000, Number(process.env.IDEA_STALE_MS || 20 * 60 * 1000));
+const IDEA_SYMBOLS = Math.max(8, Math.min(24, Number(process.env.IDEA_SYMBOLS || 16)));
+const IDEA_CONCURRENCY = Math.max(2, Math.min(6, Number(process.env.IDEA_CONCURRENCY || 4)));
+const FUTURES_DATA = 'https://fapi.binance.com/futures/data';
+const DAILY_BRIEF_MIN_MS = Math.max(60 * 60 * 1000, Number(process.env.DAILY_BRIEF_MIN_MS || 2 * 60 * 60 * 1000));
+const DAILY_BRIEF_DEFAULT_MS = Math.max(DAILY_BRIEF_MIN_MS, Number(process.env.DAILY_BRIEF_DEFAULT_MS || 3 * 60 * 60 * 1000));
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 
 let marketFlowCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
+let rankedIdeasCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
+let dailyBriefCache = { at:0, data:null, error:null, inflight:null };
+let dailyBriefTimer = null;
 
 const SUB_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const STATE_FILE = path.join(DATA_DIR, 'state-v5.json');
@@ -1070,10 +1081,11 @@ function parseKlineRow(row) {
   const high = Number(row[2]);
   const low = Number(row[3]);
   const close = Number(row[4]);
+  const volume = Number(row[5] || 0);
   const closeTime = Number(row[6] || 0);
   if (![openTime, open, high, low, close].every(Number.isFinite)) return null;
   if (!(high > 0) || !(low > 0) || !(close > 0) || high < low) return null;
-  return { openTime, open, high, low, close, closeTime };
+  return { openTime, open, high, low, close, volume:Number.isFinite(volume)?volume:0, closeTime };
 }
 
 async function fetchLevelCandles(symbol) {
@@ -2069,6 +2081,10 @@ function cleanEventTypes(value, fallbackAll = true) {
   if (!Array.isArray(value)) return fallbackAll ? [...EVENT_TYPES] : [];
   return value.filter(type => EVENT_TYPE_SET.has(type));
 }
+function cleanBriefInterval(value) {
+  const n = Number(value);
+  return [2,3,6,12].includes(n) ? n : 3;
+}
 
 function migratedEventTypes(record) {
   const types = cleanEventTypes(record?.enabledTypes, true);
@@ -2084,7 +2100,10 @@ function normalizeSubRecord(x) {
       enabledTraders: cleanTraderIds(x.enabledTraders, true),
       enabledTypes: migratedEventTypes(x),
       consensusEnabled: x.consensusEnabled !== false,
-      preferenceVersion: 65,
+      dailyBriefEnabled: x.dailyBriefEnabled === true,
+      dailyBriefIntervalHours: cleanBriefInterval(x.dailyBriefIntervalHours),
+      lastDailyBriefPushAt: x.lastDailyBriefPushAt || null,
+      preferenceVersion: 72,
     };
   }
 
@@ -2095,7 +2114,10 @@ function normalizeSubRecord(x) {
       enabledTraders: TRADERS.map(t => t.id),
       enabledTypes: [...EVENT_TYPES],
       consensusEnabled: true,
-      preferenceVersion: 65,
+      dailyBriefEnabled: false,
+      dailyBriefIntervalHours: 3,
+      lastDailyBriefPushAt: null,
+      preferenceVersion: 72,
     };
   }
 
@@ -2926,16 +2948,6 @@ function buildTodayView(rows, byVolume, recommendations, summary) {
 
   const sentimentScore = clamp(Math.round(50 + Number(summary.weightedChangePct || 0) * 6 + Number(summary.breadth || 0) * 32), 5, 95);
   const sentimentLabel = sentimentScore >= 62 ? '偏多' : sentimentScore <= 38 ? '偏空' : '中性';
-  const opinionTitle = sentimentScore >= 62
-    ? '今日偏多，優先找做多回踩'
-    : sentimentScore <= 38
-      ? '今日偏空，優先找做空反彈'
-      : '今日中性，只挑最強多與最弱空';
-  const opinionText = sentimentScore >= 62
-    ? `高流動性標的整體偏強，先找「資金流入 + 上漲」的做多候選；若價格已急拉或資金費率過熱，等回踩再進。`
-    : sentimentScore <= 38
-      ? `高流動性標的整體偏弱，先找「資金流出 + 下跌」的做空候選；若跌幅已過深，等反彈確認再空。`
-      : `市場沒有單邊優勢，只挑「資金流入 + 上漲」的強多與「資金流出 + 下跌」的強空，中間兩類只觀察不追。`;
 
   const biases = Object.keys(biasMeta).map(key => ({
     ...biasMeta[key],
@@ -2955,8 +2967,6 @@ function buildTodayView(rows, byVolume, recommendations, summary) {
     openTimeTaiwan: '08:00 台灣',
     sentimentScore,
     sentimentLabel,
-    opinionTitle,
-    opinionText,
     topLongs,
     topShorts,
     biases,
@@ -3062,6 +3072,289 @@ async function getMarketFlow() {
   }
 }
 
+function ideaEmaSeries(values, period) {
+  if (!Array.isArray(values) || !values.length) return [];
+  const k = 2 / (period + 1);
+  const out = [];
+  let prev = Number(values[0] || 0);
+  out.push(prev);
+  for (let i = 1; i < values.length; i++) {
+    const v = Number(values[i] || 0);
+    prev = v * k + prev * (1 - k);
+    out.push(prev);
+  }
+  return out;
+}
+
+function ideaRsiSeries(values, period = 14) {
+  const out = Array(values.length).fill(null);
+  if (values.length <= period) return out;
+  let gain = 0, loss = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = values[i] - values[i - 1];
+    gain += Math.max(0, d);
+    loss += Math.max(0, -d);
+  }
+  let avgGain = gain / period, avgLoss = loss / period;
+  out[period] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+  for (let i = period + 1; i < values.length; i++) {
+    const d = values[i] - values[i - 1];
+    avgGain = (avgGain * (period - 1) + Math.max(0, d)) / period;
+    avgLoss = (avgLoss * (period - 1) + Math.max(0, -d)) / period;
+    out[i] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+  }
+  return out;
+}
+
+function ideaAtrSeries(candles, period = 14) {
+  const tr = candles.map((c, i) => i === 0 ? c.high - c.low : Math.max(c.high - c.low, Math.abs(c.high - candles[i - 1].close), Math.abs(c.low - candles[i - 1].close)));
+  const out = Array(candles.length).fill(null);
+  if (tr.length < period) return out;
+  let sum = 0;
+  for (let i = 0; i < tr.length; i++) {
+    sum += tr[i];
+    if (i >= period) sum -= tr[i - period];
+    if (i >= period - 1) out[i] = sum / period;
+  }
+  return out;
+}
+
+function ideaMacdSeries(values) {
+  const fast = ideaEmaSeries(values, 12), slow = ideaEmaSeries(values, 26);
+  const line = values.map((_, i) => fast[i] - slow[i]);
+  const signal = ideaEmaSeries(line, 9);
+  return { line, signal, hist: line.map((x, i) => x - signal[i]) };
+}
+
+function latestFinite(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) if (Number.isFinite(Number(arr[i]))) return Number(arr[i]);
+  return null;
+}
+
+async function ideaFetchJson(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { headers:{accept:'application/json','user-agent':'Mozilla/5.0 PositionAlert/7.2'}, signal:controller.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally { clearTimeout(timeout); }
+}
+
+async function fetchIdeaCandles(symbol, interval, limit = 240) {
+  const json = await ideaFetchJson(`${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`);
+  const candles = Array.isArray(json) ? json.map(parseKlineRow).filter(Boolean) : [];
+  if (candles.length < 80) throw new Error(`${symbol} ${interval} candles too short`);
+  return candles;
+}
+
+function ratioLast(rows, key = 'longShortRatio') {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const x = Number(rows[rows.length - 1]?.[key]);
+  return Number.isFinite(x) ? x : null;
+}
+
+function ratioChangePct(rows, key) {
+  if (!Array.isArray(rows) || rows.length < 2) return null;
+  const a = Number(rows[0]?.[key]), b = Number(rows[rows.length - 1]?.[key]);
+  if (!(a > 0) || !Number.isFinite(b)) return null;
+  return (b / a - 1) * 100;
+}
+
+function technicalSnapshot(candles) {
+  const closes = candles.map(x => x.close), vols = candles.map(x => Number(x.volume || 0));
+  const ema20s = ideaEmaSeries(closes, 20), ema50s = ideaEmaSeries(closes, 50), rsi = ideaRsiSeries(closes, 14), macd = ideaMacdSeries(closes), atr = ideaAtrSeries(candles, 14);
+  const i = closes.length - 1, close = closes[i], ema20 = ema20s[i], ema50 = ema50s[i], rsi14 = latestFinite(rsi), macdHist = latestFinite(macd.hist), atr14 = latestFinite(atr);
+  const recentVol = vols.slice(-5).reduce((a,b)=>a+b,0) / Math.max(1, vols.slice(-5).length);
+  const baseVol = vols.slice(-25,-5).reduce((a,b)=>a+b,0) / Math.max(1, vols.slice(-25,-5).length);
+  const volumeRatio = baseVol > 0 ? recentVol / baseVol : 1;
+  const prior = candles.slice(-21,-1), high20 = Math.max(...prior.map(x=>x.high)), low20 = Math.min(...prior.map(x=>x.low));
+  const breakout = close > high20 ? 1 : close < low20 ? -1 : 0;
+  const trend = close > ema20 && ema20 > ema50 ? 1 : close < ema20 && ema20 < ema50 ? -1 : 0;
+  const momentum = (rsi14 ?? 50) >= 56 && (macdHist ?? 0) > 0 ? 1 : (rsi14 ?? 50) <= 44 && (macdHist ?? 0) < 0 ? -1 : 0;
+  const vp=candles.slice(-96), minP=Math.min(...vp.map(x=>x.low)), maxP=Math.max(...vp.map(x=>x.high)), bins=24, span=Math.max(1e-12,maxP-minP), bucket=Array(bins).fill(0);
+  for(const c of vp){const typical=(c.high+c.low+c.close)/3, idx=Math.max(0,Math.min(bins-1,Math.floor((typical-minP)/span*bins)));bucket[idx]+=Number(c.volume||0)}
+  let pocIdx=0;for(let j=1;j<bucket.length;j++)if(bucket[j]>bucket[pocIdx])pocIdx=j;
+  const poc=minP+(pocIdx+0.5)/bins*span, pocSignal=close>poc*1.001?1:close<poc*0.999?-1:0;
+  return { close, ema20, ema50, rsi14, macdHist, atr14, volumeRatio, breakout, trend, momentum, poc, pocSignal };
+}
+
+function backtestIdea(candles) {
+  const closes = candles.map(x=>x.close), ema20 = ideaEmaSeries(closes,20), ema50 = ideaEmaSeries(closes,50), rsi = ideaRsiSeries(closes,14), macd = ideaMacdSeries(closes), atr = ideaAtrSeries(candles,14);
+  let wins=0, losses=0, skipped=0;
+  for (let i = 60; i < candles.length - 7; i++) {
+    const a = atr[i]; if (!(a > 0) || !Number.isFinite(rsi[i])) { skipped++; continue; }
+    let s=0;
+    s += closes[i] > ema20[i] && ema20[i] > ema50[i] ? 1 : closes[i] < ema20[i] && ema20[i] < ema50[i] ? -1 : 0;
+    s += rsi[i] >= 56 ? 1 : rsi[i] <= 44 ? -1 : 0;
+    s += macd.hist[i] > 0 ? 1 : macd.hist[i] < 0 ? -1 : 0;
+    if (Math.abs(s) < 2) { skipped++; continue; }
+    const dir = s > 0 ? 1 : -1, entry = closes[i], target = entry + dir * a * 1.15, stop = entry - dir * a * 0.85;
+    let result = 0;
+    for (let j=i+1;j<=i+6;j++) {
+      const c=candles[j];
+      if (dir > 0) {
+        if (c.low <= stop) { result=-1; break; }
+        if (c.high >= target) { result=1; break; }
+      } else {
+        if (c.high >= stop) { result=-1; break; }
+        if (c.low <= target) { result=1; break; }
+      }
+    }
+    if (!result) result = dir * (closes[i+6] - entry) > 0 ? 1 : -1;
+    result > 0 ? wins++ : losses++;
+  }
+  const sample=wins+losses, hitRate=sample ? wins/sample*100 : null;
+  return { hitRate:Number.isFinite(hitRate)?Number(hitRate.toFixed(1)):null, sample, wins, losses, skipped };
+}
+
+function ideaScoreParts(row, t15, t1h, deriv) {
+  const signals=[]; let signed=0, quality=0;
+  const add=(name,value,weight,detail)=>{signed += value*weight; quality += Math.abs(value)*weight; signals.push({name,value,weight,detail});};
+  add('1H趨勢', t1h.trend, 20, `EMA20/50`);
+  add('15m趨勢', t15.trend, 12, `EMA20/50`);
+  add('1H動能', t1h.momentum, 14, `RSI ${Number(t1h.rsi14||0).toFixed(0)}`);
+  add('15m動能', t15.momentum, 9, `RSI ${Number(t15.rsi14||0).toFixed(0)}`);
+  add('結構突破', t1h.breakout, 10, t1h.breakout>0?'上破20根':t1h.breakout<0?'下破20根':'區間內');
+  add('量價POC', t1h.pocSignal, 7, `${Number(t1h.poc||0).toPrecision(5)}`);
+  const oiCh=Number(deriv.oiChangePct||0), taker=Number(deriv.takerRatio||1), top=Number(deriv.topRatio||1), global=Number(deriv.globalRatio||1);
+  const oiDir = oiCh > 1.2 ? Math.sign(row.changePct||0) : oiCh < -1.2 ? -Math.sign(row.changePct||0) : 0;
+  add('OI', oiDir, 9, `${oiCh>0?'+':''}${oiCh.toFixed(1)}%`);
+  add('主動買賣', taker>1.04?1:taker<0.96?-1:0, 10, `${taker.toFixed(2)}`);
+  add('大戶部位', top>1.08?1:top<0.92?-1:0, 8, `${top.toFixed(2)}`);
+  add('全市場多空', global>1.08?1:global<0.92?-1:0, 5, `${global.toFixed(2)}`);
+  const funding=Number(row.fundingPct||0);
+  const crowd = Math.abs(funding)>=0.08 ? (funding>0?-1:1) : 0;
+  add('資金費擁擠', crowd, 6, `${funding>0?'+':''}${funding.toFixed(4)}%`);
+  const volumeSignal=t15.volumeRatio>=1.35 ? Math.sign(row.changePct||0) : 0;
+  add('量能', volumeSignal, 7, `${t15.volumeRatio.toFixed(2)}x`);
+  const direction = signed >= 12 ? 'LONG' : signed <= -12 ? 'SHORT' : 'WAIT';
+  const directionalStrength = Math.min(100, Math.round(50 + Math.abs(signed)*0.65));
+  const coverage = Math.min(100, Math.round(quality));
+  return { direction, signed:Number(signed.toFixed(1)), modelScore:Math.round(directionalStrength*0.8+coverage*0.2), signals };
+}
+
+async function analyzeIdeaSymbol(row) {
+  const symbol=row.symbol;
+  const urls={
+    oi:`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
+    global:`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
+    top:`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
+    taker:`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(symbol)}&period=15m&limit=30`,
+  };
+  const [c15,c1h,oi,global,top,taker] = await Promise.all([
+    fetchIdeaCandles(symbol,'15m',240), fetchIdeaCandles(symbol,'1h',240),
+    ideaFetchJson(urls.oi).catch(()=>[]), ideaFetchJson(urls.global).catch(()=>[]), ideaFetchJson(urls.top).catch(()=>[]), ideaFetchJson(urls.taker).catch(()=>[]),
+  ]);
+  const t15=technicalSnapshot(c15), t1h=technicalSnapshot(c1h);
+  const deriv={
+    oiChangePct:ratioChangePct(oi,'sumOpenInterestValue') ?? ratioChangePct(oi,'sumOpenInterest'),
+    globalRatio:ratioLast(global), topRatio:ratioLast(top), takerRatio:ratioLast(taker,'buySellRatio'),
+  };
+  const model=ideaScoreParts(row,t15,t1h,deriv), bt=backtestIdea(c1h);
+  const hist=Number.isFinite(bt.hitRate)?bt.hitRate:50;
+  const sampleWeight=Math.min(1, bt.sample/45);
+  const estimate=clamp(50 + (model.modelScore-50)*0.42 + (hist-50)*0.48*sampleWeight, 48, 82);
+  const rankScore=clamp(model.modelScore*0.62 + hist*0.38,0,100);
+  const reason=model.signals.filter(x=>x.value!==0).sort((a,b)=>b.weight-a.weight).slice(0,4).map(x=>`${x.name}${x.value>0?'↑':'↓'}`).join(' · ') || '訊號分歧';
+  return {
+    symbol, price:row.price, changePct:row.changePct, quoteVolume:row.quoteVolume, fundingPct:row.fundingPct,
+    direction:model.direction, label:model.direction==='LONG'?'做多':model.direction==='SHORT'?'做空':'等待',
+    modelScore:model.modelScore, rankScore:Number(rankScore.toFixed(1)), estimatedWinRate:Number(estimate.toFixed(1)),
+    historicalHitRate:bt.hitRate, backtestSample:bt.sample, reason,
+    metrics:{ rsi15:Number(t15.rsi14?.toFixed(1)), rsi1h:Number(t1h.rsi14?.toFixed(1)), volumeRatio:Number(t15.volumeRatio.toFixed(2)), oiChangePct:Number((deriv.oiChangePct||0).toFixed(2)), globalRatio:deriv.globalRatio, topRatio:deriv.topRatio, takerRatio:deriv.takerRatio },
+  };
+}
+
+async function mapPool(items, concurrency, fn) {
+  const out=Array(items.length); let cursor=0;
+  const worker=async()=>{ while(true){ const i=cursor++; if(i>=items.length) return; try{out[i]=await fn(items[i],i)}catch(e){out[i]={error:String(e?.message||e),symbol:items[i]?.symbol}} } };
+  await Promise.all(Array.from({length:Math.min(concurrency,items.length)},()=>worker()));
+  return out;
+}
+
+async function fetchRankedIdeasFresh() {
+  const flow=await getMarketFlow();
+  const candidates=(flow.leaders||[]).slice(0,IDEA_SYMBOLS);
+  const analyzed=await mapPool(candidates,IDEA_CONCURRENCY,analyzeIdeaSymbol);
+  const rows=analyzed.filter(x=>x && !x.error && x.direction!=='WAIT').sort((a,b)=>b.rankScore-a.rankScore || b.estimatedWinRate-a.estimatedWinRate || b.quoteVolume-a.quoteVolume);
+  return { ok:true, generatedAt:new Date().toISOString(), methodology:'15m+1h EMA/RSI/MACD/ATR/volume + OI + taker + top/global L/S + funding + rolling 1h condition backtest', analyzed:candidates.length, rows:rows.slice(0,12), errors:analyzed.filter(x=>x?.error).length };
+}
+
+async function getRankedIdeas() {
+  const now=Date.now();
+  if(rankedIdeasCache.data && now-rankedIdeasCache.at<IDEA_CACHE_MS)return {...rankedIdeasCache.data,stale:false,cacheAgeMs:now-rankedIdeasCache.at};
+  if(!rankedIdeasCache.inflight){
+    rankedIdeasCache.inflight=fetchRankedIdeasFresh().then(data=>{rankedIdeasCache={at:Date.now(),lastGoodAt:Date.now(),data,error:null,inflight:null};return data}).catch(e=>{rankedIdeasCache.error=String(e?.message||e);rankedIdeasCache.inflight=null;throw e});
+  }
+  try{return {...await rankedIdeasCache.inflight,stale:false,cacheAgeMs:0}}catch(e){if(rankedIdeasCache.data&&now-rankedIdeasCache.lastGoodAt<IDEA_STALE_MS)return {...rankedIdeasCache.data,stale:true,error:rankedIdeasCache.error,cacheAgeMs:now-rankedIdeasCache.lastGoodAt};throw e}
+}
+
+function fallbackDailyBrief(flow, ideas) {
+  const sm=flow.summary||{}, top=(ideas?.rows||[]).slice(0,3);
+  const bias=sm.direction==='LONG'?'偏多':sm.direction==='SHORT'?'偏空':'中性';
+  return { ok:true, mode:'MARKET_ONLY', generatedAt:new Date().toISOString(), bias, score:Number(sm.confidence||50), title:`市場${bias}｜AI網搜未啟用`, bullets:[`成交額加權 ${Number(sm.weightedChangePct||0).toFixed(2)}%`,`上漲 ${sm.advancers||0} / 下跌 ${sm.decliners||0}`,top.length?`排名：${top.map(x=>`${x.symbol} ${x.label}`).join('、')}`:'暫無高一致性排名'], action:sm.direction==='LONG'?'多單等回踩，空單只打弱勢標的':sm.direction==='SHORT'?'空單等反彈，多單只打強勢標的':'只做排名最前面的強弱分化', sources:[], aiReady:false };
+}
+
+function extractOpenAIText(json) {
+  if(typeof json?.output_text==='string')return json.output_text;
+  for(const item of json?.output||[])for(const c of item?.content||[])if(c?.type==='output_text'&&typeof c.text==='string')return c.text;
+  return '';
+}
+
+async function fetchAIDailyBrief(flow, ideas) {
+  if(!process.env.OPENAI_API_KEY)return fallbackDailyBrief(flow,ideas);
+  const marketPayload={summary:flow.summary,leaders:(flow.leaders||[]).slice(0,8).map(x=>({symbol:x.symbol,changePct:x.changePct,fundingPct:x.fundingPct,quoteVolume:x.quoteVolume})),ranked:(ideas?.rows||[]).slice(0,8).map(x=>({symbol:x.symbol,direction:x.direction,estimatedWinRate:x.estimatedWinRate,rankScore:x.rankScore,reason:x.reason}))};
+  const prompt=`你是加密貨幣日內市場研究助手。現在是台灣時間。請先使用網路搜尋，整理「當下」全球總經、Fed/利率/美元/美債、美股風險偏好、ETF/監管、BTC/ETH與重大加密新聞，再結合我提供的 Binance 即時摘要與量化排名。不要寫長文，只輸出嚴格 JSON，不要 markdown。JSON schema: {"bias":"偏多|偏空|中性","score":0-100,"title":"<=26個中文字","bullets":["最多6條，每條<=38中文字"],"action":"<=45中文字","sources":[{"title":"短標題","url":"https://..."}]}. 不要保證獲利，不要把模型估算勝率當成真實機率。市場資料=${JSON.stringify(marketPayload)}`;
+  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${process.env.OPENAI_API_KEY}`},body:JSON.stringify({model:OPENAI_MODEL,tools:[{type:'web_search_preview',search_context_size:'medium',user_location:{type:'approximate',country:'TW',timezone:'Asia/Taipei'}}],input:prompt,max_output_tokens:1200})});
+  if(!r.ok)throw new Error(`OpenAI ${r.status}`);
+  const json=await r.json(), text=extractOpenAIText(json).trim();
+  const cleaned=text.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
+  const parsed=JSON.parse(cleaned);
+  return {ok:true,mode:'AI_WEB',generatedAt:new Date().toISOString(),bias:String(parsed.bias||'中性'),score:clamp(Number(parsed.score||50),0,100),title:String(parsed.title||'今日市場整理').slice(0,80),bullets:Array.isArray(parsed.bullets)?parsed.bullets.slice(0,6).map(x=>String(x).slice(0,100)):[],action:String(parsed.action||'').slice(0,120),sources:Array.isArray(parsed.sources)?parsed.sources.slice(0,5).map(x=>({title:String(x?.title||'來源').slice(0,80),url:String(x?.url||'')})).filter(x=>/^https?:\/\//.test(x.url)):[],aiReady:true};
+}
+
+async function getDailyBrief(force=false,maxAgeMs=DAILY_BRIEF_DEFAULT_MS) {
+  const now=Date.now(), ageLimit=Math.max(DAILY_BRIEF_MIN_MS,Number(maxAgeMs||DAILY_BRIEF_DEFAULT_MS));
+  if(!force&&dailyBriefCache.data&&now-dailyBriefCache.at<ageLimit)return dailyBriefCache.data;
+  if(!dailyBriefCache.inflight){
+    dailyBriefCache.inflight=(async()=>{const [flow,ideas]=await Promise.all([getMarketFlow(),getRankedIdeas().catch(()=>null)]);try{return await fetchAIDailyBrief(flow,ideas)}catch(e){const fb=fallbackDailyBrief(flow,ideas);return {...fb,error:String(e?.message||e)}}})().then(data=>{dailyBriefCache={at:Date.now(),data,error:null,inflight:null};return data}).catch(e=>{dailyBriefCache.error=String(e?.message||e);dailyBriefCache.inflight=null;throw e});
+  }
+  return dailyBriefCache.inflight;
+}
+
+
+async function dailyBriefLoop() {
+  try {
+    const records=loadSubRecords(), enabled=records.filter(x=>x.dailyBriefEnabled===true);
+    if(enabled.length){
+      const minHours=Math.min(...enabled.map(x=>cleanBriefInterval(x.dailyBriefIntervalHours)));
+      const force=!dailyBriefCache.data || Date.now()-dailyBriefCache.at >= minHours*60*60*1000;
+      const brief=await getDailyBrief(force);
+      const now=Date.now(), keep=[];
+      for(const rec of records){
+        if(rec.dailyBriefEnabled!==true){keep.push(rec);continue}
+        const intervalMs=cleanBriefInterval(rec.dailyBriefIntervalHours)*60*60*1000;
+        const last=rec.lastDailyBriefPushAt?new Date(rec.lastDailyBriefPushAt).getTime():0;
+        if(last && now-last<intervalMs){keep.push(rec);continue}
+        try{
+          await webpush.sendNotification(rec.subscription,JSON.stringify({
+            title:`市場整理｜${brief.bias||'中性'} ${Math.round(Number(brief.score||50))}`,
+            body:`${brief.title||'今日市場整理'}${brief.action?`｜${brief.action}`:''}`.slice(0,180),
+            tag:`daily-brief-${Math.floor(now/intervalMs)}`,
+            renotify:false,
+            data:{url:'/'},
+          }),{TTL:300,urgency:'normal'});
+          rec.lastDailyBriefPushAt=new Date(now).toISOString();
+          keep.push(rec);
+        }catch(e){if(![404,410].includes(e.statusCode))keep.push(rec)}
+      }
+      saveSubRecords(keep);
+    }
+  }catch(e){console.warn(`[daily-brief] ${String(e?.message||e)}`)}
+  dailyBriefTimer=setTimeout(dailyBriefLoop,10*60*1000);
+}
+
 app.get('/api/market-flow', async (_req, res) => {
   try {
     const data = await getMarketFlow();
@@ -3071,9 +3364,30 @@ app.get('/api/market-flow', async (_req, res) => {
   }
 });
 
+
+app.get('/api/ranked-ideas', async (_req, res) => {
+  try {
+    const data = await getRankedIdeas();
+    res.json(data);
+  } catch (err) {
+    res.status(503).json({ ok:false, error:String(err?.message || err), stale:false });
+  }
+});
+
+app.get('/api/daily-brief', async (req, res) => {
+  try {
+    const force = String(req.query?.force || '') === '1';
+    const hours = cleanBriefInterval(req.query?.hours);
+    const data = await getDailyBrief(force, hours * 60 * 60 * 1000);
+    res.json({...data, refreshHours:hours});
+  } catch (err) {
+    res.status(503).json({ ok:false, error:String(err?.message || err) });
+  }
+});
+
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V7_0_DIRECTION_LOGIC',
+    mode: 'V7_2_AI_RANKING',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -3082,6 +3396,8 @@ app.get('/api/config', (_req, res) => {
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
+    dailyBrief: { aiReady: Boolean(process.env.OPENAI_API_KEY), model: process.env.OPENAI_API_KEY ? OPENAI_MODEL : null, intervals:[2,3,6,12], defaultHours:3 },
+    rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS },
     pushReady: true,
     traders: TRADERS,
     eventTypes: EVENT_TYPES,
@@ -3204,7 +3520,7 @@ app.get('/api/reference-levels', async (req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V6.5',
+    mode: 'V7.2',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -3273,6 +3589,8 @@ app.post('/api/subscribe', (req, res) => {
   const enabledTraders = cleanTraderIds(body.enabledTraders, true);
   const enabledTypes = cleanEventTypes(body.enabledTypes, true);
   const consensusEnabled = body.consensusEnabled !== false;
+  const dailyBriefEnabled = body.dailyBriefEnabled === true;
+  const dailyBriefIntervalHours = cleanBriefInterval(body.dailyBriefIntervalHours);
 
   const records = loadSubRecords();
   const idx = records.findIndex(r => r.endpoint === subscription.endpoint);
@@ -3283,7 +3601,10 @@ app.post('/api/subscribe', (req, res) => {
     enabledTraders,
     enabledTypes,
     consensusEnabled,
-    preferenceVersion: 65,
+    dailyBriefEnabled,
+    dailyBriefIntervalHours,
+    lastDailyBriefPushAt: idx >= 0 ? records[idx]?.lastDailyBriefPushAt || null : null,
+    preferenceVersion: 72,
   };
 
   if (idx >= 0) records[idx] = next;
@@ -3296,7 +3617,9 @@ app.post('/api/subscribe', (req, res) => {
     enabledTraders,
     enabledTypes,
     consensusEnabled,
-    preferenceVersion: 65,
+    dailyBriefEnabled,
+    dailyBriefIntervalHours,
+    preferenceVersion: 72,
   });
 });
 
@@ -3322,7 +3645,9 @@ app.post('/api/preferences', (req, res) => {
     rec.enabledTypes = cleanEventTypes(req.body.enabledTypes, false);
   }
   if (typeof req.body?.consensusEnabled === 'boolean') rec.consensusEnabled = req.body.consensusEnabled;
-  rec.preferenceVersion = 65;
+  if (typeof req.body?.dailyBriefEnabled === 'boolean') rec.dailyBriefEnabled = req.body.dailyBriefEnabled;
+  if (req.body?.dailyBriefIntervalHours !== undefined) rec.dailyBriefIntervalHours = cleanBriefInterval(req.body.dailyBriefIntervalHours);
+  rec.preferenceVersion = 72;
 
   saveSubRecords(records);
 
@@ -3331,7 +3656,9 @@ app.post('/api/preferences', (req, res) => {
     enabledTraders: rec.enabledTraders,
     enabledTypes: rec.enabledTypes,
     consensusEnabled: rec.consensusEnabled !== false,
-    preferenceVersion: 65,
+    dailyBriefEnabled: rec.dailyBriefEnabled === true,
+    dailyBriefIntervalHours: cleanBriefInterval(rec.dailyBriefIntervalHours),
+    preferenceVersion: 72,
   });
 });
 
@@ -3385,18 +3712,19 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V6.5',
+    mode: 'V7.2',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V6.5 PULLBACK RADAR started on ${PORT}`);
+    console.log(`Position Alert V7.2 AI RANKING started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
     referenceTimer = setTimeout(referenceLoop, 12000);
     screenTimer = setTimeout(screenLoop, 16000);
+    dailyBriefTimer = setTimeout(dailyBriefLoop, 25000);
   });
 }
 
@@ -3405,6 +3733,7 @@ process.on('SIGTERM', () => {
   if (statsTimer) clearTimeout(statsTimer);
   if (referenceTimer) clearTimeout(referenceTimer);
   if (screenTimer) clearTimeout(screenTimer);
+  if (dailyBriefTimer) clearTimeout(dailyBriefTimer);
   process.exit(0);
 });
 
@@ -3429,4 +3758,7 @@ export {
   pullbackActivationMove,
   pullbackSnapshot,
   pullbackTransition,
+  technicalSnapshot,
+  backtestIdea,
+  buildTodayView,
 };

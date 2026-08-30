@@ -1,0 +1,29 @@
+V7.2｜今日網搜整理 + 建議量化排名
+
+1. 今日頁
+- 原本單一句「今日偏多/偏空」改成「市場整理」。
+- 若 Railway 設定 OPENAI_API_KEY，後端會用 OpenAI Responses API + Web Search 搜尋當下全球總經、Fed/利率/美元/美債、美股風險偏好、ETF/監管、BTC/ETH 與重大幣圈新聞，再和 Binance 即時市場資料、量化排名合併成短摘要。
+- 預設快取 3 小時；前端可選 2 / 3 / 6 / 12 小時通知頻率，也可手動更新。
+- 若沒有 OPENAI_API_KEY，仍可使用 Binance 市場摘要，但會標示「未設定 OPENAI_API_KEY」。
+- 可選 OPENAI_MODEL；預設 gpt-5.6-luna。
+
+2. 今日分類
+- 做多 / 多頭觀察 / 空頭觀察 / 做空。
+- 分類數字代表全部符合數量；展開名單顯示動態前 12 名，並明確顯示「前 12 / 共 N」。
+- 新標的分數進入前 12 時會自動取代原本較低排名。
+
+3. 建議頁
+- 不再只看 24h 漲跌。
+- 對高流動性標的計算：15m + 1h EMA20/50、RSI14、MACD、ATR、量能、20根結構突破、量價POC近似、資金費率、Open Interest、主動買賣比、全市場多空比、大戶部位多空比。
+- 再用最近 1h 類似技術條件做滾動回測，顯示「歷史命中率 / 樣本數」。
+- 顯示的「估算」是模型分數 + 歷史命中率的保守估計，不等於保證勝率。
+- 名稱可直接開 TradingView。
+
+4. Railway 環境變數（新增）
+OPENAI_API_KEY=你的 OpenAI API Key   # 啟用全球網搜整理
+OPENAI_MODEL=gpt-5.6-luna             # 可省略
+IDEA_SYMBOLS=16                        # 建議分析標的數，可省略
+IDEA_CACHE_MS=180000                   # 建議快取 3 分鐘，可省略
+DAILY_BRIEF_DEFAULT_MS=10800000        # 整理快取 3 小時，可省略
+
+注意：ChatGPT Plus 訂閱本身不會自動把 API Key 帶進 Railway；網站要做 GPT 網搜必須另外放 OPENAI_API_KEY。
