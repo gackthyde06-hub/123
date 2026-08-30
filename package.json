@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v870-integrated-readable-web",
-  "version": "8.7.0",
+  "name": "position-alert-v880-live-monitor-freshness",
+  "version": "8.8.0",
   "private": true,
   "type": "module",
   "scripts": {
