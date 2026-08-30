@@ -10,6 +10,7 @@ const CONSENSUS_PREF='position-alert-consensus-v62';
 const ORDER_PREF='position-alert-trader-order-v63';
 const PULLBACK_TYPE_MIGRATION='position-alert-pullback-types-v65';
 const BRIEF_NOTIFY_PREF='position-alert-brief-notify-v72';
+const TEST_SIGNAL_NOTIFY_PREF='position-alert-test-signal-notify-v78';
 const CORE_TRADER_ID='5075281354358777856';
 const PULLBACK_TYPES=['PULLBACK','DEEP_PULLBACK','INVALIDATION'];
 const DEFAULT_TYPES=['OPEN','ADD','REDUCE','CLOSE',...PULLBACK_TYPES,'CONSENSUS'];
@@ -28,6 +29,8 @@ function loadConsensusEnabled(){try{const v=localStorage.getItem(CONSENSUS_PREF)
 function saveConsensusEnabled(v){try{localStorage.setItem(CONSENSUS_PREF,v?'1':'0')}catch{}}
 function loadBriefNotify(){try{return localStorage.getItem(BRIEF_NOTIFY_PREF)==='1'}catch{return false}}
 function saveBriefNotify(v){try{localStorage.setItem(BRIEF_NOTIFY_PREF,v?'1':'0')}catch{}}
+function loadTestSignalNotify(){try{return localStorage.getItem(TEST_SIGNAL_NOTIFY_PREF)==='1'}catch{return false}}
+function saveTestSignalNotify(v){try{localStorage.setItem(TEST_SIGNAL_NOTIFY_PREF,v?'1':'0')}catch{}}
 function loadBriefInterval(){return 24}
 function loadTraderOrder(){const all=defaultTraderIds(),valid=new Set(all),saved=loadArray(ORDER_PREF,[]).filter(id=>valid.has(id)),merged=[...new Set([CORE_TRADER_ID,...saved,...all])];return merged.filter(id=>valid.has(id))}
 function saveTraderOrder(ids){const all=defaultTraderIds(),valid=new Set(all),clean=[CORE_TRADER_ID,...ids.filter(id=>id!==CORE_TRADER_ID&&valid.has(id))];localStorage.setItem(ORDER_PREF,JSON.stringify([...new Set(clean)]))}
@@ -93,7 +96,7 @@ function pfText(s){if(s?.profitFactor===null||s?.profitFactor===undefined||s?.pr
 function metricClass(v){const x=Number(v);if(!Number.isFinite(x)||x===0)return'gold';return x>0?'up':'down'}
 function durationText(v){const x=Number(v);if(!Number.isFinite(x))return'—';if(x<60)return`${Math.round(x)} 分`;if(x<1440)return`${(x/60).toFixed(1)} 小時`;return`${(x/1440).toFixed(1)} 天`}
 async function getPushSubscription(){if(!('serviceWorker'in navigator))return null;const r=await navigator.serviceWorker.getRegistration('/');return r?await r.pushManager.getSubscription():null}
-async function syncPreferences(){const sub=await getPushSubscription();if(!sub)return;await fetch('/api/preferences',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),dailyBriefIntervalHours:24,preferenceVersion:73})})}
+async function syncPreferences(){const sub=await getPushSubscription();if(!sub)return;await fetch('/api/preferences',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({endpoint:sub.endpoint,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),testSignalEnabled:loadTestSignalNotify(),dailyBriefIntervalHours:24,preferenceVersion:78})})}
 function b64ToUint8(base64){const padding='='.repeat((4-base64.length%4)%4),s=(base64+padding).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from(atob(s),c=>c.charCodeAt(0))}
 
 function renderMaster(){const enabled=loadEnabledTraders();$('allToggle').checked=enabled.length===cfg.traders.length;$('allCount').textContent=`${enabled.length}/${cfg.traders.length}`}
@@ -345,7 +348,7 @@ $('allToggle').addEventListener('change',async e=>{const ids=e.currentTarget.che
 $('consensusToggle')?.addEventListener('change',async e=>{saveConsensusEnabled(e.currentTarget.checked);await syncPreferences().catch(()=>{});$('msg').textContent=e.currentTarget.checked?'✅ 熬鷹同向確認已開啟':'🔕 熬鷹同向確認已關閉'});
 $('settingsPanel').open=!!ui.settingsOpen;$('settingsPanel').addEventListener('toggle',saveUI);
 $('labelCancel').addEventListener('click',closeLabelSheet);$('labelSave').addEventListener('click',saveLabelSheet);$('labelModal').addEventListener('click',e=>{if(e.target===$('labelModal'))closeLabelSheet()});$('labelInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveLabelSheet();if(e.key==='Escape')closeLabelSheet()});
-$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=653'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),dailyBriefIntervalHours:24,preferenceVersion:73})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
+$('subscribe').onclick=async()=>{try{if(!cfg)cfg=await fetch('/api/config',{cache:'no-store'}).then(r=>r.json());if(!cfg.vapidPublicKey)throw new Error('伺服器尚未設定推播金鑰');if(!('serviceWorker'in navigator))throw new Error('此瀏覽器不支援通知');const reg=await navigator.serviceWorker.register('/sw.js?v=780'),permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('你沒有允許通知');const existing=await reg.pushManager.getSubscription(),sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToUint8(cfg.vapidPublicKey)});const r=await fetch('/api/subscribe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subscription:sub,enabledTraders:loadEnabledTraders(),enabledTypes:loadEnabledTypes(),consensusEnabled:loadConsensusEnabled(),dailyBriefEnabled:loadBriefNotify(),testSignalEnabled:loadTestSignalNotify(),dailyBriefIntervalHours:24,preferenceVersion:78})});if(!r.ok)throw new Error(await r.text());$('msg').textContent='✅ iPhone 通知與回踩已同步'}catch(e){$('msg').textContent=`❌ ${e.message}`}};
 $('test').onclick=async()=>{const traderId=loadEnabledTraders()[0]||cfg?.traders?.[0]?.id,r=await fetch('/api/test-push',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({traderId})});$('msg').textContent=r.ok?'✅ 測試通知已送出':`❌ 測試失敗：${await r.text()}`};
 $('testPullback').onclick=async()=>{const r=await fetch('/api/test-pullback-push',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});$('msg').textContent=r.ok?'✅ 回踩測試已送出 · 點通知會開TV':`❌ 回踩測試失敗：${await r.text()}`};
 
@@ -357,25 +360,28 @@ $('useAutoTp')?.addEventListener('change',()=>applyAutoChoice('TP'));$('useAutoS
 $('autoRefresh')?.addEventListener('click',()=>loadReferenceLevels(true));
 $('calcPosition')?.addEventListener('change',()=>applyCalcPosition(false,true));$('tradeCalc')?.addEventListener('toggle',saveCalc);loadCalc();
 
-document.addEventListener('click',e=>{const biasButton=e.target.closest('[data-bias-key]');if(biasButton){todayBiasKey=biasButton.dataset.biasKey;if(marketFlowState?.today)renderToday(marketFlowState);return}const button=e.target.closest('[data-tv-symbol]');if(button)openTradingViewApp(button.dataset.tvSymbol)});
-function launchTvFromNotification(){const symbol=new URLSearchParams(location.search).get('tv');if(!symbol||!/^[A-Z0-9]{5,24}$/.test(symbol))return false;history.replaceState(null,'',location.pathname);setTimeout(()=>openTradingViewApp(symbol),80);return true}
+document.addEventListener('click',e=>{const biasButton=e.target.closest('[data-bias-key]');if(biasButton){todayBiasKey=biasButton.dataset.biasKey;if(marketFlowState?.today)renderToday(marketFlowState);return}const monitor=e.target.closest('[data-test-monitor]');if(monitor){goTestSignalToMonitor(monitor.dataset.testMonitor,monitor.dataset.testDir);return}const close=e.target.closest('[data-test-focus-close]');if(close){testFocusSymbol=null;testFocusDirection='LONG';try{history.replaceState(null,'',location.pathname)}catch{}renderTestFocus();return}const button=e.target.closest('[data-tv-symbol]');if(button)openTradingViewApp(button.dataset.tvSymbol)});
+function handleNotificationRoute(){const q=new URLSearchParams(location.search),tv=q.get('tv'),page=q.get('page'),symbol=q.get('testSignal'),dir=q.get('dir');if(symbol&&/^[A-Z0-9]{5,24}$/.test(symbol)){testFocusSymbol=symbol;testFocusDirection=dir==='SHORT'?'SHORT':'LONG';setPage(page==='test'?'test':'monitor');void refreshTestSignals(false);return true}if(tv&&/^[A-Z0-9]{5,24}$/.test(tv)){history.replaceState(null,'',location.pathname);setPage('monitor');setTimeout(()=>openTradingViewApp(tv),80);return true}if(page)setPage(page);return false}
 refresh();
-launchTvFromNotification();
+setTimeout(()=>handleNotificationRoute(),0);
 setInterval(refresh,8000);
 setInterval(updateSync,1000);
 
 let marketFlowState=null,marketFlowFetchedAt=0,marketFlowBusy=false,todayBiasKey='LONG';
 let dailyBriefState=null,dailyBriefFetchedAt=0,dailyBriefBusy=false;
 let rankedIdeasState=null,rankedIdeasFetchedAt=0,rankedIdeasBusy=false;
+let testSignalsState=null,testSignalsFetchedAt=0,testSignalsBusy=false,testFocusSymbol=null,testFocusDirection='LONG';
 
 function setPage(name){
-  const valid=['today','monitor','flow','ideas'];if(!valid.includes(name))name='today';
+  const valid=['today','monitor','flow','ideas','test'];if(!valid.includes(name))name='today';
   document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${name}`));
   document.querySelectorAll('.pageTab').forEach(x=>x.classList.toggle('active',x.dataset.page===name));
-  try{localStorage.setItem('position-alert-page-v72',name)}catch{}
+  try{localStorage.setItem('position-alert-page-v78',name)}catch{}
   if(name==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}
   else if(name==='flow')void refreshMarketFlow(false);
   else if(name==='ideas'){void refreshMarketFlow(false);void refreshRankedIdeas(false)}
+  else if(name==='test')void refreshTestSignals(false);
+  else if(name==='monitor'&&testFocusSymbol)void refreshTestSignals(false)
 }
 function fmtVol(v){const x=Number(v||0);if(x>=1e9)return`${(x/1e9).toFixed(x>=10e9?1:2)}B`;if(x>=1e6)return`${(x/1e6).toFixed(1)}M`;return x.toLocaleString('en-US',{maximumFractionDigits:0})}
 function signed(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}%`}
@@ -421,6 +427,32 @@ async function refreshRankedIdeas(force=false){
   if(rankedIdeasBusy)return;if(!force&&rankedIdeasState&&Date.now()-rankedIdeasFetchedAt<60_000){renderRankedIdeas(rankedIdeasState);return}
   rankedIdeasBusy=true;try{const r=await fetch('/api/ranked-ideas',{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderRankedIdeas(d)}catch(e){if(rankedIdeasState)renderRankedIdeas({...rankedIdeasState,stale:true});else $('recGrid').innerHTML='<div class="loadingBox">量化排名暫時不可用。</div>'}finally{rankedIdeasBusy=false}
 }
+
+function testSignedPct(v,d=2){if(!hasNum(v))return'—';const x=Number(v);return`${x>0?'+':''}${x.toFixed(d)}%`}
+function testStatusClass(status){return({CONFIRMED:'confirmed',WIN:'win',LOSS:'loss',INVALID:'invalid',TOUCHING:'touching'})[status]||''}
+function testZoneText(setup){return setup&&hasNum(setup.zoneLow)&&hasNum(setup.zoneHigh)?`${price(setup.zoneLow)}～${price(setup.zoneHigh)}`:'建立中'}
+function testReasonChips(x){const reasons=x?.lastCheck?.reasons||[];if(reasons.length)return reasons.map(r=>`<span class="testReason">${esc(r)}</span>`).join('');const r=String(x?.idea?.reason||'').split(' · ').filter(Boolean).slice(0,4);return r.map(y=>`<span class="testReason">${esc(y)}</span>`).join('')}
+function renderTestFocus(){
+  const panel=$('testFocusPanel');if(!panel)return;if(!testFocusSymbol||!testSignalsState){panel.classList.remove('show');panel.innerHTML='';return}
+  const x=(testSignalsState.rows||[]).find(r=>r.symbol===testFocusSymbol&&(!testFocusDirection||r.direction===testFocusDirection))||(testSignalsState.rows||[]).find(r=>r.symbol===testFocusSymbol);
+  if(!x){panel.classList.add('show');panel.innerHTML=`<div class="testFocusTop"><div><div class="testFocusTitle">${esc(testFocusSymbol)}</div><div class="testFocusMeta">測試訊號已離開目前清單</div></div></div><div class="testFocusActions"><button type="button" data-test-focus-close>留在監控</button><button type="button" class="openTv" data-tv-symbol="${esc(testFocusSymbol)}">開 TradingView</button></div>`;return}
+  const bt=x.setup?.backtest||{},q=Number(x.qualityScore||0),hist=hasNum(bt.hitRate)?`${Number(bt.hitRate).toFixed(1)}%`:'—',avg=testSignedPct(bt.avgReturnPct,2);
+  panel.classList.add('show');panel.innerHTML=`<div class="testFocusTop"><div><div class="testFocusTitle">${esc(x.symbol)} · ${esc(x.label)}</div><div class="testFocusMeta">${esc(x.statusLabel)} · 回踩區 ${esc(testZoneText(x.setup))}</div></div><div class="testFocusScore">${q||'—'}<small>回踩品質</small></div></div><div class="testFocusBody"><div class="testFocusCell"><span>同類1R勝率</span><b>${hist}</b></div><div class="testFocusCell"><span>平均90分報酬</span><b>${avg}</b></div><div class="testFocusCell"><span>失效位</span><b>${x.setup?price(x.setup.invalidation):'—'}</b></div></div><div class="testFocusActions"><button type="button" data-test-focus-close>留在監控</button><button type="button" class="openTv" data-tv-symbol="${esc(x.symbol)}">開 TradingView</button></div>`;
+}
+function goTestSignalToMonitor(symbol,direction){testFocusSymbol=symbol;testFocusDirection=direction==='SHORT'?'SHORT':'LONG';try{history.replaceState(null,'',`${location.pathname}?page=monitor&testSignal=${encodeURIComponent(symbol)}&dir=${testFocusDirection}`)}catch{}setPage('monitor');renderTestFocus();window.scrollTo({top:0,behavior:'smooth'})}
+function renderTestSignals(d){
+  if(!d?.ok)return;testSignalsState=d;testSignalsFetchedAt=Date.now();const rows=d.rows||[],live=d.liveStats||{};
+  const active=rows.filter(x=>['WAIT_PULLBACK','TOUCHING','CONFIRMED'].includes(x.status)).length,touching=rows.filter(x=>x.status==='TOUCHING').length,confirmed=rows.filter(x=>x.status==='CONFIRMED').length,liveHit=hasNum(live.hitRate)?`${Number(live.hitRate).toFixed(1)}%`:'—';
+  $('testSummary').innerHTML=`<div class="testSummaryCell"><span>監控</span><b>${active}</b></div><div class="testSummaryCell"><span>回踩中</span><b>${touching}</b></div><div class="testSummaryCell"><span>已確認</span><b>${confirmed}</b></div><div class="testSummaryCell"><span>實測勝率</span><b>${liveHit}</b></div>`;
+  $('testGrid').innerHTML=rows.map(x=>{const bt=x.setup?.backtest||{},q=Math.max(0,Math.min(100,Number(x.qualityScore||x.setup?.setupScore||0))),long=x.direction==='LONG',hist=hasNum(bt.hitRate)?`${Number(bt.hitRate).toFixed(1)}%`:'—',avg=testSignedPct(bt.avgReturnPct,2),pf=hasNum(bt.profitFactor)?Number(bt.profitFactor).toFixed(2):'—',model=hasNum(x.idea?.estimatedWinRate)?`${Number(x.idea.estimatedWinRate).toFixed(1)}%`:'—',rsi=hasNum(x.lastCheck?.rsi5)?Number(x.lastCheck.rsi5).toFixed(1):'—',oi=testSignedPct(x.lastCheck?.oiChangePct,1);return `<div class="testCard ${testStatusClass(x.status)}"><div class="testHead"><div class="testRank">${x.rank?`#${x.rank}`:'—'}</div><div class="testSymbolRow"><span class="testSymbol">${esc(x.symbol)}</span><span class="testDir ${long?'long':'short'}">${long?'做多':'做空'}</span></div><div class="testState"><b>${esc(x.statusLabel||'等待')}</b><small>${x.updatedAt?ageText(x.updatedAt):'—'}</small></div></div><div class="testQuality"><div class="testQualityBar"><div class="testQualityFill" style="width:${q}%"></div></div><div class="testQualityText">品質 <b>${q||'—'}</b></div></div><div class="testMetrics"><div class="testMetric"><span>同類1R勝率</span><b>${hist}</b></div><div class="testMetric"><span>回測樣本</span><b>${Number(bt.sample||0)}</b></div><div class="testMetric"><span>平均90分報酬</span><b>${avg}</b></div><div class="testMetric"><span>回測獲利因子</span><b>${pf}</b></div><div class="testMetric"><span>模型估算</span><b>${model}</b></div><div class="testMetric"><span>5分 RSI / OI</span><b>${rsi} / ${oi}</b></div></div><div class="testLevels"><div class="testLevel"><span>回踩區</span><b>${esc(testZoneText(x.setup))}</b></div><div class="testLevel"><span>結構失效</span><b>${x.setup?price(x.setup.invalidation):'—'}</b></div><div class="testLevel"><span>確認價</span><b>${hasNum(x.confirmationPrice)?price(x.confirmationPrice):'等待確認'}</b></div><div class="testLevel"><span>1R / 1.5R</span><b>${hasNum(x.target1R)?`${price(x.target1R)} / ${price(x.target15R)}`:'確認後計算'}</b></div></div><div class="testReasons">${testReasonChips(x)||'<span class="testReason">等待5分回踩確認</span>'}</div><div class="testActions"><button type="button" class="monitorBtn" data-test-monitor="${esc(x.symbol)}" data-test-dir="${esc(x.direction)}">到監控判讀</button></div></div>`}).join('')||'<div class="testEmpty">目前建議排名沒有可追蹤標的。</div>';
+  $('testMethod').textContent=`判讀：15分波段/Fib＋EMA/POC/VWAP → 5分收回、拒絕影線/掃流動性、RSI/MACD/量能 → OI/主動買賣 → BTC/ETH 大盤過濾。品質 ≥ ${Number(d.confirmScore||74)} 才確認；歷史回測只使用可回放的價格技術條件，實測勝率則由本 APP 後續真實訊號累積。`;
+  $('testAge').textContent=d.generatedAt?ageText(d.generatedAt):'—';renderTestFocus();
+}
+async function refreshTestSignals(force=false){
+  if(testSignalsBusy)return;if(!force&&testSignalsState&&Date.now()-testSignalsFetchedAt<25_000){renderTestSignals(testSignalsState);return}testSignalsBusy=true;
+  try{const r=await fetch(`/api/test-signals${force?'?force=1':''}`,{cache:'no-store'}),d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderTestSignals(d)}catch(e){if(testSignalsState)renderTestSignals(testSignalsState);else $('testGrid').innerHTML='<div class="testEmpty">回踩測試暫時不可用。</div>'}finally{testSignalsBusy=false}
+}
+
 function renderMarketFlow(d){
   if(!d?.ok)return;marketFlowState=d;marketFlowFetchedAt=Date.now();
   const sm=d.summary||{},dir=sm.direction==='LONG'?'long':sm.direction==='SHORT'?'short':'neutral';
@@ -441,7 +473,8 @@ function initBriefControls(){
   $('briefRefresh')?.addEventListener('click',()=>refreshDailyBrief(true));
 }
 initBriefControls();
+if($('testSignalNotify')){$('testSignalNotify').checked=loadTestSignalNotify();$('testSignalNotify').addEventListener('change',async e=>{saveTestSignalNotify(e.currentTarget.checked);const sub=await getPushSubscription();if(!sub&&e.currentTarget.checked){e.currentTarget.checked=false;saveTestSignalNotify(false);$('testMethod').textContent='先到「監控」同步通知，再開啟回踩測試通知。';return}await syncPreferences().catch(()=>{});$('testMethod').textContent=e.currentTarget.checked?'回踩未破通知已開啟。':'回踩測試仍會計算，通知已關閉。'})}
 document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
-try{setPage(localStorage.getItem('position-alert-page-v72')||'today')}catch{setPage('today')}
-setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}else if(active==='flow')void refreshMarketFlow(false);else if(active==='ideas')void refreshRankedIdeas(false)},60_000);
+try{setPage(localStorage.getItem('position-alert-page-v78')||'today')}catch{setPage('today')}
+setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active==='today'){void refreshMarketFlow(false);void refreshDailyBrief(false)}else if(active==='flow')void refreshMarketFlow(false);else if(active==='ideas')void refreshRankedIdeas(false);else if(active==='test')void refreshTestSignals(false)},30_000);
 
