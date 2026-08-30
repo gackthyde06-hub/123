@@ -1,0 +1,22 @@
+V10.1.3 UI CLEANUP HOTFIX — LOCAL TEST REPORT
+
+PASS  JavaScript syntax: server.js
+PASS  JavaScript syntax: public/app.js
+PASS  V10 unit tests
+PASS  V10.1 multi-playbook tests
+PASS  VAPID invalid-key guard retained
+PASS  brand subtitle removed
+PASS  top tab renamed: 測試 -> 觀察
+PASS  multi-strategy observation wording present
+PASS  uniform deep background override present
+PASS  duplicate upper 詳細 button removed
+PASS  real 詳細 section retained
+PASS  AI網搜 section retained
+PASS  summary 接近完成 + 總經驗 bar present
+PASS  per-symbol 總經驗 bar present
+PASS  per-strategy progress moved under 更多數據
+PASS  duplicate HTML IDs: 0 (107 unique)
+
+Scope note
+- Local checks validate syntax, UI structure, strategy unit tests, and mocked multi-playbook logic.
+- Live Railway healthcheck, exchange networking, and iPhone Push still require deployment runtime verification.
