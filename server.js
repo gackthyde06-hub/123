@@ -22,6 +22,12 @@ const SCREEN_REFRESH_MS = Math.max(30 * 60 * 1000, Number(process.env.SCREEN_REF
 const COPY_BAPI_BUDGET_PER_MIN = Math.max(60, Math.min(110, Number(process.env.COPY_BAPI_BUDGET_PER_MIN || 100)));
 const COPY_BAPI_MIN_GAP_MS = Math.max(400, Number(process.env.COPY_BAPI_MIN_GAP_MS || 560));
 const CONSENSUS_REARM_MS = Math.max(10 * 60 * 1000, Number(process.env.CONSENSUS_REARM_MS || 30 * 60 * 1000));
+const PULLBACK_ACTIVATION_MIN_PCT = Math.max(0.4, Number(process.env.PULLBACK_ACTIVATION_MIN_PCT || 0.8));
+const PULLBACK_ACTIVATION_ATR_MULT = Math.max(0.25, Number(process.env.PULLBACK_ACTIVATION_ATR_MULT || 0.75));
+const PULLBACK_ACTIVATION_MAX_PCT = Math.max(PULLBACK_ACTIVATION_MIN_PCT, Number(process.env.PULLBACK_ACTIVATION_MAX_PCT || 3));
+const PULLBACK_NORMAL_RATIO = 0.382;
+const PULLBACK_DEEP_RATIO = 0.618;
+const PULLBACK_FIB_INVALID_RATIO = 0.786;
 const DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || (fs.existsSync('/data') ? '/data' : __dirname);
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -79,7 +85,8 @@ const TRADERS = [
 
 const TRADER_IDS = new Set(TRADERS.map(t => t.id));
 const TRADER_BY_ID = new Map(TRADERS.map(t => [t.id, t]));
-const EVENT_TYPES = ['OPEN', 'ADD', 'REDUCE', 'CLOSE', 'CONSENSUS'];
+const PULLBACK_EVENT_TYPES = ['PULLBACK', 'DEEP_PULLBACK', 'INVALIDATION'];
+const EVENT_TYPES = ['OPEN', 'ADD', 'REDUCE', 'CLOSE', ...PULLBACK_EVENT_TYPES, 'CONSENSUS'];
 const EVENT_TYPE_SET = new Set(EVENT_TYPES);
 
 const BASE = 'https://www.binance.com/bapi/futures/v1';
@@ -101,6 +108,7 @@ const STATS_FILE = path.join(DATA_DIR, 'stats-v57.json');
 const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
 const SCREEN_FILE = path.join(DATA_DIR, 'screen-v65.json');
 const CONSENSUS_EPISODE_FILE = path.join(DATA_DIR, 'consensus-episodes-v65.json');
+const PULLBACK_FILE = path.join(DATA_DIR, 'pullback-trackers-v65.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -1238,6 +1246,201 @@ function buildReferenceLevels(candles, side, entry) {
   };
 }
 
+function pullbackKey(traderId, symbol, side) {
+  return `${traderId}|${String(symbol || '').toUpperCase()}|${String(side || '').toUpperCase()}`;
+}
+
+function pullbackActivationMove(tracker) {
+  const entry = Number(tracker?.entryPrice);
+  if (!(entry > 0)) return null;
+  const atr = Number(tracker?.atr);
+  const minMove = entry * (PULLBACK_ACTIVATION_MIN_PCT / 100);
+  const atrMove = Number.isFinite(atr) && atr > 0 ? atr * PULLBACK_ACTIVATION_ATR_MULT : minMove;
+  return Math.min(entry * (PULLBACK_ACTIVATION_MAX_PCT / 100), Math.max(minMove, atrMove));
+}
+
+function priceAtPullbackRatio(side, extreme, excursion, ratio) {
+  return side === 'SHORT'
+    ? extreme + excursion * ratio
+    : extreme - excursion * ratio;
+}
+
+function pullbackSnapshot(tracker, marketPrice) {
+  const entry = Number(tracker?.entryPrice);
+  const side = String(tracker?.side || '').toUpperCase();
+  const price = Number(marketPrice);
+  if (!(entry > 0) || !(price > 0) || !['LONG', 'SHORT'].includes(side)) return null;
+
+  const storedExtreme = Number(tracker?.extremePrice);
+  const extreme = side === 'SHORT'
+    ? Math.min(entry, Number.isFinite(storedExtreme) && storedExtreme > 0 ? storedExtreme : entry, price)
+    : Math.max(entry, Number.isFinite(storedExtreme) && storedExtreme > 0 ? storedExtreme : entry, price);
+  const excursion = side === 'SHORT' ? entry - extreme : extreme - entry;
+  const retraced = side === 'SHORT' ? price - extreme : extreme - price;
+  const ratio = excursion > 0 ? Math.max(0, retraced / excursion) : 0;
+  const activationMove = pullbackActivationMove(tracker);
+  const activated = Number.isFinite(activationMove) && excursion >= activationMove;
+  const normalA = priceAtPullbackRatio(side, extreme, excursion, PULLBACK_NORMAL_RATIO);
+  const normalB = priceAtPullbackRatio(side, extreme, excursion, 0.5);
+  const deepA = priceAtPullbackRatio(side, extreme, excursion, PULLBACK_DEEP_RATIO);
+  const deepB = priceAtPullbackRatio(side, extreme, excursion, PULLBACK_FIB_INVALID_RATIO);
+  const fibInvalidPrice = priceAtPullbackRatio(side, extreme, excursion, PULLBACK_FIB_INVALID_RATIO);
+  const activationPct = activationMove / entry * 100;
+  const excursionPct = excursion / entry * 100;
+
+  let status = 'WAIT_MOVE';
+  if (tracker?.invalidSentAt) status = 'INVALID';
+  else if (tracker?.deepSentAt) status = 'DEEP_SENT';
+  else if (tracker?.normalSentAt) status = 'NORMAL_SENT';
+  else if (activated) status = 'TRACKING';
+  if (tracker?.hydrationStatus && tracker.hydrationStatus !== 'READY') status = 'SYNCING';
+
+  return {
+    marketPrice: price,
+    extremePrice: extreme,
+    excursion,
+    excursionPct,
+    retracementRatio: ratio,
+    retracementPct: ratio * 100,
+    activationMove,
+    activationPct,
+    activated,
+    normal: { low: Math.min(normalA, normalB), high: Math.max(normalA, normalB) },
+    deep: { low: Math.min(deepA, deepB), high: Math.max(deepA, deepB) },
+    fibInvalidPrice,
+    structuralInvalidPrice: Number(tracker?.invalidPrice) > 0 ? Number(tracker.invalidPrice) : null,
+    status,
+  };
+}
+
+function pullbackTransition(tracker, marketPrice, now = Date.now()) {
+  const snapshot = pullbackSnapshot(tracker, marketPrice);
+  if (!snapshot) return { tracker, snapshot: null, eventType: null, reason: null };
+
+  const next = {
+    ...tracker,
+    extremePrice: snapshot.extremePrice,
+    lastPrice: snapshot.marketPrice,
+    lastObservedAt: new Date(now).toISOString(),
+    updatedAt: new Date(now).toISOString(),
+  };
+  const side = String(next.side || '').toUpperCase();
+  const invalidPrice = Number(next.invalidPrice);
+  const structuralInvalid = invalidPrice > 0 && (
+    side === 'SHORT' ? snapshot.marketPrice >= invalidPrice : snapshot.marketPrice <= invalidPrice
+  );
+
+  let eventType = null;
+  let reason = null;
+  if (!next.invalidSentAt && structuralInvalid) {
+    eventType = 'INVALIDATION';
+    reason = 'STRUCTURE';
+    next.invalidSentAt = new Date(now).toISOString();
+  } else if (snapshot.activated && !next.invalidSentAt && snapshot.retracementRatio >= PULLBACK_FIB_INVALID_RATIO) {
+    eventType = 'INVALIDATION';
+    reason = 'FIB_TOO_DEEP';
+    next.invalidSentAt = new Date(now).toISOString();
+    next.normalSentAt ||= next.invalidSentAt;
+    next.deepSentAt ||= next.invalidSentAt;
+  } else if (snapshot.activated && !next.deepSentAt && snapshot.retracementRatio >= PULLBACK_DEEP_RATIO) {
+    eventType = 'DEEP_PULLBACK';
+    reason = 'FIB_0618';
+    next.deepSentAt = new Date(now).toISOString();
+    next.normalSentAt ||= next.deepSentAt;
+  } else if (snapshot.activated && !next.normalSentAt && snapshot.retracementRatio >= PULLBACK_NORMAL_RATIO) {
+    eventType = 'PULLBACK';
+    reason = 'FIB_0382';
+    next.normalSentAt = new Date(now).toISOString();
+  }
+
+  next.lastRetracementRatio = snapshot.retracementRatio;
+  return {
+    tracker: next,
+    snapshot: pullbackSnapshot(next, snapshot.marketPrice),
+    eventType,
+    reason,
+  };
+}
+
+const entryReferenceCache = new Map();
+
+async function fetchEntryReferenceCandles(symbol, openTime) {
+  const ts = new Date(openTime).getTime();
+  if (!Number.isFinite(ts)) throw new Error('invalid pullback open time');
+  const bucket = Math.floor(ts / (15 * 60 * 1000));
+  const key = `${symbol}|${bucket}`;
+  const cached = entryReferenceCache.get(key);
+  if (cached) return cached;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${LEVEL_INTERVAL}&limit=${LEVEL_LIMIT}&endTime=${encodeURIComponent(ts)}`;
+    const r = await fetch(url, {
+      headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.5' },
+      signal: controller.signal,
+    });
+    if (!r.ok) throw new Error(`entry kline HTTP ${r.status}`);
+    const json = await r.json();
+    const candles = Array.isArray(json) ? json.map(parseKlineRow).filter(Boolean) : [];
+    if (candles.length < 40) throw new Error('entry kline too short');
+    entryReferenceCache.set(key, candles);
+    return candles;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function historicalKlinePlan(startTime, endTime) {
+  const age = Math.max(0, endTime - startTime);
+  if (age <= 20 * 60 * 60 * 1000) return { interval: '1m', stepMs: 60 * 1000 };
+  if (age <= 5 * 24 * 60 * 60 * 1000) return { interval: '5m', stepMs: 5 * 60 * 1000 };
+  return { interval: '15m', stepMs: 15 * 60 * 1000 };
+}
+
+async function fetchHistoricalExtremes(symbol, startTime, endTime) {
+  const plan = historicalKlinePlan(startTime, endTime);
+  let cursor = Math.floor(startTime / plan.stepMs) * plan.stepMs + plan.stepMs;
+  let high = null;
+  let low = null;
+  let pages = 0;
+  let sawCandles = false;
+
+  while (cursor < endTime && pages < 3) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000);
+    try {
+      const url = `${KLINE_URL}?symbol=${encodeURIComponent(symbol)}&interval=${plan.interval}&limit=1000&startTime=${encodeURIComponent(cursor)}&endTime=${encodeURIComponent(endTime)}`;
+      const r = await fetch(url, {
+        headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 PositionAlert/6.5' },
+        signal: controller.signal,
+      });
+      if (!r.ok) throw new Error(`history kline HTTP ${r.status}`);
+      const json = await r.json();
+      const candles = Array.isArray(json) ? json.map(parseKlineRow).filter(Boolean) : [];
+      if (!candles.length) break;
+      sawCandles = true;
+      for (const c of candles) {
+        high = high == null ? c.high : Math.max(high, c.high);
+        low = low == null ? c.low : Math.min(low, c.low);
+      }
+      const last = candles[candles.length - 1];
+      const nextCursor = last.openTime + plan.stepMs;
+      if (!(nextCursor > cursor)) break;
+      cursor = nextCursor;
+      pages += 1;
+      if (candles.length < 1000) break;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (!sawCandles && endTime - startTime > 2 * plan.stepMs) {
+    throw new Error('history kline empty');
+  }
+  return { high, low, interval: plan.interval, complete: cursor >= endTime || (sawCandles && pages < 3) };
+}
+
 const markPrices = new Map();
 let markPriceUpdatedAt = null;
 let markPriceLastAttempt = 0;
@@ -1477,7 +1680,282 @@ let recentEvents = loadJson(EVENT_FILE, [])
 saveJson(EVENT_FILE, recentEvents);
 let consensusSent = loadJson(CONSENSUS_FILE, {}); // legacy, kept for migration compatibility
 let consensusEpisodes = loadJson(CONSENSUS_EPISODE_FILE, {});
+const storedPullbackTrackers = loadJson(PULLBACK_FILE, {});
+const pullbackTrackers = new Map(
+  Object.entries(storedPullbackTrackers)
+    .filter(([, x]) => x?.traderId === CORE_TRADER_ID && x?.symbol && ['LONG', 'SHORT'].includes(x?.side))
+    .map(([key, x]) => [key, {
+      ...x,
+      key,
+      hydrationStatus: 'PENDING',
+      hydrateFrom: x.lastObservedAt || x.openTime,
+    }])
+);
+const pullbackSetupBusy = new Set();
+let pullbackLastPersistAt = 0;
 let timer = null;
+
+function persistPullbackTrackers(force = false) {
+  const now = Date.now();
+  if (!force && now - pullbackLastPersistAt < 12000) return;
+  pullbackLastPersistAt = now;
+  saveJson(PULLBACK_FILE, Object.fromEntries(pullbackTrackers));
+}
+
+function latestExactOpenEvent(symbol, side, positionOpenTime = null) {
+  const positionMs = positionOpenTime ? new Date(positionOpenTime).getTime() : null;
+  return recentEvents.find(e => {
+    const eventMs = new Date(e?.ts).getTime();
+    const sameCycle = Number.isFinite(positionMs)
+      ? Number.isFinite(eventMs) && Math.abs(eventMs - positionMs) <= 2 * 60 * 1000
+      : false;
+    return (
+    e?.kind === 'TRADER' &&
+    e?.traderId === CORE_TRADER_ID &&
+    e?.type === 'OPEN' &&
+    e?.source === 'order_history' &&
+    e?.symbol === symbol &&
+    e?.side === side &&
+    Number(e?.tradePrice || e?.entryPrice) > 0 &&
+    sameCycle
+    );
+  }) || null;
+}
+
+function createPullbackTracker(openEvent, live = false) {
+  const entryPrice = Number(openEvent?.tradePrice || openEvent?.entryPrice);
+  const openMs = new Date(openEvent?.ts).getTime();
+  if (!(entryPrice > 0) || !Number.isFinite(openMs)) return null;
+  const symbol = String(openEvent.symbol || '').toUpperCase();
+  const side = String(openEvent.side || '').toUpperCase();
+  if (!symbol || !['LONG', 'SHORT'].includes(side)) return null;
+  const now = new Date().toISOString();
+  const observed = Number(markPrices.get(symbol));
+  const livePrice = Number.isFinite(observed) && observed > 0 ? observed : entryPrice;
+  const extremePrice = side === 'SHORT'
+    ? Math.min(entryPrice, livePrice)
+    : Math.max(entryPrice, livePrice);
+  return {
+    key: pullbackKey(CORE_TRADER_ID, symbol, side),
+    traderId: CORE_TRADER_ID,
+    traderName: TRADER_BY_ID.get(CORE_TRADER_ID)?.name || '熬鷹資本',
+    symbol,
+    side,
+    direction: sideZh(side),
+    entryPrice,
+    openTime: new Date(openMs).toISOString(),
+    anchorEventId: openEvent.id,
+    anchorSource: 'order_history_open',
+    anchorExact: true,
+    extremePrice,
+    lastPrice: livePrice,
+    lastObservedAt: now,
+    lastRetracementRatio: 0,
+    atr: null,
+    support: null,
+    resistance: null,
+    invalidPrice: null,
+    referenceStatus: 'PENDING',
+    referenceError: null,
+    hydrationStatus: live ? 'READY' : 'PENDING',
+    hydrationError: null,
+    hydrateFrom: new Date(openMs).toISOString(),
+    normalSentAt: null,
+    deepSentAt: null,
+    invalidSentAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function syncCorePullbackTrackers() {
+  const s = states.get(CORE_TRADER_ID);
+  if (!s) return;
+  const active = new Set([...s.positions.values()].map(p => pullbackKey(CORE_TRADER_ID, p.symbol, p.side)));
+  let changed = false;
+
+  for (const key of [...pullbackTrackers.keys()]) {
+    if (!active.has(key)) {
+      pullbackTrackers.delete(key);
+      changed = true;
+    }
+  }
+
+  if (s.historyStatus === 'OK') {
+    for (const p of s.positions.values()) {
+      const key = pullbackKey(CORE_TRADER_ID, p.symbol, p.side);
+      const openEvent = latestExactOpenEvent(p.symbol, p.side, p.openTime);
+      if (!openEvent) continue;
+      const existing = pullbackTrackers.get(key);
+      if (existing?.anchorEventId === openEvent.id) continue;
+      const tracker = createPullbackTracker(openEvent, Date.now() - new Date(openEvent.ts).getTime() < 2 * MARK_PRICE_REFRESH_MS);
+      if (!tracker) continue;
+      pullbackTrackers.set(key, tracker);
+      changed = true;
+    }
+  }
+
+  if (changed) persistPullbackTrackers(true);
+}
+
+async function preparePullbackTracker(key) {
+  if (pullbackSetupBusy.has(key)) return;
+  const original = pullbackTrackers.get(key);
+  if (!original) return;
+  const retryAt = Number(original.setupRetryAt || 0);
+  if (retryAt > Date.now()) return;
+  if (original.referenceStatus === 'READY' && original.hydrationStatus === 'READY') return;
+
+  pullbackSetupBusy.add(key);
+  try {
+    let patch = {};
+
+    if (original.referenceStatus !== 'READY') {
+      try {
+        const candles = await fetchEntryReferenceCandles(original.symbol, original.openTime);
+        const levels = buildReferenceLevels(candles, original.side, Number(original.entryPrice));
+        patch = {
+          ...patch,
+          atr: levels.atr,
+          support: levels.support,
+          resistance: levels.resistance,
+          invalidPrice: levels.sl?.suggested || null,
+          referenceStatus: 'READY',
+          referenceError: null,
+          referenceCapturedAt: new Date().toISOString(),
+        };
+      } catch (e) {
+        patch = {
+          ...patch,
+          referenceStatus: 'ERROR',
+          referenceError: String(e?.message || e),
+          setupRetryAt: Date.now() + 60_000,
+        };
+      }
+    }
+
+    if (original.hydrationStatus !== 'READY') {
+      try {
+        const startMs = new Date(original.hydrateFrom || original.openTime).getTime();
+        const endMs = Date.now();
+        const ext = Number.isFinite(startMs) && endMs - startMs > 60_000
+          ? await fetchHistoricalExtremes(original.symbol, startMs, endMs)
+          : { high: null, low: null, interval: 'live', complete: true };
+        const prior = Number(original.extremePrice) > 0 ? Number(original.extremePrice) : Number(original.entryPrice);
+        const extremePrice = original.side === 'SHORT'
+          ? Math.min(prior, Number(ext.low) > 0 ? Number(ext.low) : prior)
+          : Math.max(prior, Number(ext.high) > 0 ? Number(ext.high) : prior);
+        patch = {
+          ...patch,
+          extremePrice,
+          hydrationStatus: ext.complete ? 'READY' : 'ERROR',
+          hydrationError: ext.complete ? null : 'history range incomplete',
+          hydrationInterval: ext.interval,
+          hydratedAt: new Date().toISOString(),
+          ...(ext.complete ? {} : { setupRetryAt: Date.now() + 60_000 }),
+        };
+      } catch (e) {
+        patch = {
+          ...patch,
+          hydrationStatus: 'ERROR',
+          hydrationError: String(e?.message || e),
+          setupRetryAt: Date.now() + 60_000,
+        };
+      }
+    }
+
+    const current = pullbackTrackers.get(key);
+    if (current?.anchorEventId === original.anchorEventId) {
+      pullbackTrackers.set(key, { ...current, ...patch, updatedAt: new Date().toISOString() });
+      persistPullbackTrackers(true);
+    }
+  } finally {
+    pullbackSetupBusy.delete(key);
+  }
+}
+
+function pullbackViewForPosition(s, p) {
+  if (s?.trader?.id !== CORE_TRADER_ID) return null;
+  const key = pullbackKey(CORE_TRADER_ID, p.symbol, p.side);
+  const tracker = pullbackTrackers.get(key);
+  if (!tracker) {
+    return {
+      status: s.historyStatus === 'OK' ? 'WAIT_EXACT_OPEN' : 'PAUSED_API',
+      label: s.historyStatus === 'OK' ? '等待下一次精確建倉' : '訂單 API 暫停',
+      exactAnchor: false,
+    };
+  }
+  const price = Number(markPrices.get(String(p.symbol || '').toUpperCase())) || Number(tracker.lastPrice);
+  const snapshot = price > 0 ? pullbackSnapshot(tracker, price) : null;
+  const paused = s.historyStatus !== 'OK';
+  return {
+    ...(snapshot || {}),
+    status: paused ? 'PAUSED_API' : (snapshot?.status || 'SYNCING'),
+    label: paused ? '訂單 API 暫停' : null,
+    exactAnchor: tracker.anchorExact === true,
+    firstEntryPrice: tracker.entryPrice,
+    firstOpenTime: tracker.openTime,
+    referenceStatus: tracker.referenceStatus,
+    hydrationStatus: tracker.hydrationStatus,
+  };
+}
+
+function makePullbackEvent(tracker, eventType, snapshot, reason) {
+  const retracementPct = Number(snapshot?.retracementPct);
+  const structural = eventType === 'INVALIDATION' && reason === 'STRUCTURE';
+  const label = eventType === 'PULLBACK'
+    ? '一般回踩'
+    : eventType === 'DEEP_PULLBACK'
+      ? '深度回踩'
+      : structural ? '結構失效' : '回踩過深';
+  return {
+    id: `${Date.now()}-${tracker.key}-${eventType}`,
+    ts: new Date().toISOString(),
+    kind: 'PULLBACK',
+    source: 'binance_mark_price',
+    traderId: tracker.traderId,
+    traderName: tracker.traderName,
+    type: eventType,
+    label,
+    symbol: tracker.symbol,
+    side: tracker.side,
+    direction: tracker.direction,
+    entryPrice: tracker.entryPrice,
+    openTime: tracker.openTime,
+    tradePrice: snapshot?.marketPrice || null,
+    retracementPct: Number.isFinite(retracementPct) ? retracementPct : null,
+    extremePrice: snapshot?.extremePrice || null,
+    normalZone: snapshot?.normal || null,
+    deepZone: snapshot?.deep || null,
+    invalidPrice: snapshot?.structuralInvalidPrice || snapshot?.fibInvalidPrice || null,
+    reason,
+  };
+}
+
+async function evaluateCorePullbacks() {
+  syncCorePullbackTrackers();
+  const s = states.get(CORE_TRADER_ID);
+  if (!s) return;
+
+  for (const [key, tracker] of pullbackTrackers) {
+    if (tracker.referenceStatus !== 'READY' || tracker.hydrationStatus !== 'READY') {
+      void preparePullbackTracker(key);
+      continue;
+    }
+    if (s.historyStatus !== 'OK') continue;
+    if (!s.positions.has(positionKey(tracker.symbol, tracker.side))) continue;
+    const marketPrice = Number(markPrices.get(tracker.symbol));
+    if (!(marketPrice > 0)) continue;
+
+    const result = pullbackTransition(tracker, marketPrice);
+    if (!result.snapshot) continue;
+    pullbackTrackers.set(key, result.tracker);
+    persistPullbackTrackers(Boolean(result.eventType));
+    if (result.eventType) {
+      await emitEvent(makePullbackEvent(result.tracker, result.eventType, result.snapshot, result.reason));
+    }
+  }
+}
 
 function persistStates() {
   const stateObj = {};
@@ -1586,14 +2064,21 @@ function cleanEventTypes(value, fallbackAll = true) {
   return value.filter(type => EVENT_TYPE_SET.has(type));
 }
 
+function migratedEventTypes(record) {
+  const types = cleanEventTypes(record?.enabledTypes, true);
+  if (Number(record?.preferenceVersion || 0) >= 65) return types;
+  return [...new Set([...types, ...PULLBACK_EVENT_TYPES])];
+}
+
 function normalizeSubRecord(x) {
   if (x?.subscription?.endpoint) {
     return {
       endpoint: x.subscription.endpoint,
       subscription: x.subscription,
       enabledTraders: cleanTraderIds(x.enabledTraders, true),
-      enabledTypes: cleanEventTypes(x.enabledTypes, true),
+      enabledTypes: migratedEventTypes(x),
       consensusEnabled: x.consensusEnabled !== false,
+      preferenceVersion: 65,
     };
   }
 
@@ -1604,6 +2089,7 @@ function normalizeSubRecord(x) {
       enabledTraders: TRADERS.map(t => t.id),
       enabledTypes: [...EVENT_TYPES],
       consensusEnabled: true,
+      preferenceVersion: 65,
     };
   }
 
@@ -1707,8 +2193,16 @@ function eventAction(event) {
   if (event.type === 'ADD') return '加碼';
   if (event.type === 'REDUCE') return '減碼';
   if (event.type === 'CLOSE') return '平倉';
+  if (event.type === 'PULLBACK') return '一般回踩';
+  if (event.type === 'DEEP_PULLBACK') return '深度回踩';
+  if (event.type === 'INVALIDATION') return event.reason === 'STRUCTURE' ? '結構失效' : '回踩過深';
   if (event.type === 'CONSENSUS') return `${event.direction}共識`;
   return event.type;
+}
+
+function tradingViewLaunchUrl(symbol) {
+  const clean = cleanFuturesSymbol(symbol);
+  return clean ? `/?tv=${encodeURIComponent(clean)}` : '/';
 }
 
 function eventPushText(event) {
@@ -1716,6 +2210,15 @@ function eventPushText(event) {
     return {
       title: `熬鷹同向確認｜${event.direction}`,
       body: `${event.symbol}｜${event.traderNames.join('、')}`,
+    };
+  }
+
+  if (event.kind === 'PULLBACK') {
+    const ratio = Number(event.retracementPct);
+    const ratioText = Number.isFinite(ratio) ? `｜回撤 ${ratio.toFixed(1)}%` : '';
+    return {
+      title: `${event.traderName}｜${eventAction(event)}`,
+      body: `${event.symbol} ${event.direction}｜${fmtPrice(event.tradePrice)}${ratioText}｜點開TV確認`,
     };
   }
 
@@ -1742,8 +2245,8 @@ async function emitEvent(event) {
     body: text.body,
     tag: `${event.kind}-${event.symbol || 'market'}-${event.type}-${Date.now()}`,
     renotify: true,
-    data: { url: '/' },
-  }, event.kind === 'TRADER'
+    data: { url: event.kind === 'PULLBACK' ? tradingViewLaunchUrl(event.symbol) : '/' },
+  }, event.kind === 'TRADER' || event.kind === 'PULLBACK'
     ? { traderId: event.traderId, eventType: event.type }
     : { traderIds: event.traderIds, eventType: 'CONSENSUS' }
   );
@@ -1966,8 +2469,9 @@ async function pollTrader(s) {
 
 
 async function loop() {
-  void refreshMarkPrices();
+  await refreshMarkPrices();
   await Promise.allSettled([...states.values()].map(s => pollTrader(s)));
+  await evaluateCorePullbacks();
   timer = setTimeout(loop, POLL_MS);
 }
 
@@ -2306,7 +2810,7 @@ function hasCoreMember(members) {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_5_TRUE_STRENGTH_CORE',
+    mode: 'V6_5_PULLBACK_RADAR',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -2318,6 +2822,16 @@ app.get('/api/config', (_req, res) => {
     pushReady: true,
     traders: TRADERS,
     eventTypes: EVENT_TYPES,
+    pullback: {
+      coreTraderId: CORE_TRADER_ID,
+      normalRatio: PULLBACK_NORMAL_RATIO,
+      deepRatio: PULLBACK_DEEP_RATIO,
+      fibInvalidRatio: PULLBACK_FIB_INVALID_RATIO,
+      activationMinPct: PULLBACK_ACTIVATION_MIN_PCT,
+      activationAtrMultiplier: PULLBACK_ACTIVATION_ATR_MULT,
+      activationMaxPct: PULLBACK_ACTIVATION_MAX_PCT,
+      exactOpenRequired: true,
+    },
   });
 });
 
@@ -2373,6 +2887,7 @@ app.get('/api/status', (_req, res) => {
           unrealizedPnl: pv.unrealizedPnl,
           pnlSource: pv.pnlSource,
           pnlEstimated: pv.pnlEstimated,
+          pullback: pullbackViewForPosition(s, p),
         };
       }),
     };
@@ -2436,6 +2951,19 @@ app.get('/api/diagnostics', (_req, res) => {
     copyRate: copyRateSnapshot(),
     screenRunning,
     screenCursor,
+    pullbackTrackers: [...pullbackTrackers.values()].map(t => ({
+      key: t.key,
+      symbol: t.symbol,
+      side: t.side,
+      entryPrice: t.entryPrice,
+      openTime: t.openTime,
+      extremePrice: t.extremePrice,
+      referenceStatus: t.referenceStatus,
+      hydrationStatus: t.hydrationStatus,
+      normalSentAt: t.normalSentAt,
+      deepSentAt: t.deepSentAt,
+      invalidSentAt: t.invalidSentAt,
+    })),
     traders: [...states.values()].map(s => ({
       id: s.trader.id,
       name: s.trader.name,
@@ -2492,6 +3020,7 @@ app.post('/api/subscribe', (req, res) => {
     enabledTraders,
     enabledTypes,
     consensusEnabled,
+    preferenceVersion: 65,
   };
 
   if (idx >= 0) records[idx] = next;
@@ -2504,6 +3033,7 @@ app.post('/api/subscribe', (req, res) => {
     enabledTraders,
     enabledTypes,
     consensusEnabled,
+    preferenceVersion: 65,
   });
 });
 
@@ -2529,6 +3059,7 @@ app.post('/api/preferences', (req, res) => {
     rec.enabledTypes = cleanEventTypes(req.body.enabledTypes, false);
   }
   if (typeof req.body?.consensusEnabled === 'boolean') rec.consensusEnabled = req.body.consensusEnabled;
+  rec.preferenceVersion = 65;
 
   saveSubRecords(records);
 
@@ -2537,6 +3068,7 @@ app.post('/api/preferences', (req, res) => {
     enabledTraders: rec.enabledTraders,
     enabledTypes: rec.enabledTypes,
     consensusEnabled: rec.consensusEnabled !== false,
+    preferenceVersion: 65,
   });
 });
 
@@ -2565,6 +3097,24 @@ app.post('/api/test-push', async (req, res) => {
   }
 });
 
+app.post('/api/test-pullback-push', async (_req, res) => {
+  try {
+    await sendPush({
+      title: '熬鷹資本｜一般回踩',
+      body: 'BTCUSDT 做多｜77,452.8｜回撤 38.2%｜點開TV確認',
+      tag: `test-pullback-${Date.now()}`,
+      renotify: true,
+      data: { url: tradingViewLaunchUrl('BTCUSDT') },
+    }, {
+      traderId: CORE_TRADER_ID,
+      eventType: 'PULLBACK',
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
 app.get('/healthz', (_req, res) => {
   const rows = [...states.values()];
 
@@ -2578,7 +3128,7 @@ app.get('/healthz', (_req, res) => {
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V6.5 TRUE STRENGTH CORE started on ${PORT}`);
+    console.log(`Position Alert V6.5 PULLBACK RADAR started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
@@ -2596,6 +3146,7 @@ process.on('SIGTERM', () => {
 });
 
 export {
+  app,
   TRADERS,
   extractBestRows,
   normalizeOrder,
@@ -2612,4 +3163,7 @@ export {
   consensusEpisodeTransition,
   pctNumber,
   subscriptionAllows,
+  pullbackActivationMove,
+  pullbackSnapshot,
+  pullbackTransition,
 };
