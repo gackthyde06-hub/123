@@ -107,6 +107,10 @@ const IDEA_SYMBOLS = Math.max(8, Math.min(24, Number(process.env.IDEA_SYMBOLS ||
 const IDEA_CONCURRENCY = Math.max(2, Math.min(6, Number(process.env.IDEA_CONCURRENCY || 4)));
 const FUTURES_DATA = 'https://fapi.binance.com/futures/data';
 const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
+const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
+const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
+const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
+const BUILD_VERSION = 'V7.4';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 
@@ -3307,10 +3311,10 @@ function extractOpenAIText(json) {
 }
 
 async function fetchAIDailyBrief(flow, ideas) {
-  if(!process.env.OPENAI_API_KEY)return fallbackDailyBrief(flow,ideas,{aiConfigured:false});
+  if(!OPENAI_API_KEY)return fallbackDailyBrief(flow,ideas,{aiConfigured:false});
   const marketPayload={summary:flow.summary,leaders:(flow.leaders||[]).slice(0,8).map(x=>({symbol:x.symbol,changePct:x.changePct,fundingPct:x.fundingPct,quoteVolume:x.quoteVolume})),ranked:(ideas?.rows||[]).slice(0,8).map(x=>({symbol:x.symbol,direction:x.direction,estimatedWinRate:x.estimatedWinRate,rankScore:x.rankScore,reason:x.reason}))};
   const prompt=`你是加密貨幣日內市場研究助手。現在是台灣時間。請先使用網路搜尋，整理「當下」全球總經、Fed/利率/美元/美債、美股風險偏好、ETF/監管、BTC/ETH與重大加密新聞，再結合我提供的 Binance 即時摘要與量化排名。不要寫長文，只輸出嚴格 JSON，不要 markdown。JSON schema: {"bias":"偏多|偏空|中性","score":0-100,"title":"<=26個中文字","bullets":["最多6條，每條<=38中文字"],"action":"<=45中文字","sources":[{"title":"短標題","url":"https://..."}]}. 不要保證獲利，不要把模型估算勝率當成真實機率。市場資料=${JSON.stringify(marketPayload)}`;
-  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${process.env.OPENAI_API_KEY}`},body:JSON.stringify({model:OPENAI_MODEL,tools:[{type:'web_search_preview',search_context_size:'medium',user_location:{type:'approximate',country:'TW',timezone:'Asia/Taipei'}}],input:prompt,max_output_tokens:1200})});
+  const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${OPENAI_API_KEY}`},body:JSON.stringify({model:OPENAI_MODEL,tools:[{type:'web_search',search_context_size:'medium',user_location:{type:'approximate',country:'TW',timezone:'Asia/Taipei'}}],input:prompt,max_output_tokens:1200})});
   if(!r.ok)throw new Error(`OpenAI ${r.status}`);
   const json=await r.json(), text=extractOpenAIText(json).trim();
   const cleaned=text.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
@@ -3344,7 +3348,7 @@ async function getDailyBrief(force=false) {
   const dayKey=dailyBriefDayKey();
   if(!force&&dailyBriefCache.data&&dailyBriefCache.dayKey===dayKey)return dailyBriefCache.data;
   if(!dailyBriefCache.inflight){
-    dailyBriefCache.inflight=(async()=>{const [flow,ideas]=await Promise.all([getMarketFlow(),getRankedIdeas().catch(()=>null)]);try{return await fetchAIDailyBrief(flow,ideas)}catch(e){return fallbackDailyBrief(flow,ideas,{aiConfigured:Boolean(process.env.OPENAI_API_KEY),error:shortOpenAIError(e)})}})().then(data=>{dailyBriefCache={at:Date.now(),dayKey,data,error:null,inflight:null};saveJson(DAILY_BRIEF_FILE,{at:dailyBriefCache.at,dayKey,data});return data}).catch(e=>{dailyBriefCache.error=String(e?.message||e);dailyBriefCache.inflight=null;throw e});
+    dailyBriefCache.inflight=(async()=>{const [flow,ideas]=await Promise.all([getMarketFlow(),getRankedIdeas().catch(()=>null)]);try{return await fetchAIDailyBrief(flow,ideas)}catch(e){return fallbackDailyBrief(flow,ideas,{aiConfigured:Boolean(OPENAI_API_KEY),error:shortOpenAIError(e)})}})().then(data=>{dailyBriefCache={at:Date.now(),dayKey,data,error:null,inflight:null};saveJson(DAILY_BRIEF_FILE,{at:dailyBriefCache.at,dayKey,data});return data}).catch(e=>{dailyBriefCache.error=String(e?.message||e);dailyBriefCache.inflight=null;throw e});
   }
   return dailyBriefCache.inflight;
 }
@@ -3400,7 +3404,7 @@ app.get('/api/daily-brief', async (req, res) => {
   try {
     const force = String(req.query?.force || '') === '1';
     const data = await getDailyBrief(force);
-    res.json({...data, schedule:'08:05 Asia/Taipei', dayKey:dailyBriefDayKey()});
+    res.json({...data, schedule:'08:05 Asia/Taipei', dayKey:dailyBriefDayKey(), runtime:{project:RUNTIME_PROJECT||null,service:RUNTIME_SERVICE||null,version:BUILD_VERSION,aiConfigured:Boolean(OPENAI_API_KEY)}});
   } catch (err) {
     res.status(503).json({ ok:false, error:String(err?.message || err) });
   }
@@ -3408,7 +3412,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V7_3_DAILY_0805',
+    mode: 'V7_4_DAILY_0805',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -3417,7 +3421,7 @@ app.get('/api/config', (_req, res) => {
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
-    dailyBrief: { aiReady: Boolean(process.env.OPENAI_API_KEY), model: process.env.OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true },
+    dailyBrief: { aiReady: Boolean(OPENAI_API_KEY), model: OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true, runtime:{project:RUNTIME_PROJECT||null,service:RUNTIME_SERVICE||null,version:BUILD_VERSION} },
     rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS },
     pushReady: true,
     traders: TRADERS,

@@ -1,0 +1,8 @@
+V7.4 AI HEALTH + COMPACT 08:05
+
+- 「每日 08:05」改成極小純文字，不再使用卡片/格子。
+- AI 狀態改為簡短：AI 已連線 / AI 未連線 / AI：額度或速率限制。
+- 後端對 OPENAI_API_KEY 做 trim，避免複製時空白。
+- OpenAI Responses API 網搜工具更新為 web_search。
+- /api/config 與 /api/daily-brief 回傳 Railway project/service/version 診斷資訊（不回傳任何 Key）。
+- 每日 AI 仍固定台灣時間 08:05；市場資料與排名可持續更新，不增加 OpenAI 網搜次數。
