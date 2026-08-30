@@ -1,0 +1,22 @@
+V6.6 WORK RECOVERY
+
+這份從 V6.5 FULL BACKUP 接手，保留第一頁既有 API、交易員、回踩、通知與盈損試算。
+
+本次完成
+1. 三頁切換：監控 / 市場流向 / 建議。
+2. 第二、三頁使用同一套較大的手機閱讀比例，避免三欄卡片在 iPhone 上擠壞。
+3. 新增 /api/market-flow：讀 Binance Futures 公開 24h ticker + premiumIndex。
+4. 市場流向：成交額前列、24h 漲跌、市場廣度、資金費率、流向強度。
+5. 建議頁：高流動性標的輸出「建議做多 / 建議做空」，評分核心為動能 × 流動性 × 資金費擁擠修正。
+6. Binance 市場 API timeout 提高到預設 18 秒。
+7. 保留最後一次成功市場快照；即時 API 一次逾時時回退舊快照，避免第二、三頁整頁空白。
+8. 第一頁原本 /api/status、交易員、回踩追蹤、通知設定與測試功能未改判斷邏輯。
+
+注意
+- 建議標籤是市場條件摘要，不是保證獲利訊號。
+- 實際進場仍需使用者確認 TradingView 上的回踩、POC、SMC 與結構失效位。
+
+部署
+- FULL BACKUP：完整專案備份。
+- ROOT：Railway 專案根目錄檔案（不含 public 內容）。
+- PUBLIC：覆蓋 Railway 專案 public 目錄。

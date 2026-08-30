@@ -97,6 +97,12 @@ const KLINE_URL = 'https://fapi.binance.com/fapi/v1/klines';
 const LEVEL_INTERVAL = '15m';
 const LEVEL_LIMIT = 140;
 const LEVEL_CACHE_MS = 30 * 1000;
+const MARKET_24H_URL = 'https://fapi.binance.com/fapi/v1/ticker/24hr';
+const MARKET_FLOW_CACHE_MS = Math.max(5000, Number(process.env.MARKET_FLOW_CACHE_MS || 15000));
+const MARKET_FLOW_TIMEOUT_MS = Math.max(12000, Number(process.env.MARKET_FLOW_TIMEOUT_MS || 18000));
+const MARKET_FLOW_STALE_MS = Math.max(60_000, Number(process.env.MARKET_FLOW_STALE_MS || 10 * 60 * 1000));
+
+let marketFlowCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
 
 const SUB_FILE = path.join(DATA_DIR, 'subscriptions.json');
 const STATE_FILE = path.join(DATA_DIR, 'state-v5.json');
@@ -2808,9 +2814,138 @@ function hasCoreMember(members) {
   return Array.isArray(members) && members.some(x => x?.traderId === CORE_TRADER_ID);
 }
 
+function percentileRank(sortedAsc, value) {
+  if (!Array.isArray(sortedAsc) || !sortedAsc.length || !Number.isFinite(value)) return 0;
+  let lo = 0, hi = sortedAsc.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sortedAsc[mid] <= value) lo = mid + 1; else hi = mid;
+  }
+  return Math.max(0, Math.min(1, lo / sortedAsc.length));
+}
+
+function marketRecommendation(row, volumeRank) {
+  const ch = Number(row.changePct || 0);
+  const fundingPct = Number(row.fundingPct || 0);
+  const absCh = Math.abs(ch);
+  const liquidity = Math.max(0, Math.min(1, Number(volumeRank || 0)));
+  const trend = Math.max(-1, Math.min(1, ch / 6));
+  // Funding is used only as a crowding penalty; it never flips direction by itself.
+  const fundingPenalty = Math.min(0.35, Math.abs(fundingPct) / 0.08 * 0.18);
+  const quality = Math.max(0, Math.min(100,
+    48 + absCh * 4.2 + liquidity * 18 - fundingPenalty * 100
+  ));
+  const direction = trend > 0.10 ? 'LONG' : trend < -0.10 ? 'SHORT' : 'WAIT';
+  return {
+    direction,
+    label: direction === 'LONG' ? '建議做多' : direction === 'SHORT' ? '建議做空' : '等待',
+    score: Math.round(quality),
+    reason: direction === 'WAIT'
+      ? '24h 動能不足'
+      : `${ch >= 0 ? '24h上漲' : '24h下跌'} ${Math.abs(ch).toFixed(2)}% · 成交額排名 ${Math.max(1, Math.round((1-liquidity)*100))}%`,
+  };
+}
+
+function buildMarketFlow(tickers, premiums) {
+  const premiumMap = new Map((Array.isArray(premiums) ? premiums : []).map(x => [String(x?.symbol || ''), x]));
+  const rows = (Array.isArray(tickers) ? tickers : [])
+    .filter(x => /USDT$/.test(String(x?.symbol || '')) && !String(x?.symbol || '').includes('_'))
+    .map(x => {
+      const symbol = String(x.symbol || '');
+      const p = premiumMap.get(symbol) || {};
+      return {
+        symbol,
+        price: Number(x.lastPrice || p.markPrice || 0),
+        changePct: Number(x.priceChangePercent || 0),
+        quoteVolume: Number(x.quoteVolume || 0),
+        fundingPct: Number(p.lastFundingRate || 0) * 100,
+        nextFundingTime: Number(p.nextFundingTime || 0) || null,
+      };
+    })
+    .filter(x => x.price > 0 && x.quoteVolume > 0);
+
+  const volumes = rows.map(x => x.quoteVolume).filter(Number.isFinite).sort((a,b)=>a-b);
+  for (const row of rows) {
+    row.volumeRank = percentileRank(volumes, row.quoteVolume);
+    row.recommendation = marketRecommendation(row, row.volumeRank);
+  }
+  const byVolume = [...rows].sort((a,b)=>b.quoteVolume-a.quoteVolume).slice(0, 24);
+  const advancers = rows.filter(x => x.changePct > 0).length;
+  const decliners = rows.filter(x => x.changePct < 0).length;
+  const total = Math.max(1, advancers + decliners);
+  const breadth = (advancers - decliners) / total;
+  const weighted = byVolume.reduce((sum,x)=>sum + x.changePct * Math.sqrt(Math.max(1,x.quoteVolume)),0) /
+    Math.max(1, byVolume.reduce((sum,x)=>sum + Math.sqrt(Math.max(1,x.quoteVolume)),0));
+  const direction = weighted > 0.35 && breadth > -0.05 ? 'LONG' : weighted < -0.35 && breadth < 0.05 ? 'SHORT' : 'NEUTRAL';
+  const label = direction === 'LONG' ? '多方流入' : direction === 'SHORT' ? '空方流入' : '多空拉鋸';
+  const confidence = Math.round(Math.max(0, Math.min(100, 50 + Math.abs(weighted)*7 + Math.abs(breadth)*25)));
+  const recommendations = byVolume
+    .filter(x => x.recommendation.direction !== 'WAIT')
+    .sort((a,b)=>b.recommendation.score-a.recommendation.score || b.quoteVolume-a.quoteVolume)
+    .slice(0,12);
+
+  return {
+    ok:true,
+    source:'Binance Futures public API',
+    generatedAt:new Date().toISOString(),
+    summary:{ direction, label, confidence, weightedChangePct:Number(weighted.toFixed(3)), breadth:Number(breadth.toFixed(3)), advancers, decliners },
+    leaders:byVolume,
+    recommendations,
+  };
+}
+
+async function fetchMarketFlowFresh() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MARKET_FLOW_TIMEOUT_MS);
+  try {
+    const [tr, pr] = await Promise.all([
+      fetch(MARKET_24H_URL, { headers:{accept:'application/json','user-agent':'Mozilla/5.0 PositionAlert/6.6'}, signal:controller.signal }),
+      fetch(MARK_PRICE_URL, { headers:{accept:'application/json','user-agent':'Mozilla/5.0 PositionAlert/6.6'}, signal:controller.signal }),
+    ]);
+    if (!tr.ok) throw new Error(`ticker HTTP ${tr.status}`);
+    if (!pr.ok) throw new Error(`premium HTTP ${pr.status}`);
+    const [tickers, premiums] = await Promise.all([tr.json(), pr.json()]);
+    if (!Array.isArray(tickers) || !Array.isArray(premiums)) throw new Error('market payload invalid');
+    return buildMarketFlow(tickers, premiums);
+  } finally { clearTimeout(timeout); }
+}
+
+async function getMarketFlow() {
+  const now = Date.now();
+  if (marketFlowCache.data && now - marketFlowCache.at < MARKET_FLOW_CACHE_MS) return { ...marketFlowCache.data, stale:false, cacheAgeMs:now-marketFlowCache.at };
+  if (!marketFlowCache.inflight) {
+    marketFlowCache.inflight = fetchMarketFlowFresh().then(data => {
+      marketFlowCache = { at:Date.now(), lastGoodAt:Date.now(), data, error:null, inflight:null };
+      return data;
+    }).catch(err => {
+      marketFlowCache.error = String(err?.name === 'AbortError' ? 'Binance market timeout' : (err?.message || err));
+      marketFlowCache.inflight = null;
+      throw err;
+    });
+  }
+  try {
+    const data = await marketFlowCache.inflight;
+    return { ...data, stale:false, cacheAgeMs:0 };
+  } catch (err) {
+    if (marketFlowCache.data && now - marketFlowCache.lastGoodAt <= MARKET_FLOW_STALE_MS) {
+      return { ...marketFlowCache.data, stale:true, error:marketFlowCache.error, cacheAgeMs:now-marketFlowCache.lastGoodAt };
+    }
+    throw err;
+  }
+}
+
+app.get('/api/market-flow', async (_req, res) => {
+  try {
+    const data = await getMarketFlow();
+    res.json(data);
+  } catch (err) {
+    res.status(503).json({ ok:false, error:String(err?.message || err), stale:false });
+  }
+});
+
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_5_PULLBACK_RADAR',
+    mode: 'V6_6_MARKET_FLOW',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
