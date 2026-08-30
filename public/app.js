@@ -801,8 +801,8 @@ initTestNotifyControls();
 initPerformanceControls();
 document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
 
-// Mobile horizontal swipe navigation: 今日 ↔ 監控 ↔ 流向 ↔ 建議 ↔ 觀察 ↔ 績效
-const PAGE_SWIPE_ORDER=['today','monitor','flow','ideas','test','performance'];
+// Mobile horizontal swipe navigation: 今日 ↔ 績效 ↔ 流向 ↔ 建議 ↔ 監控 ↔ 觀察
+const PAGE_SWIPE_ORDER=['today','performance','flow','ideas','monitor','test'];
 let pageSwipeStart=null;
 function pageSwipeBlockedTarget(target){
   if(!(target instanceof Element))return false;
