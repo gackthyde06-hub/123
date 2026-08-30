@@ -110,11 +110,12 @@ const TEST_SIGNAL_MAX = Math.max(4, Math.min(12, Number(process.env.TEST_SIGNAL_
 const TEST_SIGNAL_IDEA_TTL_MS = Math.max(10 * 60 * 1000, Number(process.env.TEST_SIGNAL_IDEA_TTL_MS || 25 * 60 * 1000));
 const TEST_SIGNAL_OUTCOME_MS = Math.max(60 * 60 * 1000, Number(process.env.TEST_SIGNAL_OUTCOME_MS || 90 * 60 * 1000));
 const TEST_SIGNAL_CONFIRM_SCORE = Math.max(60, Math.min(92, Number(process.env.TEST_SIGNAL_CONFIRM_SCORE || 76)));
-const TEST_SIGNAL_HIGH_RATE = Math.max(58, Math.min(85, Number(process.env.TEST_SIGNAL_HIGH_RATE || 66)));
-const TEST_SIGNAL_NORMAL_RATE = Math.max(52, Math.min(TEST_SIGNAL_HIGH_RATE - 1, Number(process.env.TEST_SIGNAL_NORMAL_RATE || 59)));
-const TEST_SIGNAL_HIGH_SCORE = Math.max(80, Math.min(96, Number(process.env.TEST_SIGNAL_HIGH_SCORE || 85)));
-const TEST_SIGNAL_NORMAL_SCORE = Math.max(72, Math.min(TEST_SIGNAL_HIGH_SCORE - 1, Number(process.env.TEST_SIGNAL_NORMAL_SCORE || 78)));
-const TEST_SIGNAL_FIRST_MAX_CHASE_ATR = Math.max(.15, Math.min(.7, Number(process.env.TEST_SIGNAL_FIRST_MAX_CHASE_ATR || .35)));
+const TEST_SIGNAL_HIGH_RATE = Math.max(60, Math.min(85, Number(process.env.TEST_SIGNAL_HIGH_RATE || 68)));
+const TEST_SIGNAL_NORMAL_RATE = Math.max(54, Math.min(TEST_SIGNAL_HIGH_RATE - 1, Number(process.env.TEST_SIGNAL_NORMAL_RATE || 60)));
+const TEST_SIGNAL_HIGH_SCORE = Math.max(82, Math.min(96, Number(process.env.TEST_SIGNAL_HIGH_SCORE || 87)));
+const TEST_SIGNAL_NORMAL_SCORE = Math.max(74, Math.min(TEST_SIGNAL_HIGH_SCORE - 1, Number(process.env.TEST_SIGNAL_NORMAL_SCORE || 80)));
+const TEST_SIGNAL_FIRST_MAX_CHASE_ATR = Math.max(.15, Math.min(.7, Number(process.env.TEST_SIGNAL_FIRST_MAX_CHASE_ATR || .30)));
+const TEST_SIGNAL_HIGH_MAX_CHASE_ATR = Math.max(.10, Math.min(TEST_SIGNAL_FIRST_MAX_CHASE_ATR, Number(process.env.TEST_SIGNAL_HIGH_MAX_CHASE_ATR || .18)));
 const TEST_SIGNAL_MAX_SPREAD_BPS = Math.max(3, Math.min(30, Number(process.env.TEST_SIGNAL_MAX_SPREAD_BPS || 12)));
 const TEST_MONITOR_WEAK_FLAGS = Math.max(2, Math.min(6, Number(process.env.TEST_MONITOR_WEAK_FLAGS || 4)));
 const TEST_MONITOR_STATE_BARS = Math.max(2, Math.min(3, Number(process.env.TEST_MONITOR_STATE_BARS || 2)));
@@ -134,9 +135,11 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V8.5';
+const BUILD_VERSION = 'V8.7';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
+const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
+const symbolAnalysisCache = new Map();
 
 let marketFlowCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
 let rankedIdeasCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
@@ -3317,6 +3320,75 @@ function ideaScoreParts(row, t15, t1h, deriv) {
   return { direction, signed:Number(signed.toFixed(1)), modelScore:Math.round(directionalStrength*0.8+coverage*0.2), signals };
 }
 
+
+const SYMBOL_PROJECT_PROFILES = {
+  BTC:{sector:'比特幣 / 儲值資產',purpose:'去中心化價值儲存與鏈上結算'},
+  ETH:{sector:'L1 / 智能合約',purpose:'承載 DeFi、NFT、Rollup 與鏈上應用'},
+  BNB:{sector:'L1 / 交易所生態',purpose:'BNB Chain Gas、鏈上應用與 Binance 生態用途'},
+  SOL:{sector:'L1 / 高效能公鏈',purpose:'高吞吐智能合約、DeFi、支付與消費型應用'},
+  XRP:{sector:'支付 / 跨境結算',purpose:'跨境價值轉移與金融機構結算'},
+  ADA:{sector:'L1 / 智能合約',purpose:'PoS 公鏈與去中心化應用基礎設施'},
+  AVAX:{sector:'L1 / 子網',purpose:'智能合約、公鏈與可客製化鏈網路'},
+  SUI:{sector:'L1 / Move 生態',purpose:'高效能鏈上應用、遊戲與資產交易'},
+  APT:{sector:'L1 / Move 生態',purpose:'高吞吐智能合約與鏈上應用'},
+  TON:{sector:'L1 / 社交生態',purpose:'Telegram 生態支付、應用與鏈上資產'},
+  TRX:{sector:'L1 / 支付',purpose:'穩定幣轉帳與低成本鏈上支付'},
+  LINK:{sector:'Oracle / 基礎設施',purpose:'把鏈外資料與跨鏈訊息提供給智能合約'},
+  UNI:{sector:'DeFi / DEX',purpose:'Uniswap 去中心化交易與流動性協議治理'},
+  AAVE:{sector:'DeFi / 借貸',purpose:'去中心化借貸、抵押與流動性市場'},
+  HYPE:{sector:'DeFi / 永續合約',purpose:'Hyperliquid 鏈上交易與永續合約生態'},
+  ZEC:{sector:'隱私 / 支付',purpose:'使用零知識證明提供可選擇的隱私轉帳'},
+  LTC:{sector:'支付 / PoW',purpose:'低成本點對點轉帳與支付'},
+  BCH:{sector:'支付 / PoW',purpose:'以較大區塊支援點對點現金型支付'},
+  XLM:{sector:'支付 / 跨境結算',purpose:'跨境支付、資產發行與金融接軌'},
+  PENDLE:{sector:'DeFi / 收益交易',purpose:'拆分並交易固定收益與收益權'},
+  ENA:{sector:'DeFi / 合成美元',purpose:'Ethena 合成美元與收益型穩定資產生態'},
+  ONDO:{sector:'RWA / DeFi',purpose:'把美債等現實世界資產代幣化上鏈'},
+  TAO:{sector:'AI / 去中心化運算',purpose:'Bittensor 去中心化機器學習與模型激勵網路'},
+  WLD:{sector:'身份 / AI',purpose:'人類身份驗證與 World 生態支付/應用'},
+  SEI:{sector:'L1 / 交易型公鏈',purpose:'針對交易與高頻鏈上應用最佳化'},
+  HBAR:{sector:'企業 DLT',purpose:'Hashgraph 共識、企業級代幣化與應用'},
+  ETC:{sector:'L1 / PoW',purpose:'Ethereum Classic 智能合約與不可逆鏈歷史'},
+  NEAR:{sector:'L1 / 智能合約',purpose:'易用型智能合約、鏈抽象與應用基礎設施'},
+  DOT:{sector:'跨鏈 / 基礎設施',purpose:'Polkadot 多鏈互通與共享安全'},
+  ATOM:{sector:'跨鏈 / Cosmos',purpose:'Cosmos 生態跨鏈互通與應用鏈'},
+  ARB:{sector:'L2 / Ethereum',purpose:'Arbitrum Rollup 擴容與 DeFi 生態'},
+  OP:{sector:'L2 / Ethereum',purpose:'Optimism Rollup 與 Superchain 生態'},
+  POL:{sector:'L2 / Polygon',purpose:'Polygon 生態擴容、質押與鏈間協作'},
+  CRV:{sector:'DeFi / 穩定幣 DEX',purpose:'Curve 穩定資產交易與流動性'},
+  LDO:{sector:'DeFi / 流動質押',purpose:'Lido 流動質押與 stETH 生態治理'},
+  RUNE:{sector:'DeFi / 跨鏈 DEX',purpose:'THORChain 原生資產跨鏈交換'},
+  FIL:{sector:'DePIN / 儲存',purpose:'去中心化檔案儲存與資料市場'},
+  ICP:{sector:'去中心化運算',purpose:'鏈上運算、網站與後端服務'},
+  FET:{sector:'AI / Agent',purpose:'AI Agent、自動化與去中心化 AI 生態'},
+  RENDER:{sector:'AI / GPU / DePIN',purpose:'分散式 GPU 算力與渲染工作'},
+  INJ:{sector:'DeFi / L1',purpose:'交易、衍生品與金融型鏈上應用'},
+  KAS:{sector:'PoW / DAG',purpose:'高吞吐 PoW 支付與區塊 DAG 網路'},
+  DOGE:{sector:'迷因 / 支付',purpose:'社群型 PoW 代幣與小額支付'},
+  PEPE:{sector:'迷因',purpose:'以社群與敘事驅動的高波動迷因代幣'},
+  WIF:{sector:'迷因 / Solana',purpose:'Solana 生態社群型迷因代幣'},
+  BONK:{sector:'迷因 / Solana',purpose:'Solana 社群型迷因與生態代幣'},
+  TRUMP:{sector:'迷因 / 政治敘事',purpose:'以名人與政治敘事驅動的高波動代幣'},
+  SHIB:{sector:'迷因 / 生態',purpose:'社群型迷因代幣與 Shibarium 生態'},
+  FLOKI:{sector:'迷因 / 生態',purpose:'社群型迷因代幣與遊戲/應用生態'},
+  W:{sector:'跨鏈 / 基礎設施',purpose:'Wormhole 跨鏈訊息與資產傳遞'},
+  JUP:{sector:'DeFi / Solana DEX',purpose:'Solana 聚合交易、永續與流動性產品'},
+  PYTH:{sector:'Oracle',purpose:'為鏈上應用提供低延遲市場價格資料'},
+  TIA:{sector:'模組化區塊鏈',purpose:'資料可用性層，支援 Rollup 與模組化鏈'},
+  EIGEN:{sector:'再質押 / 基礎設施',purpose:'EigenLayer 再質押與共享安全服務'},
+  S:{sector:'L1 / Sonic',purpose:'Sonic 高效能 EVM 公鏈與 DeFi 生態'},
+};
+function symbolBaseAsset(symbol){
+  const raw=String(symbol||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/USDT$/,'');
+  if(raw.startsWith('1000')&&SYMBOL_PROJECT_PROFILES[raw.slice(4)])return raw.slice(4);
+  return raw;
+}
+function symbolProjectProfile(symbol){
+  const base=symbolBaseAsset(symbol), known=SYMBOL_PROJECT_PROFILES[base];
+  if(known)return {base,sector:known.sector,purpose:known.purpose,known:true};
+  return {base,sector:'其他 / 新興加密資產',purpose:'題材與用途變動較快；展開詳細可用即時網搜確認專案定位與今日催化',known:false};
+}
+
 async function analyzeIdeaSymbol(row) {
   const symbol=row.symbol;
   const urls={
@@ -3345,6 +3417,7 @@ async function analyzeIdeaSymbol(row) {
     direction:model.direction, label:model.direction==='LONG'?'做多':model.direction==='SHORT'?'做空':'等待',
     modelScore:model.modelScore, rankScore:Number(rankScore.toFixed(1)), estimatedWinRate:Number(estimate.toFixed(1)),
     historicalHitRate:bt.hitRate, backtestSample:bt.sample, reason,
+    profile:symbolProjectProfile(symbol),
     metrics:{ rsi15:Number(t15.rsi14?.toFixed(1)), rsi1h:Number(t1h.rsi14?.toFixed(1)), volumeRatio:Number(t15.volumeRatio.toFixed(2)), oiChangePct:Number((deriv.oiChangePct||0).toFixed(2)), globalRatio:deriv.globalRatio, topRatio:deriv.topRatio, takerRatio:deriv.takerRatio },
   };
 }
@@ -3630,10 +3703,16 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
   const live=testWeightedLiveCalibration(t);winW+=live.wins;lossW+=live.losses;
   let meanRate=100*winW/Math.max(1e-9,winW+lossW);
   const rankRef=Number(t.rankAtConfirm||t.rank),rankHeat=testRankHeat(rankRef);
-  meanRate+=clamp((rankHeat-62)*.055,-2.2,2.6);
+  // 當日排名只做有限度校準：Top3 有明顯加分，後段排名扣分，但不讓熱度單獨製造高勝率。
+  meanRate+=clamp((rankHeat-62)*.08,-3.4,3.8);
+  if(Number.isFinite(rankRef)){if(rankRef<=3)meanRate+=1.4;else if(rankRef>=10)meanRate-=1.8;else if(rankRef>=7)meanRate-=.7}
   if(dynamic&&['CONFIRMED','INVALID'].includes(t.status)){
-    if(Number.isFinite(Number(t.monitorScore)))meanRate+=clamp((Number(t.monitorScore)-76)*.10,-4.5,3.6);
-    meanRate+=({STRONG:1.0,CONTINUING:1.5,WEAKENING:-8.0,RECOVERING:.4,CONFIRMED:0,INVALIDATED:-11,REARMED:.2}[t.monitorState]||0);
+    if(Number.isFinite(Number(t.monitorScore)))meanRate+=clamp((Number(t.monitorScore)-76)*.11,-5.2,4.0);
+    meanRate+=({STRONG:2.0,CONTINUING:2.8,WEAKENING:-9.0,RECOVERING:.8,CONFIRMED:0,INVALIDATED:-12,REARMED:.4}[t.monitorState]||0);
+    const ev=t.monitorEvidence||t.lastCheck||{};
+    if(ev.adverse30)meanRate-=2.0;if(ev.adverse1h)meanRate-=2.8;if(ev.adverseMarket)meanRate-=2.0;if(ev.adverseDepth)meanRate-=1.4;if(ev.wideSpread)meanRate-=1.2;
+    if(ev.fundingCrowded)meanRate-=1.8;if(String(ev.adlRisk||'').toLowerCase()==='high')meanRate-=2.8;
+    if(ev.breakoutHeld)meanRate+=.8;
   }
   const effectiveSample=Math.max(1,Math.round((histN*histWeight)+(regN?regN*Math.min(.18,.06+regN/300):0)+live.effectiveSample+priorN));
   meanRate=clamp(meanRate,40,84);
@@ -3641,7 +3720,7 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
   // 顯示值往保守下界收斂；樣本愈少，收斂愈強。
   const lowWeight=effectiveSample<38?.44:effectiveSample<65?.34:effectiveSample<100?.26:.21;
   let rate=meanRate*(1-lowWeight)+Number(rawCi.low??meanRate)*lowWeight;
-  const maxRate=effectiveSample>=120?80:effectiveSample>=80?76:effectiveSample>=50?72:68;
+  const maxRate=effectiveSample>=120?78:effectiveSample>=80?75:effectiveSample>=50?71:67;
   rate=clamp(rate,40,maxRate);
   const pseudoWins=rate/100*effectiveSample,pseudoLosses=effectiveSample-pseudoWins,ci=testWilsonInterval(pseudoWins,pseudoLosses);
   const confidence=effectiveSample>=80?'高':effectiveSample>=45?'中':'低';
@@ -3649,7 +3728,7 @@ function testCalibratedWinRate(t,{dynamic=true}={}) {
     rate:Number(rate.toFixed(1)),posteriorMean:Number(meanRate.toFixed(1)),confidence,effectiveSample,liveSample:live.raw,historicalSample:histN,regime:t.setup?.volatilityRegime||'NORMAL',regimeSample:regN,
     rankAtConfirm:Number.isFinite(rankRef)?rankRef:null,rankHeat:Number(rankHeat.toFixed(0)),
     conservativeLow:Number.isFinite(ci.low)?Number(ci.low.toFixed(1)):null,confidenceHigh:Number.isFinite(ci.high)?Number(ci.high.toFixed(1)):null,
-    method:'嚴格校準勝率：模型先驗降權＋擴大5分K回測＋波動分層＋APP實測＋當日排名熱度；低樣本強制向Wilson下界收斂並限制最高值'
+    method:'嚴格校準勝率：模型先驗降權＋擴大5分K回測＋波動分層＋APP實測＋當日排名熱度＋即時高週期/委託簿/擁擠風險；低樣本強制向Wilson下界收斂並限制最高值'
   };
 }
 function terminalTestStatus(status){return ['WIN','LOSS','TIMEOUT','DROPPED','EXPIRED'].includes(status)}
@@ -3762,7 +3841,7 @@ function testSignalTier(t,{reentry=false}={}) {
   const noChase=!Number.isFinite(chaseAtr)||chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR;
   const hardSafe=!adverse&&noSpreadRisk&&noChase&&adlRisk!=='high'&&!fundingCrowded&&t.status!=='INVALID'&&t.status!=='DROPPED'&&t.monitorState!=='WEAKENING';
   if(!hardSafe)return {tier:'BLOCKED',rate,low,score,rank};
-  if(rate>=TEST_SIGNAL_HIGH_RATE&&low>=50&&score>=TEST_SIGNAL_HIGH_SCORE&&rank<=6)return {tier:'HIGH',rate,low,score,rank};
+  if(rate>=TEST_SIGNAL_HIGH_RATE&&low>=50&&score>=TEST_SIGNAL_HIGH_SCORE&&rank<=6&&(!Number.isFinite(chaseAtr)||chaseAtr<=TEST_SIGNAL_HIGH_MAX_CHASE_ATR))return {tier:'HIGH',rate,low,score,rank};
   if(rate>=TEST_SIGNAL_NORMAL_RATE&&low>=43&&score>=TEST_SIGNAL_NORMAL_SCORE&&rank<=9)return {tier:'NORMAL',rate,low,score,rank};
   return {tier:'VALID',rate,low,score,rank};
 }
@@ -4184,7 +4263,7 @@ async function runTestSignalScan(force=false) {
 function testSignalLoop(){void runTestSignalScan(false).finally(()=>{testSignalTimer=setTimeout(testSignalLoop,TEST_SIGNAL_SCAN_MS)})}
 function testSignalResponse() {
   const rows=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000).sort((a,b)=>{const pa={CONFIRMED:0,INVALID:1,TOUCHING:2,WAIT_PULLBACK:3,WIN:4,TIMEOUT:5,DROPPED:6,LOSS:7,EXPIRED:8};const sa=(pa[a.status]??9),sb=(pa[b.status]??9);if(sa!==sb)return sa-sb;if(sa<=1)return testMonitorPriority(b)-testMonitorPriority(a)||(a.rank||99)-(b.rank||99);return (a.rank||99)-(b.rank||99)}).slice(0,24).map(publicTestTracker);
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'排序＝當日建議熱度46%＋保守校準勝率39%＋即時結構15%。確認額外要求5/15/30/60分、ADX/RSI/MACD、OI/主動買賣/大戶持倉、20檔委託簿/價差、BTC/ETH、大額擁擠風險與ADL風險；超過0.35 ATR追價直接不確認。達1R移入達標池，只在二次38.2–61.8回踩且連續2根5分K收回時重新上榜；失效保留30分收復窗，連續15分變爛且高週期同步弱則提前移出。',error:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'排序＝當日建議熱度46%＋保守校準勝率39%＋即時結構15%。勝率再加入排名桶、30/60分逆向、委託簿、價差、Funding擁擠與ADL風險校準；高勝率通知追價距離限制更嚴。確認要求5/15/30/60分、ADX/RSI/MACD、OI/主動買賣/大戶持倉、20檔委託簿/價差、BTC/ETH；達1R移入達標池，只在二次38.2–61.8回踩且連續2根5分K收回時重新上榜；失效保留30分收復窗，連續15分變爛且高週期同步弱則提前移出。',error:testSignalLastError};
 }
 
 function fallbackDailyBrief(flow, ideas, meta={}) {
@@ -4197,6 +4276,37 @@ function extractOpenAIText(json) {
   if(typeof json?.output_text==='string')return json.output_text;
   for(const item of json?.output||[])for(const c of item?.content||[])if(c?.type==='output_text'&&typeof c.text==='string')return c.text;
   return '';
+}
+
+
+function cleanJsonText(text){return String(text||'').trim().replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```$/,'').trim()}
+function quantOnlySymbolAnalysis(symbol, idea, profile, error=null){
+  const dir=idea?.direction==='LONG'?'偏多':idea?.direction==='SHORT'?'偏空':'中性';
+  const strength=Number(idea?.modelScore||0)>=75?'偏強':Number(idea?.modelScore||0)<=55?'偏弱':'中性';
+  return {ok:true,mode:'QUANT_ONLY',symbol,generatedAt:new Date().toISOString(),profile,bias:dir,strength,summary:idea?`量化排名 ${Number(idea.rankScore||0).toFixed(0)} 分；${idea.reason||'訊號分歧'}。`:'目前只有市場資料。',bullish:[],bearish:[],news:[],action:idea?.direction==='LONG'?'等回踩確認，不追突破K':idea?.direction==='SHORT'?'等反彈/回踩轉弱，不追殺':'觀望等方向一致',aiReady:false,aiError:error};
+}
+async function getSymbolWebAnalysis(symbol, direction=''){
+  const clean=cleanFuturesSymbol(symbol), key=`${clean}:${String(direction||'').toUpperCase()}`, now=Date.now(), cached=symbolAnalysisCache.get(key);
+  if(cached&&now-cached.at<SYMBOL_ANALYSIS_CACHE_MS)return {...cached.data,cached:true};
+  const [ideas,flow]=await Promise.all([getRankedIdeas().catch(()=>null),getMarketFlow().catch(()=>null)]);
+  const idea=(ideas?.rows||[]).find(x=>x.symbol===clean&&(!direction||x.direction===direction))||(ideas?.rows||[]).find(x=>x.symbol===clean)||null;
+  const profile=idea?.profile||symbolProjectProfile(clean);
+  if(!OPENAI_API_KEY){const data=quantOnlySymbolAnalysis(clean,idea,profile,'AI未連線');symbolAnalysisCache.set(key,{at:now,data});return data}
+  const tracker=[...testSignalTrackers.values()].find(t=>t.symbol===clean&&(!direction||t.direction===direction))||null;
+  const trackerView=tracker?publicTestTracker(tracker):null;
+  const payload={
+    symbol:clean,profile,market:flow?.summary||null,
+    idea:idea?{direction:idea.direction,modelScore:idea.modelScore,rankScore:idea.rankScore,estimatedWinRate:idea.estimatedWinRate,historicalHitRate:idea.historicalHitRate,backtestSample:idea.backtestSample,changePct:idea.changePct,fundingPct:idea.fundingPct,metrics:idea.metrics,reason:idea.reason}:null,
+    monitor:trackerView?{rank:trackerView.rank,calibratedWinRate:trackerView.calibratedWinRate,monitorLabel:trackerView.monitorLabel,monitorScore:trackerView.monitorScore,notificationTier:trackerView.notificationTier,currentPrice:trackerView.currentPrice,entryZone:trackerView.preferredEntryZone,entryStrategy:trackerView.entryStrategy}:null
+  };
+  const prompt=`你是加密貨幣日內研究助手。請用網路搜尋 ${clean} 對應專案最新資料，優先看官方/主流可靠來源與最近24小時新聞，再結合我提供的 Binance Futures 量化資料。只輸出繁體中文嚴格 JSON，不要 markdown，不要保證獲利。若沒有可靠重大消息要明確寫「未見重大催化」。\nJSON schema={"profile":{"sector":"<=18字","purpose":"<=42字"},"bias":"偏多|偏空|中性","strength":"強|偏強|中性|偏弱|弱","summary":"<=90字","bullish":["最多3條，每條<=42字"],"bearish":["最多3條，每條<=42字"],"news":[{"tone":"利多|利空|中性","text":"<=48字"}],"action":"<=70字"}. 今日策略必須避免追高/追殺，說明應等回踩、反彈或觀望。量化資料=${JSON.stringify(payload)}`;
+  try{
+    const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${OPENAI_API_KEY}`},body:JSON.stringify({model:OPENAI_MODEL,tools:[{type:'web_search',search_context_size:'medium',user_location:{type:'approximate',country:'TW',timezone:'Asia/Taipei'}}],input:prompt,max_output_tokens:1100})});
+    if(!r.ok)throw new Error(`OpenAI ${r.status}`);
+    const json=await r.json(), parsed=JSON.parse(cleanJsonText(extractOpenAIText(json)));
+    const data={ok:true,mode:'AI_WEB',symbol:clean,generatedAt:new Date().toISOString(),profile:{sector:String(parsed?.profile?.sector||profile.sector).slice(0,50),purpose:String(parsed?.profile?.purpose||profile.purpose).slice(0,120)},bias:['偏多','偏空','中性'].includes(parsed?.bias)?parsed.bias:'中性',strength:['強','偏強','中性','偏弱','弱'].includes(parsed?.strength)?parsed.strength:'中性',summary:String(parsed?.summary||'').slice(0,220),bullish:Array.isArray(parsed?.bullish)?parsed.bullish.slice(0,3).map(x=>String(x).slice(0,100)):[],bearish:Array.isArray(parsed?.bearish)?parsed.bearish.slice(0,3).map(x=>String(x).slice(0,100)):[],news:Array.isArray(parsed?.news)?parsed.news.slice(0,4).map(x=>({tone:['利多','利空','中性'].includes(x?.tone)?x.tone:'中性',text:String(x?.text||'').slice(0,110)})).filter(x=>x.text):[],action:String(parsed?.action||'').slice(0,170),aiReady:true,aiError:null};
+    symbolAnalysisCache.set(key,{at:Date.now(),data});return data;
+  }catch(e){const data=quantOnlySymbolAnalysis(clean,idea,profile,shortOpenAIError(e));symbolAnalysisCache.set(key,{at:Date.now(),data});return data}
 }
 
 async function fetchAIDailyBrief(flow, ideas) {
@@ -4289,6 +4399,16 @@ app.get('/api/ranked-ideas', async (_req, res) => {
   }
 });
 
+app.get('/api/symbol-analysis', async (req, res) => {
+  try {
+    const symbol=cleanFuturesSymbol(req.query?.symbol||'');
+    const direction=String(req.query?.direction||'').toUpperCase();
+    if(!symbol||!symbol.endsWith('USDT'))return res.status(400).json({ok:false,error:'INVALID_SYMBOL'});
+    const data=await getSymbolWebAnalysis(symbol,['LONG','SHORT'].includes(direction)?direction:'');
+    res.json(data);
+  } catch (err) { res.status(503).json({ok:false,error:String(err?.message||err)}); }
+});
+
 app.get('/api/test-signals', async (req, res) => {
   try {
     const force = String(req.query?.force || '') === '1';
@@ -4324,7 +4444,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V7_8_TEST_SIGNAL',
+    mode: 'V8_7_INTEGRATED_SIGNAL',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -4334,7 +4454,7 @@ app.get('/api/config', (_req, res) => {
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
     dailyBrief: { aiReady: Boolean(OPENAI_API_KEY), model: OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true, runtime:{project:RUNTIME_PROJECT||null,service:RUNTIME_SERVICE||null,version:BUILD_VERSION} },
-    rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS },
+    rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS, webAnalysisOnDemand:true, webAnalysisCacheMs:SYMBOL_ANALYSIS_CACHE_MS },
     testSignals: { scanMs: TEST_SIGNAL_SCAN_MS, max: TEST_SIGNAL_MAX, confirmScore: TEST_SIGNAL_CONFIRM_SCORE, weakFlags: TEST_MONITOR_WEAK_FLAGS, stateBars: TEST_MONITOR_STATE_BARS, routeToMonitor: true, lifecycle: true, reentry:true, reentryScore:TEST_REENTRY_SCORE, reentryConfirmBars:TEST_REENTRY_CONFIRM_BARS },
     pushReady: true,
     traders: TRADERS,
