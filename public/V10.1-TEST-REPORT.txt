@@ -1,0 +1,28 @@
+V10.1.0 SOLO MAX MULTI-PLAYBOOK — LOCAL RELEASE TEST REPORT
+
+PASS  JavaScript syntax: server.js
+PASS  JavaScript syntax: public/app.js
+PASS  JavaScript syntax: public/sw.js
+PASS  V10 unit tests
+PASS  V10.1 multi-playbook tests
+PASS  5 strategy candidates generated
+PASS  observation completion weighted progress test
+PASS  completion-driven observation priority test
+PASS  front-end DOM fixed references: 0 missing
+PASS  HTML duplicate IDs: 0
+PASS  user-visible old label "回踩測試": 0
+PASS  top page tabs transparent override present
+PASS  broad all-strategy structural invalidation guard present
+PASS  strategy-specific invalidation used by front-end stop reference
+
+Multi-playbook coverage
+PASS  TREND_PULLBACK / 順勢回踩
+PASS  BREAKOUT_RETEST / 突破回測
+PASS  LIQUIDITY_SWEEP / 流動性掃盤反轉
+PASS  MOMENTUM_CONTINUATION / 強勢動能續攻
+PASS  RANGE_EXTREME / 區間極值反轉
+
+Scope note
+- Local tests validate logic, syntax, ranking, UI references, and mocked pipeline behavior.
+- This sandbox cannot truthfully certify live Binance / Bybit / OKX networking or iPhone Push delivery.
+- Final runtime acceptance remains: Railway /api/self-test?live=1 + one real iPhone Push/receipt/click.
