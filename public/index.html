@@ -539,6 +539,11 @@ button,select,input{font-family:inherit}
   .judgePriceStrip,.judgeCoreGrid{grid-template-columns:1fr!important}
   .judgePriceStrip>div:last-child{grid-column:auto}
 }
+
+/* V9.0：監控時間簡化，盤整/等待與資料異常分離 */
+.judgeTimeRow{gap:7px 14px!important;margin-top:9px!important}
+.judgeTimeRow span,.judgeTimeRow b{font-size:11px!important}
+.testFreshTag.live{color:#78d6a0!important}.testFreshTag.delayed{color:#efc16d!important}.testFreshTag.stale{color:#ff8585!important}
 </style>
 </head>
 <body>
@@ -711,6 +716,6 @@ button,select,input{font-family:inherit}
   </div>
 </div>
 
-<script src="/app.js?v=890"></script>
+<script src="/app.js?v=900"></script>
 </body>
 </html>
