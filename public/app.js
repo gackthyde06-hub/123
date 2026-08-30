@@ -361,3 +361,33 @@ refresh();
 launchTvFromNotification();
 setInterval(refresh,8000);
 setInterval(updateSync,1000);
+
+// V6.6 recovery: page switching + Binance market flow + recommendation view.
+let marketFlowState=null,marketFlowFetchedAt=0,marketFlowBusy=false;
+function setPage(name){
+  const valid=['monitor','flow','ideas'];if(!valid.includes(name))name='monitor';
+  document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${name}`));
+  document.querySelectorAll('.pageTab').forEach(x=>x.classList.toggle('active',x.dataset.page===name));
+  try{localStorage.setItem('position-alert-page-v66',name)}catch{}
+  if(name!=='monitor')void refreshMarketFlow(false);
+}
+function fmtVol(v){const x=Number(v||0);if(x>=1e9)return`${(x/1e9).toFixed(x>=10e9?1:2)}B`;if(x>=1e6)return`${(x/1e6).toFixed(1)}M`;return x.toLocaleString('en-US',{maximumFractionDigits:0})}
+function signed(v,d=2){const x=Number(v||0);return`${x>0?'+':''}${x.toFixed(d)}%`}
+function renderMarketFlow(d){
+  if(!d?.ok)return;
+  marketFlowState=d;marketFlowFetchedAt=Date.now();
+  const sm=d.summary||{},dir=sm.direction==='LONG'?'long':sm.direction==='SHORT'?'short':'neutral';
+  $('flowHero').className='flowHero';$('flowHero').innerHTML=`<div class="flowHeroTop"><div><div class="flowHeroTitle ${dir}">${esc(sm.label||'多空拉鋸')}</div><div class="flowHeroMeta">成交額加權 ${signed(sm.weightedChangePct||0,2)} · 上漲 ${sm.advancers||0} / 下跌 ${sm.decliners||0}</div></div><div class="flowConfidence">${Number(sm.confidence||0)}<small>流向強度 / 100</small></div></div><div class="flowStats"><div class="flowStat"><span>市場廣度</span><b class="${Number(sm.breadth||0)>=0?'longText':'shortText'}">${signed(Number(sm.breadth||0)*100,1)}</b></div><div class="flowStat"><span>資料來源</span><b class="goldText">Binance</b></div><div class="flowStat"><span>更新</span><b>${ageText(d.generatedAt)}</b></div></div>`;
+  const rows=(d.leaders||[]).slice(0,16);$('marketList').innerHTML=rows.map(x=>`<div class="marketRow"><div><div class="marketSym">${esc(x.symbol)}</div><div class="marketSub">${price(x.price)}</div></div><div class="marketMetric"><span>24h</span><b class="${Number(x.changePct)>=0?'longText':'shortText'}">${signed(x.changePct)}</b></div><div class="marketMetric"><span>成交額 / 資金費</span><b>${fmtVol(x.quoteVolume)}</b><div class="marketSub">${signed(x.fundingPct,4)}</div></div></div>`).join('')||'<div class="loadingBox">暫無資料</div>';
+  const recs=(d.recommendations||[]).slice(0,10);$('recGrid').innerHTML=recs.map(x=>{const r=x.recommendation||{},long=r.direction==='LONG';return`<div class="recCard"><div class="recTop"><div class="recSymbol">${esc(x.symbol)}</div><span class="recTag ${long?'long':'short'}">${esc(r.label||'等待')}</span></div><div class="recScore"><span>評分核心：動能 × 流動性 × 擁擠修正</span><b>${Number(r.score||0)}/100</b></div><div class="recReason">${esc(r.reason||'')} · 24h ${signed(x.changePct)} · 成交額 ${fmtVol(x.quoteVolume)} · 資金費 ${signed(x.fundingPct,4)}</div></div>`}).join('')||'<div class="loadingBox">目前沒有足夠強的方向建議。</div>';
+  const stale=$('flowStale');if(d.stale){stale.classList.add('show');stale.textContent=`Binance 即時清單逾時，先保留上一份成功快照（${Math.round(Number(d.cacheAgeMs||0)/1000)} 秒前），避免整頁空白。`}else{stale.classList.remove('show');stale.textContent=''}
+  $('flowAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);$('ideaAge').textContent=d.stale?'快照回退':ageText(d.generatedAt);
+}
+async function refreshMarketFlow(force=false){
+  if(marketFlowBusy)return;if(!force&&marketFlowState&&Date.now()-marketFlowFetchedAt<15000){renderMarketFlow(marketFlowState);return}
+  marketFlowBusy=true;
+  try{const r=await fetch('/api/market-flow',{cache:'no-store'});const d=await r.json().catch(()=>null);if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);renderMarketFlow(d)}catch(e){if(marketFlowState){renderMarketFlow({...marketFlowState,stale:true,error:String(e?.message||e),cacheAgeMs:Date.now()-marketFlowFetchedAt})}else{$('flowHero').className='loadingBox';$('flowHero').textContent='市場資料暫時讀不到，稍後自動重試。';$('marketList').innerHTML='<div class="loadingBox">保留空間，避免版面跳動。</div>';$('recGrid').innerHTML='<div class="loadingBox">市場資料恢復後自動顯示建議。</div>'}}finally{marketFlowBusy=false}
+}
+document.querySelectorAll('.pageTab').forEach(btn=>btn.addEventListener('click',()=>setPage(btn.dataset.page)));
+try{setPage(localStorage.getItem('position-alert-page-v66')||'monitor')}catch{setPage('monitor')}
+setInterval(()=>{const active=document.querySelector('.pageTab.active')?.dataset?.page;if(active&&active!=='monitor')void refreshMarketFlow(false)},15000);

@@ -181,6 +181,14 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 #labelCancel{background:#272829;color:#ddd}.save{background:linear-gradient(90deg,#c68f32,#e4ba60);color:#151108}
 
 @media(max-width:420px){.types{grid-template-columns:repeat(3,1fr)}.pos{grid-template-columns:minmax(0,1.05fr) minmax(88px,.9fr) minmax(90px,1fr)}.symline{padding:10px 8px;gap:6px}.sym{font-size:12px}.entryWrap{padding:10px 8px;gap:5px}.entryLabel{font-size:7px}.price{font-size:13px}.posPnl{min-width:0;padding:10px 6px}.posPnl .pnlPct{font-size:10px}}
+
+.pageTabs{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 -2px 14px;padding:8px 2px;background:linear-gradient(180deg,rgba(7,8,9,.98),rgba(7,8,9,.88),rgba(7,8,9,0));backdrop-filter:blur(8px)}
+.pageTab{border:1px solid #34302a;background:#101112;color:#8d877e;border-radius:10px;padding:9px 5px;font-size:11px;font-weight:850}.pageTab.active{border-color:#715525;background:linear-gradient(135deg,#241d12,#151513);color:#e5c170}
+.page{display:none}.page.active{display:block}
+.flowHero{border:1px solid #5c4525;border-radius:16px;background:linear-gradient(145deg,#1b1813,#0c0e0f);padding:14px;margin:6px 0 12px}.flowHeroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.flowHeroTitle{font-size:20px;font-weight:900}.flowHeroTitle.long{color:#ff7778}.flowHeroTitle.short{color:#63e39c}.flowHeroTitle.neutral{color:#d7c38b}.flowHeroMeta{font-size:10px;color:#857e74;margin-top:5px}.flowConfidence{text-align:right;font-size:22px;font-weight:900;color:#e5bd68}.flowConfidence small{display:block;font-size:8px;color:#777168;margin-top:2px}.flowStats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}.flowStat{border:1px solid #292a2b;background:#0d0f10;border-radius:10px;padding:9px}.flowStat span{display:block;font-size:8px;color:#746d64}.flowStat b{display:block;margin-top:3px;font-size:13px}.marketList{display:grid;gap:8px}.marketRow{display:grid;grid-template-columns:minmax(86px,1fr) 1fr 1fr;gap:8px;align-items:center;border:1px solid #2c2d2e;border-radius:12px;background:#0e1011;padding:10px}.marketSym{font-size:15px;font-weight:900}.marketSub{font-size:8px;color:#746e66;margin-top:3px}.marketMetric{text-align:right}.marketMetric span{display:block;font-size:8px;color:#746d64}.marketMetric b{display:block;margin-top:2px;font-size:11px}.longText{color:#ff7778}.shortText{color:#63e39c}.goldText{color:#e1ba68}.staleNote{display:none;margin:0 0 10px;padding:8px 10px;border:1px solid #594828;border-radius:10px;background:#17140f;color:#d2ad61;font-size:9px}.staleNote.show{display:block}
+.recGrid{display:grid;gap:9px}.recCard{border:1px solid #32302b;border-radius:14px;background:linear-gradient(145deg,#151616,#0c0e0f);padding:12px}.recTop{display:flex;justify-content:space-between;align-items:center;gap:10px}.recSymbol{font-size:17px;font-weight:900}.recTag{border-radius:8px;padding:5px 8px;font-size:10px;font-weight:900}.recTag.long{background:#481c1d;color:#ff7778}.recTag.short{background:#123823;color:#63e39c}.recScore{margin-top:9px;display:flex;justify-content:space-between;align-items:center;color:#8f877b;font-size:9px}.recScore b{font-size:15px;color:#e2bb67}.recReason{margin-top:5px;color:#777168;font-size:9px;line-height:1.45}.pageIntro{margin:0 2px 10px;color:#817a70;font-size:10px;line-height:1.45}.loadingBox{padding:18px 4px;color:#827b72;font-size:11px}
+@media(max-width:420px){.wrap{padding-left:12px;padding-right:12px}.brandTitle{font-size:25px}.brandSub{font-size:12px}.sectionTitle{font-size:15px}.traderName{font-size:18px}.stateInfo,.consensusMeta,.note{font-size:9px}.pageTab{font-size:12px;padding:10px 4px}.flowHeroTitle{font-size:22px}.flowStats{grid-template-columns:1fr 1fr}.marketRow{grid-template-columns:minmax(92px,1.1fr) .9fr .9fr;padding:11px 9px}.marketSym{font-size:16px}.marketMetric b{font-size:12px}.recSymbol{font-size:18px}.recTag{font-size:11px}}
+
 </style>
 </head>
 <body>
@@ -196,6 +204,9 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
     </div>
   </div>
 
+  <div class="pageTabs" role="tablist"><button class="pageTab active" data-page="monitor" type="button">監控</button><button class="pageTab" data-page="flow" type="button">市場流向</button><button class="pageTab" data-page="ideas" type="button">建議</button></div>
+
+  <section id="page-monitor" class="page active">
   <div id="latest" class="latest"></div>
   <div id="consensusPanel" class="consensusPanel"></div>
 
@@ -284,6 +295,22 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
     <summary><span>↕ 自訂顯示順序</span><span>熬鷹固定第一　⌄</span></summary>
     <div id="orderList" class="orderList"></div>
   </details>
+  </section>
+
+  <section id="page-flow" class="page">
+    <div class="sectionBar"><div class="sectionTitle">市場流向</div><div id="flowAge" class="radarCount">等待資料</div></div>
+    <div class="pageIntro">Binance USDT 永續公開資料；成交額、24h 漲跌與資金費率只用來判斷當下市場偏向，不取代你的進場結構。</div>
+    <div id="flowStale" class="staleNote"></div>
+    <div id="flowHero" class="loadingBox">讀取市場中…</div>
+    <div class="sectionBar"><div class="sectionTitle">成交額前列</div><div class="radarCount">高流動性優先</div></div>
+    <div id="marketList" class="marketList"><div class="loadingBox">讀取中…</div></div>
+  </section>
+
+  <section id="page-ideas" class="page">
+    <div class="sectionBar"><div class="sectionTitle">方向建議</div><div id="ideaAge" class="radarCount">等待資料</div></div>
+    <div class="pageIntro">只顯示高流動性標的的方向評分。標籤是市場條件摘要，不是保證獲利訊號；實際進場仍看你的回踩、POC 與結構失效位。</div>
+    <div id="recGrid" class="recGrid"><div class="loadingBox">讀取建議中…</div></div>
+  </section>
 </div>
 
 <div id="labelModal" class="modalBackdrop" aria-hidden="true">
@@ -298,6 +325,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=652"></script>
+<script src="/app.js?v=660"></script>
 </body>
 </html>
