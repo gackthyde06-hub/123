@@ -105,12 +105,17 @@ const IDEA_CACHE_MS = Math.max(60_000, Number(process.env.IDEA_CACHE_MS || 3 * 6
 const IDEA_STALE_MS = Math.max(5 * 60_000, Number(process.env.IDEA_STALE_MS || 20 * 60 * 1000));
 const IDEA_SYMBOLS = Math.max(8, Math.min(24, Number(process.env.IDEA_SYMBOLS || 16)));
 const IDEA_CONCURRENCY = Math.max(2, Math.min(6, Number(process.env.IDEA_CONCURRENCY || 4)));
+const TEST_SIGNAL_SCAN_MS = Math.max(45000, Number(process.env.TEST_SIGNAL_SCAN_MS || 60000));
+const TEST_SIGNAL_MAX = Math.max(4, Math.min(12, Number(process.env.TEST_SIGNAL_MAX || 12)));
+const TEST_SIGNAL_IDEA_TTL_MS = Math.max(10 * 60 * 1000, Number(process.env.TEST_SIGNAL_IDEA_TTL_MS || 25 * 60 * 1000));
+const TEST_SIGNAL_OUTCOME_MS = Math.max(60 * 60 * 1000, Number(process.env.TEST_SIGNAL_OUTCOME_MS || 90 * 60 * 1000));
+const TEST_SIGNAL_CONFIRM_SCORE = Math.max(60, Math.min(92, Number(process.env.TEST_SIGNAL_CONFIRM_SCORE || 74)));
 const FUTURES_DATA = 'https://fapi.binance.com/futures/data';
 const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V7.4';
+const BUILD_VERSION = 'V7.8';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 
@@ -131,6 +136,8 @@ const SCREEN_FILE = path.join(DATA_DIR, 'screen-v65.json');
 const CONSENSUS_EPISODE_FILE = path.join(DATA_DIR, 'consensus-episodes-v65.json');
 const PULLBACK_FILE = path.join(DATA_DIR, 'pullback-trackers-v65.json');
 const DAILY_BRIEF_FILE = path.join(DATA_DIR, 'daily-brief-v73.json');
+const TEST_SIGNAL_FILE = path.join(DATA_DIR, 'test-signals-v78.json');
+const TEST_SIGNAL_HISTORY_FILE = path.join(DATA_DIR, 'test-signal-history-v78.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -151,6 +158,14 @@ const persistedDailyBrief = loadJson(DAILY_BRIEF_FILE, null);
 if (persistedDailyBrief?.data) {
   dailyBriefCache = { at:Number(persistedDailyBrief.at||0), dayKey:String(persistedDailyBrief.dayKey||''), data:persistedDailyBrief.data, error:null, inflight:null };
 }
+const persistedTestSignals = loadJson(TEST_SIGNAL_FILE, {});
+const testSignalTrackers = new Map(Object.entries(persistedTestSignals && typeof persistedTestSignals === 'object' ? persistedTestSignals : {}));
+let testSignalHistory = Array.isArray(loadJson(TEST_SIGNAL_HISTORY_FILE, [])) ? loadJson(TEST_SIGNAL_HISTORY_FILE, []) : [];
+let testSignalTimer = null;
+let testSignalBusy = false;
+let testSignalLastRunAt = 0;
+let testSignalLastError = null;
+const testCandleCache = new Map();
 function n(v) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
@@ -2107,10 +2122,11 @@ function normalizeSubRecord(x) {
       enabledTypes: migratedEventTypes(x),
       consensusEnabled: x.consensusEnabled !== false,
       dailyBriefEnabled: x.dailyBriefEnabled === true,
+      testSignalEnabled: x.testSignalEnabled === true,
       dailyBriefIntervalHours: cleanBriefInterval(x.dailyBriefIntervalHours),
       lastDailyBriefPushAt: x.lastDailyBriefPushAt || null,
       lastDailyBriefPushDay: x.lastDailyBriefPushDay || null,
-      preferenceVersion: 73,
+      preferenceVersion: 78,
     };
   }
 
@@ -2122,10 +2138,11 @@ function normalizeSubRecord(x) {
       enabledTypes: [...EVENT_TYPES],
       consensusEnabled: true,
       dailyBriefEnabled: false,
+      testSignalEnabled: false,
       dailyBriefIntervalHours: 24,
       lastDailyBriefPushAt: null,
       lastDailyBriefPushDay: null,
-      preferenceVersion: 73,
+      preferenceVersion: 78,
     };
   }
 
@@ -2143,6 +2160,7 @@ function subscriptionAllows(rec, target = {}) {
   const enabledTraders = new Set(rec?.enabledTraders || []);
   const enabledTypes = new Set(rec?.enabledTypes || EVENT_TYPES);
   const isConsensus = target.eventType === 'CONSENSUS';
+  if (target.testSignal === true) return rec?.testSignalEnabled === true;
 
   // Core-aligned confirmation is independent from individual trader toggles.
   // The user can keep only core alerts while still receiving one confirmation when
@@ -3298,6 +3316,208 @@ async function getRankedIdeas() {
   try{return {...await rankedIdeasCache.inflight,stale:false,cacheAgeMs:0}}catch(e){if(rankedIdeasCache.data&&now-rankedIdeasCache.lastGoodAt<IDEA_STALE_MS)return {...rankedIdeasCache.data,stale:true,error:rankedIdeasCache.error,cacheAgeMs:now-rankedIdeasCache.lastGoodAt};throw e}
 }
 
+
+function testSignalKey(symbol, direction) {
+  return `${cleanFuturesSymbol(symbol)}:${direction === 'SHORT' ? 'SHORT' : 'LONG'}`;
+}
+function testSignalDirection(direction) { return direction === 'SHORT' ? -1 : 1; }
+function testSignalStatusLabel(status) {
+  return ({
+    WAIT_PULLBACK:'等待回踩', TOUCHING:'回踩中', CONFIRMED:'未破確認',
+    WIN:'1R達成', LOSS:'失效停損', TIMEOUT:'90分逾時', INVALID:'結構失效', EXPIRED:'排名移出',
+  })[status] || '等待';
+}
+function persistTestSignals() {
+  saveJson(TEST_SIGNAL_FILE, Object.fromEntries(testSignalTrackers));
+  saveJson(TEST_SIGNAL_HISTORY_FILE, testSignalHistory.slice(0, 300));
+}
+function testMedian(values) {
+  const a=(values||[]).map(Number).filter(Number.isFinite).sort((x,y)=>x-y);
+  if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+function testVwap(candles, lookback=48) {
+  const rows=(candles||[]).slice(-lookback);let pv=0,v=0;
+  for(const c of rows){const vol=Number(c.volume||0),typ=(c.high+c.low+c.close)/3;pv+=typ*vol;v+=vol}
+  return v>0?pv/v:null;
+}
+function closedTestCandles(candles) {
+  const now=Date.now();const rows=(candles||[]).filter(c=>!c.closeTime||c.closeTime<=now);
+  return rows.length>=60?rows:(candles||[]).slice(0,-1);
+}
+async function testFetchCandles(symbol, interval, limit=500) {
+  const key=`${symbol}:${interval}:${limit}`,now=Date.now(),cached=testCandleCache.get(key);
+  if(cached&&now-cached.at<25000)return cached.rows;
+  const rows=await fetchIdeaCandles(symbol,interval,limit);
+  testCandleCache.set(key,{at:now,rows});
+  return rows;
+}
+function findTestImpulse(candles, direction) {
+  const rows=(candles||[]).slice(-56);if(rows.length<20)return null;
+  let best=null;
+  if(direction==='LONG'){
+    let low=rows[0].low,lowI=0;
+    for(let i=1;i<rows.length;i++){
+      if(rows[i].low<low){low=rows[i].low;lowI=i}
+      const range=rows[i].high-low;
+      if(i-lowI>=3&&(!best||range>best.range))best={low,high:rows[i].high,lowI,highI:i,range};
+    }
+  }else{
+    let high=rows[0].high,highI=0;
+    for(let i=1;i<rows.length;i++){
+      if(rows[i].high>high){high=rows[i].high;highI=i}
+      const range=high-rows[i].low;
+      if(i-highI>=3&&(!best||range>best.range))best={high,low:rows[i].low,highI,lowI:i,range};
+    }
+  }
+  return best;
+}
+function testPullbackBacktest(candles, direction) {
+  const rows=closedTestCandles(candles);const closes=rows.map(x=>x.close),ema20=ideaEmaSeries(closes,20),ema50=ideaEmaSeries(closes,50),rsi=ideaRsiSeries(closes,14),macd=ideaMacdSeries(closes),atr=ideaAtrSeries(rows,14);
+  const dir=testSignalDirection(direction);let wins=0,losses=0,timeouts=0,retSum=0,retN=0,posR=0,negR=0,avgRSum=0;
+  for(let i=70;i<rows.length-19;i++){
+    const a=Number(atr[i]);if(!(a>0)||!Number.isFinite(rsi[i])||!Number.isFinite(rsi[i-1]))continue;
+    const trend=dir>0?(ema20[i]>ema50[i]&&closes[i]>ema50[i]):(ema20[i]<ema50[i]&&closes[i]<ema50[i]);
+    if(!trend)continue;
+    const touched=dir>0?rows[i].low<=ema20[i]+0.20*a:rows[i].high>=ema20[i]-0.20*a;
+    const reclaimed=dir>0?rows[i].close>ema20[i]:rows[i].close<ema20[i];
+    const candleOk=dir>0?rows[i].close>rows[i].open:rows[i].close<rows[i].open;
+    const momentum=dir>0?(rsi[i]>=44&&rsi[i]<=70&&rsi[i]>rsi[i-1]&&macd.hist[i]>macd.hist[i-1]):(rsi[i]<=56&&rsi[i]>=30&&rsi[i]<rsi[i-1]&&macd.hist[i]<macd.hist[i-1]);
+    if(!(touched&&reclaimed&&candleOk&&momentum))continue;
+    const entry=rows[i].close,risk=0.85*a,target=entry+dir*risk,stop=entry-dir*risk;
+    let result=0;
+    for(let j=i+1;j<=i+18;j++){
+      const c=rows[j],hitStop=dir>0?c.low<=stop:c.high>=stop,hitTarget=dir>0?c.high>=target:c.low<=target;
+      if(hitStop){result=-1;break} // same-candle ambiguity is counted conservatively as loss
+      if(hitTarget){result=1;break}
+    }
+    const end=rows[Math.min(rows.length-1,i+18)].close;
+    const ret=dir*(end-entry)/entry*100;retSum+=ret;retN++;
+    const rMove=dir*(end-entry)/risk;avgRSum+=rMove;if(rMove>0)posR+=rMove;else negR+=Math.abs(rMove);
+    if(result>0)wins++;else if(result<0)losses++;else timeouts++;
+    i+=5;
+  }
+  const sample=wins+losses,hitRate=sample?wins/sample*100:null,avgReturnPct=retN?retSum/retN:null,avgR=retN?avgRSum/retN:null,pf=negR>0?posR/negR:(posR>0?9.9:null);
+  return {hitRate:Number.isFinite(hitRate)?Number(hitRate.toFixed(1)):null,sample,wins,losses,timeouts,avgReturnPct:Number.isFinite(avgReturnPct)?Number(avgReturnPct.toFixed(2)):null,avgR:Number.isFinite(avgR)?Number(avgR.toFixed(2)):null,profitFactor:Number.isFinite(pf)?Number(Math.min(9.9,pf).toFixed(2)):null};
+}
+function buildTestSetup(idea, c5, c15) {
+  const rows5=closedTestCandles(c5),rows15=closedTestCandles(c15),t5=technicalSnapshot(rows5),t15=technicalSnapshot(rows15),direction=idea.direction==='SHORT'?'SHORT':'LONG',dir=testSignalDirection(direction);
+  const impulse=findTestImpulse(rows15,direction);if(!impulse||!(impulse.range>0))throw new Error('impulse unavailable');
+  const atr15=Number(t15.atr14||0),atr5=Number(t5.atr14||0);if(!(atr15>0&&atr5>0))throw new Error('ATR unavailable');
+  const fib38=direction==='LONG'?impulse.high-impulse.range*.382:impulse.low+impulse.range*.382;
+  const fib61=direction==='LONG'?impulse.high-impulse.range*.618:impulse.low+impulse.range*.618;
+  const fib786=direction==='LONG'?impulse.high-impulse.range*.786:impulse.low+impulse.range*.786;
+  const zoneLow=Math.min(fib38,fib61),zoneHigh=Math.max(fib38,fib61),zoneMid=(zoneLow+zoneHigh)/2;
+  const invalidation=direction==='LONG'?fib786-atr15*.10:fib786+atr15*.10;
+  const vwap15=testVwap(rows15,64),levels=[t15.ema20,t15.poc,vwap15].filter(Number.isFinite),near=levels.filter(x=>x>=zoneLow-atr15*.22&&x<=zoneHigh+atr15*.22);
+  const confluenceCount=near.length;
+  const hist=testPullbackBacktest(rows5,direction);
+  const setupScore=clamp(Math.round(Number(idea.modelScore||50)*.30+Number(idea.rankScore||50)*.20+Number(idea.estimatedWinRate||50)*.20+(confluenceCount/3)*20+(impulse.range/atr15>=2?10:5)),0,100);
+  return {direction,createdAt:new Date().toISOString(),impulseLow:impulse.low,impulseHigh:impulse.high,zoneLow,zoneHigh,zoneMid,invalidation,fib38,fib61,fib786,ema20_15:t15.ema20,poc15:t15.poc,vwap15,atr5,atr15,confluenceCount,setupScore,backtest:hist};
+}
+async function testFetchDerivatives(symbol) {
+  const [oi,taker]=await Promise.all([
+    ideaFetchJson(`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=5m&limit=12`,7000).catch(()=>[]),
+    ideaFetchJson(`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(symbol)}&period=5m&limit=12`,7000).catch(()=>[]),
+  ]);
+  return {oiChangePct:ratioChangePct(oi,'sumOpenInterestValue') ?? ratioChangePct(oi,'sumOpenInterest') ?? 0,takerRatio:ratioLast(taker,'buySellRatio') ?? 1};
+}
+async function testMarketContext() {
+  const [b5,b15,e5,e15]=await Promise.all([
+    testFetchCandles('BTCUSDT','5m',160).catch(()=>null),testFetchCandles('BTCUSDT','15m',160).catch(()=>null),
+    testFetchCandles('ETHUSDT','5m',160).catch(()=>null),testFetchCandles('ETHUSDT','15m',160).catch(()=>null),
+  ]);
+  const scoreOne=(a,b)=>{if(!a||!b)return 0;const x=technicalSnapshot(closedTestCandles(a)),y=technicalSnapshot(closedTestCandles(b));return x.trend+y.trend+x.momentum*.5+y.momentum*.5};
+  const raw=scoreOne(b5,b15)+scoreOne(e5,e15);
+  return {raw,dir:raw>=2?1:raw<=-2?-1:0};
+}
+function testLiveAggregate() {
+  const rows=testSignalHistory.filter(x=>['WIN','LOSS'].includes(x.result));const wins=rows.filter(x=>x.result==='WIN').length,losses=rows.length-wins;
+  const avg=rows.length?rows.reduce((a,x)=>a+Number(x.returnPct||0),0)/rows.length:null;
+  return {sample:rows.length,wins,losses,hitRate:rows.length?Number((wins/rows.length*100).toFixed(1)):null,avgReturnPct:Number.isFinite(avg)?Number(avg.toFixed(2)):null};
+}
+function terminalTestStatus(status){return ['WIN','LOSS','TIMEOUT','INVALID','EXPIRED'].includes(status)}
+function newTestTracker(idea, rank) {
+  const now=new Date().toISOString();return {key:testSignalKey(idea.symbol,idea.direction),symbol:idea.symbol,direction:idea.direction,rank,idea:{...idea},status:'WAIT_PULLBACK',statusLabel:'等待回踩',firstSeenAt:now,lastSeenIdeaAt:now,updatedAt:now,touchedAt:null,confirmedAt:null,notificationSentAt:null,resultSaved:false,setup:null,lastCheck:null};
+}
+function archiveTestResult(t) {
+  if(t.resultSaved||!['WIN','LOSS','TIMEOUT','INVALID'].includes(t.status))return;
+  testSignalHistory.unshift({id:`${t.key}:${t.confirmedAt||t.updatedAt}`,symbol:t.symbol,direction:t.direction,result:t.status,confirmedAt:t.confirmedAt,finishedAt:t.finishedAt||t.updatedAt,entryPrice:t.confirmationPrice||null,target:t.target1R||null,stop:t.stop||null,returnPct:Number(t.resultReturnPct||0),qualityScore:Number(t.qualityScore||0),historicalHitRate:t.setup?.backtest?.hitRate??null,backtestSample:t.setup?.backtest?.sample??0});
+  testSignalHistory=testSignalHistory.slice(0,300);t.resultSaved=true;
+}
+function syncTestIdeas(ideas) {
+  const now=Date.now(),seen=new Set();
+  (ideas?.rows||[]).slice(0,TEST_SIGNAL_MAX).forEach((idea,i)=>{
+    if(!['LONG','SHORT'].includes(idea.direction))return;const key=testSignalKey(idea.symbol,idea.direction);seen.add(key);
+    const opposite=testSignalTrackers.get(testSignalKey(idea.symbol,idea.direction==='LONG'?'SHORT':'LONG'));
+    if(opposite&&!terminalTestStatus(opposite.status)&&opposite.status!=='CONFIRMED'){opposite.status='EXPIRED';opposite.statusLabel='方向翻轉';opposite.updatedAt=new Date().toISOString();opposite.finishedAt=opposite.updatedAt;testSignalTrackers.set(opposite.key,opposite)}
+    const old=testSignalTrackers.get(key);
+    if(!old||terminalTestStatus(old.status)&&now-new Date(old.updatedAt||0).getTime()>20*60*1000){testSignalTrackers.set(key,newTestTracker(idea,i+1));return}
+    old.rank=i+1;old.idea={...idea};old.lastSeenIdeaAt=new Date().toISOString();old.updatedAt=new Date().toISOString();testSignalTrackers.set(key,old);
+  });
+  for(const [key,t] of testSignalTrackers){
+    if(terminalTestStatus(t.status)||t.status==='CONFIRMED')continue;
+    const age=now-new Date(t.lastSeenIdeaAt||t.firstSeenAt||0).getTime();if(!seen.has(key)&&age>TEST_SIGNAL_IDEA_TTL_MS){t.status='EXPIRED';t.statusLabel='排名移出';t.updatedAt=new Date().toISOString();t.finishedAt=t.updatedAt;testSignalTrackers.set(key,t)}
+  }
+}
+function testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio,deriv,marketAlign,direction}) {
+  const out=[];if(setup?.confluenceCount>=2)out.push('回踩區有 EMA／POC／VWAP 重疊');else if(setup?.confluenceCount===1)out.push('回踩區有一項關鍵價重疊');
+  if(reclaim)out.push('5分收回回踩區');if(sweep)out.push('出現流動性掃低/掃高');else if(wicker)out.push('5分拒絕影線成立');if(momentum&&macdImprove)out.push('RSI＋MACD 動能回復');if(volumeRatio>=1.05)out.push('量能回升');
+  if(direction==='LONG'&&deriv.takerRatio>=1.02||direction==='SHORT'&&deriv.takerRatio<=.98)out.push('主動買賣同向');if(marketAlign>0)out.push('BTC/ETH 同向');if(marketAlign<0)out.push('BTC/ETH 逆向扣分');return out.slice(0,6);
+}
+async function analyzeTestTracker(t, market) {
+  if(terminalTestStatus(t.status))return t;
+  const [c5,c15,deriv]=await Promise.all([testFetchCandles(t.symbol,'5m',500),testFetchCandles(t.symbol,'15m',260),testFetchDerivatives(t.symbol)]);
+  const rows5=closedTestCandles(c5);if(rows5.length<80)throw new Error('5m candles short');
+  if(!t.setup)t.setup=buildTestSetup(t.idea,c5,c15);
+  const setup=t.setup,dir=testSignalDirection(t.direction),last=rows5.at(-1),prev=rows5.at(-2),t5=technicalSnapshot(rows5),rsi=ideaRsiSeries(rows5.map(x=>x.close),14),macd=ideaMacdSeries(rows5.map(x=>x.close));
+  if(t.status==='CONFIRMED'){
+    const bars=rows5.filter(c=>c.openTime>=new Date(t.confirmedAt).getTime()-5*60*1000),entry=Number(t.confirmationPrice),stop=Number(t.stop),target=Number(t.target1R);let mfe=0,mae=0;
+    for(const c of bars){const fav=dir>0?(c.high-entry)/entry*100:(entry-c.low)/entry*100,adv=dir>0?(entry-c.low)/entry*100:(c.high-entry)/entry*100;mfe=Math.max(mfe,fav);mae=Math.max(mae,adv);const hitStop=dir>0?c.low<=stop:c.high>=stop,hitTarget=dir>0?c.high>=target:c.low<=target;if(hitStop){t.status='LOSS';break}if(hitTarget){t.status='WIN';break}}
+    t.mfePct=Number(mfe.toFixed(2));t.maePct=Number(mae.toFixed(2));t.currentPrice=last.close;
+    if(t.status==='CONFIRMED'&&Date.now()-new Date(t.confirmedAt).getTime()>=TEST_SIGNAL_OUTCOME_MS)t.status='TIMEOUT';
+    if(t.status==='WIN')t.resultReturnPct=Number((dir*(target-entry)/entry*100).toFixed(2));
+    else if(t.status==='LOSS')t.resultReturnPct=Number((dir*(stop-entry)/entry*100).toFixed(2));
+    else t.resultReturnPct=Number((dir*(last.close-entry)/entry*100).toFixed(2));
+    if(t.status!=='CONFIRMED'){t.statusLabel=testSignalStatusLabel(t.status);t.finishedAt=new Date().toISOString();t.updatedAt=t.finishedAt;archiveTestResult(t)}
+    return t;
+  }
+  const zoneTouch=rows5.slice(-4).some(c=>c.low<=setup.zoneHigh&&c.high>=setup.zoneLow);if(zoneTouch&&!t.touchedAt)t.touchedAt=new Date().toISOString();
+  const beyond=dir>0?last.close<setup.invalidation:last.close>setup.invalidation,deep=dir>0?last.close<setup.invalidation-setup.atr5*.15:last.close>setup.invalidation+setup.atr5*.15,prevBeyond=dir>0?prev.close<setup.invalidation:prev.close>setup.invalidation;
+  if((beyond&&prevBeyond)||deep){t.status='INVALID';t.statusLabel='結構失效';t.finishedAt=new Date().toISOString();t.updatedAt=t.finishedAt;archiveTestResult(t);return t}
+  const reclaim=dir>0?last.close>setup.zoneMid:last.close<setup.zoneMid,candleOk=dir>0?last.close>last.open:last.close<last.open;
+  const body=Math.max(Math.abs(last.close-last.open),setup.atr5*.04),lower=Math.max(0,Math.min(last.open,last.close)-last.low),upper=Math.max(0,last.high-Math.max(last.open,last.close)),wicker=dir>0?lower/body>=.65:upper/body>=.65;
+  const prior=rows5.slice(-7,-1),priorEdge=dir>0?Math.min(...prior.map(x=>x.low)):Math.max(...prior.map(x=>x.high)),sweep=dir>0?(last.low<priorEdge&&last.close>priorEdge):(last.high>priorEdge&&last.close<priorEdge);
+  const ri=rows5.length-1,rsiNow=Number(rsi[ri]),rsiPrev=Number(rsi[ri-1]),momentum=dir>0?(rsiNow>=44&&rsiNow<=72&&rsiNow>rsiPrev):(rsiNow<=56&&rsiNow>=28&&rsiNow<rsiPrev),macdImprove=dir>0?macd.hist[ri]>macd.hist[ri-1]:macd.hist[ri]<macd.hist[ri-1];
+  const marketAlign=market.dir===0?0:(market.dir===dir?1:-1),derivDir=dir>0?(deriv.takerRatio>=1.02?1:deriv.takerRatio<.94?-1:0):(deriv.takerRatio<=.98?1:deriv.takerRatio>1.06?-1:0),oiOk=Number(deriv.oiChangePct)>-2;
+  let score=0;score+=clamp((Number(t.idea.rankScore||50)-45)*.45,0,22);score+=Math.min(16,(setup.confluenceCount||0)*5.5);score+=zoneTouch?8:0;score+=reclaim?12:0;score+=candleOk?6:0;score+=sweep?10:wicker?6:0;score+=momentum?8:0;score+=macdImprove?6:0;score+=t5.volumeRatio>=1.05?6:t5.volumeRatio<.70?-4:2;score+=derivDir*6;score+=oiOk?3:-5;score+=marketAlign*7;score=clamp(Math.round(score),0,100);
+  const reasons=testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio:t5.volumeRatio,deriv,marketAlign,direction:t.direction});
+  t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);t.updatedAt=new Date().toISOString();t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),oiChangePct:Number(Number(deriv.oiChangePct||0).toFixed(2)),takerRatio:Number(Number(deriv.takerRatio||1).toFixed(2)),marketAlign,reasons};
+  const confirm=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketAlign>=0&&score>=TEST_SIGNAL_CONFIRM_SCORE;
+  if(confirm){
+    const entry=last.close,rawRisk=Math.abs(entry-setup.invalidation),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.65,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
+    t.status='CONFIRMED';t.statusLabel='未破確認';t.confirmedAt=new Date().toISOString();t.confirmationPrice=entry;t.stop=stop;t.target1R=entry+dir*risk;t.target15R=entry+dir*risk*1.5;t.riskPct=Number((risk/entry*100).toFixed(2));t.updatedAt=t.confirmedAt;
+    if(!t.notificationSentAt){const bt=t.setup?.backtest||{};await sendPush({title:`測試｜回踩未破 ${score}`,body:`${t.symbol} ${t.direction==='LONG'?'做多':'做空'}｜歷史 ${bt.hitRate??'—'}% · 平均90分 ${Number.isFinite(bt.avgReturnPct)?(bt.avgReturnPct>0?'+':'')+bt.avgReturnPct+'%':'—'}｜點開監控`,tag:`test-signal-${t.symbol}-${t.direction}-${Date.now()}`,renotify:true,data:{url:`/?page=monitor&testSignal=${encodeURIComponent(t.symbol)}&dir=${t.direction}`}}, {testSignal:true});t.notificationSentAt=new Date().toISOString()}
+  }
+  return t;
+}
+function publicTestTracker(t) {
+  return {key:t.key,symbol:t.symbol,direction:t.direction,label:t.direction==='LONG'?'做多':'做空',rank:t.rank,status:t.status,statusLabel:testSignalStatusLabel(t.status),firstSeenAt:t.firstSeenAt,lastSeenIdeaAt:t.lastSeenIdeaAt,updatedAt:t.updatedAt,touchedAt:t.touchedAt,confirmedAt:t.confirmedAt,currentPrice:t.currentPrice??null,confirmationPrice:t.confirmationPrice??null,qualityScore:t.qualityScore??t.setup?.setupScore??null,idea:{modelScore:t.idea?.modelScore??null,rankScore:t.idea?.rankScore??null,estimatedWinRate:t.idea?.estimatedWinRate??null,historicalHitRate:t.idea?.historicalHitRate??null,backtestSample:t.idea?.backtestSample??0,reason:t.idea?.reason||''},setup:t.setup?{zoneLow:t.setup.zoneLow,zoneHigh:t.setup.zoneHigh,invalidation:t.setup.invalidation,confluenceCount:t.setup.confluenceCount,setupScore:t.setup.setupScore,backtest:t.setup.backtest}:null,lastCheck:t.lastCheck,stop:t.stop??null,target1R:t.target1R??null,target15R:t.target15R??null,riskPct:t.riskPct??null,mfePct:t.mfePct??null,maePct:t.maePct??null,resultReturnPct:t.resultReturnPct??null};
+}
+async function runTestSignalScan(force=false) {
+  if(testSignalBusy)return;const now=Date.now();if(!force&&now-testSignalLastRunAt<TEST_SIGNAL_SCAN_MS*.75)return;testSignalBusy=true;
+  try{
+    const [ideas,market]=await Promise.all([getRankedIdeas(),testMarketContext().catch(()=>({raw:0,dir:0}))]);syncTestIdeas(ideas);
+    const active=[...testSignalTrackers.values()].filter(t=>!terminalTestStatus(t.status)).sort((a,b)=>(a.rank||99)-(b.rank||99)).slice(0,TEST_SIGNAL_MAX);
+    await mapPool(active,3,async t=>{try{const next=await analyzeTestTracker(t,market);testSignalTrackers.set(t.key,next)}catch(e){t.lastError=String(e?.message||e);t.updatedAt=new Date().toISOString();testSignalTrackers.set(t.key,t)}});
+    testSignalLastRunAt=Date.now();testSignalLastError=null;persistTestSignals();
+  }catch(e){testSignalLastError=String(e?.message||e);console.warn(`[test-signal] ${testSignalLastError}`)}finally{testSignalBusy=false}
+}
+function testSignalLoop(){void runTestSignalScan(false).finally(()=>{testSignalTimer=setTimeout(testSignalLoop,TEST_SIGNAL_SCAN_MS)})}
+function testSignalResponse() {
+  const rows=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000).sort((a,b)=>{const pa={CONFIRMED:0,TOUCHING:1,WAIT_PULLBACK:2,WIN:3,LOSS:4,TIMEOUT:5,INVALID:6,EXPIRED:7};return (pa[a.status]??9)-(pa[b.status]??9)||(a.rank||99)-(b.rank||99)}).slice(0,24).map(publicTestTracker);
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,confirmScore:TEST_SIGNAL_CONFIRM_SCORE,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'建議排名 → 15分趨勢/波段/Fib38.2-61.8 + EMA20/POC/VWAP → 5分回踩收回/拒絕影線/流動性掃盤 + RSI/MACD/量能 → OI/主動買賣 + BTC/ETH 大盤過濾 → 1R/90分實測',error:testSignalLastError};
+}
+
 function fallbackDailyBrief(flow, ideas, meta={}) {
   const sm=flow.summary||{}, top=(ideas?.rows||[]).slice(0,3);
   const bias=sm.direction==='LONG'?'偏多':sm.direction==='SHORT'?'偏空':'中性';
@@ -3400,6 +3620,29 @@ app.get('/api/ranked-ideas', async (_req, res) => {
   }
 });
 
+app.get('/api/test-signals', async (req, res) => {
+  try {
+    const force = String(req.query?.force || '') === '1';
+    if (force || !testSignalLastRunAt || Date.now() - testSignalLastRunAt > TEST_SIGNAL_SCAN_MS * 1.5) await runTestSignalScan(force);
+    res.json(testSignalResponse());
+  } catch (err) {
+    res.status(503).json({ ok:false, error:String(err?.message || err) });
+  }
+});
+
+app.post('/api/test-signal-push', async (_req, res) => {
+  try {
+    await sendPush({
+      title:'測試｜回踩未破 82',
+      body:'BTCUSDT 做多｜歷史 68.4% · 平均90分 +0.42%｜點開監控',
+      tag:`test-signal-demo-${Date.now()}`,
+      renotify:true,
+      data:{url:'/?page=monitor&testSignal=BTCUSDT&dir=LONG'},
+    }, { testSignal:true });
+    res.json({ok:true});
+  } catch (e) { res.status(500).json({error:String(e?.message||e)}); }
+});
+
 app.get('/api/daily-brief', async (req, res) => {
   try {
     const force = String(req.query?.force || '') === '1';
@@ -3412,7 +3655,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V7_4_DAILY_0805',
+    mode: 'V7_8_TEST_SIGNAL',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -3423,6 +3666,7 @@ app.get('/api/config', (_req, res) => {
     vapidPublicKey: vapid.publicKey,
     dailyBrief: { aiReady: Boolean(OPENAI_API_KEY), model: OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true, runtime:{project:RUNTIME_PROJECT||null,service:RUNTIME_SERVICE||null,version:BUILD_VERSION} },
     rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS },
+    testSignals: { scanMs: TEST_SIGNAL_SCAN_MS, max: TEST_SIGNAL_MAX, confirmScore: TEST_SIGNAL_CONFIRM_SCORE, routeToMonitor: true },
     pushReady: true,
     traders: TRADERS,
     eventTypes: EVENT_TYPES,
@@ -3545,7 +3789,7 @@ app.get('/api/reference-levels', async (req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V7.2',
+    mode: 'V7.8',
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -3615,6 +3859,7 @@ app.post('/api/subscribe', (req, res) => {
   const enabledTypes = cleanEventTypes(body.enabledTypes, true);
   const consensusEnabled = body.consensusEnabled !== false;
   const dailyBriefEnabled = body.dailyBriefEnabled === true;
+  const testSignalEnabled = body.testSignalEnabled === true;
   const dailyBriefIntervalHours = 24;
 
   const records = loadSubRecords();
@@ -3627,10 +3872,11 @@ app.post('/api/subscribe', (req, res) => {
     enabledTypes,
     consensusEnabled,
     dailyBriefEnabled,
+    testSignalEnabled,
     dailyBriefIntervalHours,
     lastDailyBriefPushAt: idx >= 0 ? records[idx]?.lastDailyBriefPushAt || null : null,
     lastDailyBriefPushDay: idx >= 0 ? records[idx]?.lastDailyBriefPushDay || null : null,
-    preferenceVersion: 73,
+    preferenceVersion: 78,
   };
 
   if (idx >= 0) records[idx] = next;
@@ -3644,8 +3890,9 @@ app.post('/api/subscribe', (req, res) => {
     enabledTypes,
     consensusEnabled,
     dailyBriefEnabled,
+    testSignalEnabled,
     dailyBriefIntervalHours,
-    preferenceVersion: 73,
+    preferenceVersion: 78,
   });
 });
 
@@ -3672,8 +3919,9 @@ app.post('/api/preferences', (req, res) => {
   }
   if (typeof req.body?.consensusEnabled === 'boolean') rec.consensusEnabled = req.body.consensusEnabled;
   if (typeof req.body?.dailyBriefEnabled === 'boolean') rec.dailyBriefEnabled = req.body.dailyBriefEnabled;
+  if (typeof req.body?.testSignalEnabled === 'boolean') rec.testSignalEnabled = req.body.testSignalEnabled;
   if (req.body?.dailyBriefIntervalHours !== undefined) rec.dailyBriefIntervalHours = 24;
-  rec.preferenceVersion = 72;
+  rec.preferenceVersion = 78;
 
   saveSubRecords(records);
 
@@ -3683,8 +3931,9 @@ app.post('/api/preferences', (req, res) => {
     enabledTypes: rec.enabledTypes,
     consensusEnabled: rec.consensusEnabled !== false,
     dailyBriefEnabled: rec.dailyBriefEnabled === true,
+    testSignalEnabled: rec.testSignalEnabled === true,
     dailyBriefIntervalHours: 24,
-    preferenceVersion: 73,
+    preferenceVersion: 78,
   });
 });
 
@@ -3738,19 +3987,20 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V7.2',
+    mode: 'V7.8',
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V7.2 AI RANKING started on ${PORT}`);
+    console.log(`Position Alert V7.8 TEST SIGNAL started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
     referenceTimer = setTimeout(referenceLoop, 12000);
     screenTimer = setTimeout(screenLoop, 16000);
     dailyBriefTimer = setTimeout(dailyBriefLoop, 25000);
+    testSignalTimer = setTimeout(testSignalLoop, 30000);
   });
 }
 
@@ -3760,6 +4010,7 @@ process.on('SIGTERM', () => {
   if (referenceTimer) clearTimeout(referenceTimer);
   if (screenTimer) clearTimeout(screenTimer);
   if (dailyBriefTimer) clearTimeout(dailyBriefTimer);
+  if (testSignalTimer) clearTimeout(testSignalTimer);
   process.exit(0);
 });
 

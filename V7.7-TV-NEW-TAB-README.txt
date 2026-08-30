@@ -1,0 +1,6 @@
+V7.7 TV 新分頁修正
+
+- 網頁版所有 TradingView 標的點擊改為 target=_blank 原生新分頁 / 新視窗。
+- 移除 window.open 失敗時使用 location.href 覆蓋原監控頁的 fallback。
+- 電腦與手機瀏覽器：監控頁保留，TradingView 額外開啟。
+- 後端無需修改；僅 PUBLIC 更新即可。
