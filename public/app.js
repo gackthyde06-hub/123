@@ -402,9 +402,8 @@ function renderDailyBrief(d){
   dailyBriefState=d;dailyBriefFetchedAt=Date.now();
   const score=Math.max(0,Math.min(100,Number(d.score||50))),mood=d.bias==='偏多'?'long':d.bias==='偏空'?'short':'neutral';
   const bullets=(d.bullets||[]).slice(0,6).map(x=>`<li>${esc(x)}</li>`).join('');
-  const sources=(d.sources||[]).slice(0,3).map((x,i)=>`<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${i+1}</a>`).join(' ');
   $('todayHero').className='todayHero briefHero';
-  $('todayHero').innerHTML=`<div class="todayHeroTop"><div><div class="todayHeroTitle ${mood}">${esc(d.title||'今日市場')}</div><div class="todayHeroMeta">${d.mode==='AI_WEB'?'GPT網搜＋市場':'市場資料'} · ${ageText(d.generatedAt)}</div></div><div class="todayScore">${Math.round(score)}<small>${esc(d.bias||'中性')}</small></div></div><ul class="briefBullets">${bullets}</ul>${d.action?`<div class="briefAction">${esc(d.action)}</div>`:''}${sources?`<div class="briefSources">來源 ${sources}</div>`:''}`;
+  $('todayHero').innerHTML=`<div class="todayHeroTop"><div><div class="todayHeroTitle ${mood}">${esc(d.title||'今日市場')}</div><div class="todayHeroMeta">${d.mode==='AI_WEB'?'GPT網搜＋市場':'市場資料'} · ${ageText(d.generatedAt)}</div></div><div class="todayScore">${Math.round(score)}<small>${esc(d.bias||'中性')}</small></div></div><ul class="briefBullets">${bullets}</ul>${d.action?`<div class="briefAction">${esc(d.action)}</div>`:''}`;
   $('todayAge').textContent=ageText(d.generatedAt);
 }
 async function refreshDailyBrief(force=false){
