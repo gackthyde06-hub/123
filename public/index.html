@@ -551,10 +551,13 @@ button,select,input{font-family:inherit}
 @media(max-width:520px){.latest.show{grid-template-columns:minmax(0,1fr) auto}.latestAside{align-self:start}.positionBox .symline{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important}.positionBox .symTvLink{min-width:0;grid-column:auto!important;font-size:19px!important;line-height:1.25!important}.positionBox .dirTag{min-height:30px;display:inline-flex;align-items:center;justify-content:center;padding:4px 9px!important}.tradeCalc>summary{gap:12px}.tradeCalcHint{max-width:62%}}
 @media(max-width:370px){.positionBox .symline{grid-template-columns:minmax(0,1fr) auto!important}.positionBox .symTvLink{min-width:0!important}.positionBox .dirTag{grid-column:2}.latestDismiss{width:32px;height:32px}}
 
-/* V9.3 — 展開狀態持久化 + 測試詳細交叉判讀 */
+/* V9.4 — 嚴格通知診斷 + AI快取標示 + API共用快取 */
 .testSymbol.tvNameLink{appearance:none;-webkit-appearance:none;border:0;background:transparent;padding:0;margin:0;color:#eee7db;text-align:left;line-height:1.15;cursor:pointer;min-width:0;max-width:100%;overflow-wrap:anywhere}.testSymbol.tvNameLink:hover{text-decoration:underline;text-underline-offset:3px}.testActions .detailBtn{border-color:#6a542c;color:#dfbd72;background:#15120d}.testDeepDetail{margin-top:10px;border:1px solid #34302a;border-radius:13px;background:#0c0e0f;overflow:hidden}.testDeepDetail>summary{list-style:none;padding:11px 12px;color:#d9b86d;font-size:11px;font-weight:950;cursor:pointer;border-bottom:1px solid transparent}.testDeepDetail[open]>summary{border-bottom-color:#292b2c}.testDeepDetail>summary::-webkit-details-marker{display:none}.testDeepBody{padding:12px}.testCrossIntro{display:grid;grid-template-columns:1fr 1fr;gap:8px}.testCrossIntro>div,.testCrossGrid>div{border:1px solid #292c2e;background:#101213;border-radius:10px;padding:9px;min-width:0}.testCrossIntro span,.testCrossGrid span{display:block;font-size:9.5px;color:#837b70;line-height:1.3}.testCrossIntro b,.testCrossGrid b{display:block;margin-top:4px;font-size:12.5px;color:#ddd5c9;line-height:1.4;overflow-wrap:anywhere}.testCrossSection{margin-top:12px}.testCrossSection h4,.testCrossSignals h4,.testDeepTitle,.crossConflict h4,.crossWatch h4{margin:0 0 7px;font-size:11px;color:#aa9e8f}.testCrossGrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.testCrossGrid>div.wide{grid-column:1/-1}.testCrossSignals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.testCrossSignals>div{border:1px solid #292c2e;border-radius:11px;background:#0f1112;padding:10px;min-width:0}.crossOk,.crossWarn,.crossMuted{display:inline-flex;margin:3px 4px 3px 0;padding:5px 7px;border-radius:999px;font-size:9.5px;line-height:1.25;border:1px solid #31453a;background:#101a14;color:#9fd3ad}.crossWarn{border-color:#5b3834;background:#191110;color:#e4a29b}.crossMuted{border-color:#343638;background:#121415;color:#8b8379}.testWebCross{margin-top:13px;padding-top:12px;border-top:1px solid #292b2c}.ideaEntryTiming{margin:10px 0;padding:10px;border:1px solid #3d3526;border-radius:10px;background:#15120c}.ideaEntryTiming span{display:block;font-size:9px;color:#8f846f}.ideaEntryTiming b{display:block;margin-top:4px;color:#e0c075;font-size:12px;line-height:1.45}.crossConflict,.crossWatch{margin-top:10px}.crossWatch ul{margin:0;padding-left:18px;color:#bbb2a6;font-size:10px;line-height:1.55}.ideaAnalysisStatus{grid-template-columns:repeat(2,minmax(0,1fr))!important}.ideaAnalysisStatus>div{min-width:0}.testCardMore>summary,.testDeepDetail>summary{font-size:12px!important}
 @media(max-width:420px){.testCrossIntro,.testCrossGrid,.testCrossSignals{grid-template-columns:1fr 1fr}.testDeepBody{padding:10px}.testCrossIntro b,.testCrossGrid b{font-size:12px}.testCrossIntro span,.testCrossGrid span{font-size:9px}.testActions{grid-template-columns:1fr 1fr}.testSymbol.tvNameLink{font-size:19px!important}}
 
+
+/* V9.4 — notification explainability / AI cache hint */
+.testAiHint{margin:6px 2px 0;color:#7f766a;font-size:10px;font-weight:800;text-align:right}.testNotifyGate{margin-top:7px;padding:8px 10px;border-radius:10px;border:1px solid #343638;background:#111314;color:#a59d91;font-size:10.5px;line-height:1.45;font-weight:800}.testNotifyGate.high{border-color:#385b44;color:#a9d9b5;background:#101813}.testNotifyGate.normal{border-color:#5b4e30;color:#dac17b;background:#17140e}.testNotifyGate.blocked{border-color:#5e3835;color:#dda29b;background:#191110}.testNotifyDiag{margin-top:10px;padding:10px 11px;border:1px solid #303336;border-radius:11px;background:#0e1011;color:#aaa196;font-size:10.5px;line-height:1.5}.testNotifyDiag b{color:#e2c275;font-size:11.5px}.testNotifyDiag span{display:block;margin-top:3px;color:#81796f}.testHealth{margin-top:7px;color:#716a61;font-size:10px;line-height:1.4;text-align:center}.ideaDetail>summary b{white-space:nowrap}.ideaAnalysisFoot{line-height:1.5}.testActions{align-items:center}
 </style>
 </head>
 <body>
@@ -709,7 +712,7 @@ button,select,input{font-family:inherit}
         <label><input type="radio" name="testNotifyMode" value="HIGH_NORMAL"><span><b>高＋普通</b><small>完整回踩條件</small></span></label>
         <label><input type="radio" name="testNotifyMode" value="ALL"><span><b>全部有效</b><small>仍排除追價/失效</small></span></label>
       </div>
-      <div id="testNotifyMsg" class="testNotifyMsg"></div>
+      <div id="testNotifyMsg" class="testNotifyMsg"></div><div id="testNotifyDiag" class="testNotifyDiag"></div><div id="testHealth" class="testHealth">系統檢查中…</div>
     </div>
     <div id="testMethod" class="testMethod"></div>
   </section>
@@ -727,6 +730,6 @@ button,select,input{font-family:inherit}
   </div>
 </div>
 
-<script src="/app.js?v=930"></script>
+<script src="/app.js?v=940"></script>
 </body>
 </html>
