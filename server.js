@@ -137,7 +137,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V9.3';
+const BUILD_VERSION = 'V9.4';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -193,6 +193,7 @@ const testCandleCache = new Map();
 const testBacktestCandleCache = new Map();
 const testMicroCache = new Map();
 const testRiskCache = new Map();
+const testDerivCache = new Map();
 function n(v) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
@@ -2221,26 +2222,31 @@ function subscriptionAllows(rec, target = {}) {
 async function sendPush(payload, target = {}) {
   const records = loadSubRecords();
   const keep = [];
+  let eligible=0,sent=0,failed=0,filtered=0;
 
   for (const rec of records) {
     if (!subscriptionAllows(rec, target)) {
+      filtered++;
       keep.push(rec);
       continue;
     }
-
+    eligible++;
     try {
       await webpush.sendNotification(
         rec.subscription,
         JSON.stringify(payload),
         { TTL: 90, urgency: 'high' }
       );
+      sent++;
       keep.push(rec);
     } catch (e) {
+      failed++;
       if (![404, 410].includes(e.statusCode)) keep.push(rec);
     }
   }
 
   if (keep.length !== records.length) saveSubRecords(keep);
+  return {records:records.length,eligible,sent,failed,filtered};
 }
 
 function makeTraderEvent(type, trader, o, result) {
@@ -3609,13 +3615,15 @@ function buildTestSetup(idea, c5, c15, backtestCandles=c5) {
   return {direction,createdAt:new Date().toISOString(),impulseLow:impulse.low,impulseHigh:impulse.high,zoneLow,zoneHigh,zoneMid,invalidation,fib38,fib61,fib786,ema20_15:t15.ema20,poc15:t15.poc,vwap15,atr5,atr15,atrPct,volatilityRegime,adx15:t15.adx14,diBias15:t15.diBias,confluenceCount,setupScore,backtest:hist};
 }
 async function testFetchDerivatives(symbol) {
+  const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testDerivCache.get(key);
+  if(cached&&now-cached.at<25000)return cached.data;
   const [oi,taker,globalLs,topPos]=await Promise.all([
-    ideaFetchJson(`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(symbol)}&period=5m&limit=12`,7000).catch(()=>[]),
-    ideaFetchJson(`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(symbol)}&period=5m&limit=12`,7000).catch(()=>[]),
-    ideaFetchJson(`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(symbol)}&period=5m&limit=12`,7000).catch(()=>[]),
-    ideaFetchJson(`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(symbol)}&period=5m&limit=12`,7000).catch(()=>[]),
+    ideaFetchJson(`${FUTURES_DATA}/openInterestHist?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
+    ideaFetchJson(`${FUTURES_DATA}/takerlongshortRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
+    ideaFetchJson(`${FUTURES_DATA}/globalLongShortAccountRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
+    ideaFetchJson(`${FUTURES_DATA}/topLongShortPositionRatio?symbol=${encodeURIComponent(key)}&period=5m&limit=12`,7000).catch(()=>[]),
   ]);
-  return {
+  const data={
     oiChangePct:ratioChangePct(oi,'sumOpenInterestValue') ?? ratioChangePct(oi,'sumOpenInterest') ?? 0,
     takerRatio:ratioLast(taker,'buySellRatio') ?? 1,
     globalLongShortRatio:ratioLast(globalLs,'longShortRatio') ?? 1,
@@ -3623,6 +3631,8 @@ async function testFetchDerivatives(symbol) {
     topPositionRatio:ratioLast(topPos,'longShortRatio') ?? 1,
     topPositionChangePct:ratioChangePct(topPos,'longShortRatio') ?? 0,
   };
+  testDerivCache.set(key,{at:now,data});
+  return data;
 }
 async function testFetchMicrostructure(symbol) {
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testMicroCache.get(key);
@@ -3843,11 +3853,33 @@ function testSignalTier(t,{reentry=false}={}) {
   const adverse=!!(ev.adverse15||ev.adverse30||ev.adverse1h||ev.adverseMarket);
   const noSpreadRisk=!Number.isFinite(spread)||spread<=TEST_SIGNAL_MAX_SPREAD_BPS;
   const noChase=!Number.isFinite(chaseAtr)||chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR;
-  const hardSafe=!adverse&&noSpreadRisk&&noChase&&adlRisk!=='high'&&!fundingCrowded&&t.status!=='INVALID'&&t.status!=='DROPPED'&&t.monitorState!=='WEAKENING';
-  if(!hardSafe)return {tier:'BLOCKED',rate,low,score,rank};
-  if(rate>=TEST_SIGNAL_HIGH_RATE&&low>=50&&score>=TEST_SIGNAL_HIGH_SCORE&&rank<=6&&(!Number.isFinite(chaseAtr)||chaseAtr<=TEST_SIGNAL_HIGH_MAX_CHASE_ATR))return {tier:'HIGH',rate,low,score,rank};
-  if(rate>=TEST_SIGNAL_NORMAL_RATE&&low>=43&&score>=TEST_SIGNAL_NORMAL_SCORE&&rank<=9)return {tier:'NORMAL',rate,low,score,rank};
-  return {tier:'VALID',rate,low,score,rank};
+  const blockers=[];
+  if(ev.adverse15)blockers.push('15分逆向');
+  if(ev.adverse30)blockers.push('30分逆向');
+  if(ev.adverse1h)blockers.push('1小時逆向');
+  if(ev.adverseMarket)blockers.push('BTC/ETH大盤逆向');
+  if(!noSpreadRisk)blockers.push(`價差>${TEST_SIGNAL_MAX_SPREAD_BPS}bps`);
+  if(!noChase)blockers.push(`距離回踩區>${TEST_SIGNAL_FIRST_MAX_CHASE_ATR.toFixed(2)}ATR`);
+  if(adlRisk==='high')blockers.push('ADL高風險');
+  if(fundingCrowded)blockers.push('Funding擁擠');
+  if(t.status==='INVALID'||t.status==='DROPPED')blockers.push('結構失效');
+  if(t.monitorState==='WEAKENING')blockers.push('目前轉弱');
+  const hardSafe=blockers.length===0;
+  const highMissing=[];
+  if(rate<TEST_SIGNAL_HIGH_RATE)highMissing.push(`校準勝率<${TEST_SIGNAL_HIGH_RATE}%`);
+  if(low<50)highMissing.push('保守下界<50%');
+  if(score<TEST_SIGNAL_HIGH_SCORE)highMissing.push(`品質<${TEST_SIGNAL_HIGH_SCORE}`);
+  if(rank>6)highMissing.push('排名>6');
+  if(Number.isFinite(chaseAtr)&&chaseAtr>TEST_SIGNAL_HIGH_MAX_CHASE_ATR)highMissing.push(`追價>${TEST_SIGNAL_HIGH_MAX_CHASE_ATR.toFixed(2)}ATR`);
+  const normalMissing=[];
+  if(rate<TEST_SIGNAL_NORMAL_RATE)normalMissing.push(`校準勝率<${TEST_SIGNAL_NORMAL_RATE}%`);
+  if(low<43)normalMissing.push('保守下界<43%');
+  if(score<TEST_SIGNAL_NORMAL_SCORE)normalMissing.push(`品質<${TEST_SIGNAL_NORMAL_SCORE}`);
+  if(rank>9)normalMissing.push('排名>9');
+  if(!hardSafe)return {tier:'BLOCKED',rate,low,score,rank,blockers,highMissing,normalMissing};
+  if(highMissing.length===0)return {tier:'HIGH',rate,low,score,rank,blockers,highMissing,normalMissing};
+  if(normalMissing.length===0)return {tier:'NORMAL',rate,low,score,rank,blockers,highMissing,normalMissing};
+  return {tier:'VALID',rate,low,score,rank,blockers,highMissing,normalMissing};
 }
 function testPushCopy(t,statusLabel='') {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||t.confirmedWinRate||0),zone=testCurrentEntryZone(t);
@@ -3860,12 +3892,17 @@ function testPushCopy(t,statusLabel='') {
 }
 async function sendTestLifecyclePush(t, code, _title, _body, options={}) {
   t.lifecycleNotifications=t.lifecycleNotifications&&typeof t.lifecycleNotifications==='object'?t.lifecycleNotifications:{};
-  if(t.lifecycleNotifications[code])return;
+  if(t.lifecycleNotifications[code])return {processed:true,duplicate:true,sent:0};
   const tier=String(options.tier||(options.reentry?t.reentryNotificationTier:t.confirmNotificationTier)||t.confirmNotificationTier||testSignalTier(t,{reentry:!!options.reentry}).tier);
-  if(tier==='BLOCKED')return;
+  if(tier==='BLOCKED')return {processed:false,blocked:true,sent:0};
   const copy=testPushCopy(t,options.statusLabel||'');
-  await sendPush({title:copy.title,body:copy.body,tag:`test-life-${code}-${t.symbol}-${t.direction}-${Date.now()}`,renotify:true,data:{url:testMonitorRoute(t)}},{testSignal:true,testSignalTier:tier});
-  t.lifecycleNotifications[code]=new Date().toISOString();
+  const delivery=await sendPush({title:copy.title,body:copy.body,tag:`test-life-${code}-${t.symbol}-${t.direction}-${Date.now()}`,renotify:true,data:{url:testMonitorRoute(t)}},{testSignal:true,testSignalTier:tier});
+  // 被使用者通知模式過濾＝事件已處理；若本來符合推播但傳送失敗，保留下一輪重試機會。
+  if(delivery.sent>0||delivery.eligible===0)t.lifecycleNotifications[code]=new Date().toISOString();
+  t.lastPushAttemptAt=new Date().toISOString();
+  t.lastPushTier=tier;
+  t.lastPushDelivery=delivery;
+  return {processed:delivery.sent>0||delivery.eligible===0,tier,...delivery};
 }
 function testMonitorEvidence({dir,last,prev,t5,t15,t30,t1h,rsiNow,rsiPrev,macdNow,macdPrev,deriv,market,breakoutLevel,micro}) {
   const belowBreakout2=Number.isFinite(breakoutLevel)&&(dir>0?(last.close<breakoutLevel&&prev.close<breakoutLevel):(last.close>breakoutLevel&&prev.close>breakoutLevel));
@@ -4239,7 +4276,7 @@ async function analyzeTestTracker(t, market) {
     testSetState(t,score>=84?'STRONG':'CONFIRMED',score>=84?'強勢':'成立',now);t.monitorScore=score;t.lastMonitorBarTime=last.openTime;t.updatedAt=now;
     const calibrated=testCalibratedWinRate(t,{dynamic:false});t.confirmedWinRate=calibrated.rate;t.winRateMetaAtConfirm=calibrated;
     const tier=testSignalTier(t,{reentry:false});t.confirmNotificationTier=tier.tier;
-    if(!t.notificationSentAt){await sendTestLifecyclePush(t,'CONFIRMED','', '',{tier:t.confirmNotificationTier,statusLabel:score>=84?'強勢':'成立'});t.notificationSentAt=new Date().toISOString()}
+    if(!t.notificationSentAt){const delivery=await sendTestLifecyclePush(t,'CONFIRMED','', '',{tier:t.confirmNotificationTier,statusLabel:score>=84?'強勢':'成立'});if(delivery?.processed)t.notificationSentAt=new Date().toISOString()}
   }
   return t;
 }
@@ -4266,7 +4303,7 @@ function publicTestTracker(t) {
   return {
     key:t.key,symbol:t.symbol,direction:t.direction,label:t.direction==='LONG'?'做多':'做空',rank:t.rank,rankAtConfirm:t.rankAtConfirm??null,rankHeat:Number(rankHeat.toFixed(0)),priorityScore:Number(priorityScore.toFixed(1)),status:t.status,statusLabel:testTrackerStatusLabel(t),
     monitorState:t.monitorState||'WATCHING',monitorLabel:testMonitorStateLabel(t.monitorState,t.status),monitorClass:testMonitorStateClass(t.monitorState,t.status),monitorScore:t.monitorScore??null,
-    notificationTier:tier.tier,confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,
+    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,score:tier.score,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,
     calibratedWinRate:currentRate,confirmedWinRate:confirmedRate,currentWinRate:currentRate,winRateDelta:confirmedRate!=null&&currentRate!=null?Number((currentRate-confirmedRate).toFixed(1)):null,winRateMeta:dynamic?calibrated:(t.winRateMetaAtConfirm||calibrated),
     freshness,lastEvaluatedAt:t.lastEvaluatedAt??null,lastEvaluatedBarAt:t.lastEvaluatedBarAt??null,lastEvaluationError:t.lastEvaluationError??null,lastEvaluationErrorAt:t.lastEvaluationErrorAt??null,priceUpdatedAt:markPriceUpdatedAt??null,
     eventAt,stateChangedAt:t.stateChangedAt??null,finishedAt:t.finishedAt??null,invalidatedAt:t.invalidatedAt??null,invalidReason:t.invalidReason??null,reactivateUntil:t.reactivateUntil??null,reactivatedAt:t.reactivatedAt??null,droppedAt:t.droppedAt??null,targetReachedAt:t.targetReachedAt??null,reentryStage:t.reentryStage??null,reentryStageAt:t.reentryStageAt??null,reentryZoneLow:t.reentryZoneLow??null,reentryZoneHigh:t.reentryZoneHigh??null,reentryZoneMid:t.reentryZoneMid??null,reentryInvalidation:t.reentryInvalidation??null,reentryConfirmAt:t.reentryConfirmAt??null,reentryEntryPrice:t.reentryEntryPrice??null,reentryStop:t.reentryStop??null,reentryTarget1R:t.reentryTarget1R??null,reentryScore:t.reentryScore??null,reentryReasons:t.reentryReasons||[],reentryResult:t.reentryResult??null,reentryResultAt:t.reentryResultAt??null,
@@ -4292,8 +4329,14 @@ async function runTestSignalScan(force=false) {
 function testSignalLoop(){void runTestSignalScan(false).finally(()=>{testSignalTimer=setTimeout(testSignalLoop,TEST_SIGNAL_SCAN_MS)})}
 function testSignalResponse() {
   const rows=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000).sort((a,b)=>{const pa={CONFIRMED:0,INVALID:1,TOUCHING:2,WAIT_PULLBACK:3,WIN:4,TIMEOUT:5,DROPPED:6,LOSS:7,EXPIRED:8};const sa=(pa[a.status]??9),sb=(pa[b.status]??9);if(sa!==sb)return sa-sb;if(sa<=1)return testMonitorPriority(b)-testMonitorPriority(a)||(a.rank||99)-(b.rank||99);return (a.rank||99)-(b.rank||99)}).slice(0,24).map(publicTestTracker);
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.3 即時監控：畫面只保留成立/更新時間；市場盤整、等待與系統資料延遲分開顯示。現價直接讀 Binance mark price；90秒標示延遲、180秒資料過期且不再當作可進場依據。排序＝當日建議熱度46%＋保守校準勝率39%＋即時結構15%。勝率再加入排名桶、30/60分逆向、委託簿、價差、Funding擁擠與ADL風險校準；高勝率通知追價距離限制更嚴。確認要求5/15/30/60分、ADX/RSI/MACD、OI/主動買賣/大戶持倉、20檔委託簿/價差、BTC/ETH；達1R移入達標池，只在二次38.2–61.8回踩且連續2根5分K收回時重新上榜；失效保留30分收復窗，連續15分變爛且高週期同步弱則提前移出。',error:testSignalLastError};
+  const notifyStats={high:0,normal:0,valid:0,blocked:0,highNormalEligible:0};
+  for(const row of rows){const k=String(row.notificationTier||'VALID').toLowerCase();if(k in notifyStats)notifyStats[k]++;if(row.notificationTier==='HIGH'||row.notificationTier==='NORMAL')notifyStats.highNormalEligible++}
+  const now=Date.now(),scanAgeMs=testSignalLastRunAt?Math.max(0,now-testSignalLastRunAt):null,priceAgeMs=markPriceUpdatedAt?Math.max(0,now-new Date(markPriceUpdatedAt).getTime()):null;
+  const staleCount=rows.filter(r=>r.freshness?.state==='STALE').length,delayedCount=rows.filter(r=>r.freshness?.state==='DELAYED').length;
+  const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V9.4 嚴格通知＋可解釋門檻：高＋普通仍只推回踩確認後、非追價、無高週期/大盤逆向、無高ADL/Funding擁擠且價差安全的訊號。每筆顯示未達通知原因；衍生品資料加入25秒共用快取，降低重複API請求。詳細網搜維持按需啟動與2小時快取，畫面會顯示快取狀態。推播傳送失敗會保留下一輪重試，不再把失敗誤記成已通知。',error:testSignalLastError};
 }
+
 
 function fallbackDailyBrief(flow, ideas, meta={}) {
   const sm=flow.summary||{}, top=(ideas?.rows||[]).slice(0,3);
@@ -4316,11 +4359,11 @@ function quantOnlySymbolAnalysis(symbol, idea, profile, error=null){
 }
 async function getSymbolWebAnalysis(symbol, direction=''){
   const clean=cleanFuturesSymbol(symbol), key=`${clean}:${String(direction||'').toUpperCase()}`, now=Date.now(), cached=symbolAnalysisCache.get(key);
-  if(cached&&now-cached.at<SYMBOL_ANALYSIS_CACHE_MS)return {...cached.data,cached:true};
+  if(cached&&now-cached.at<SYMBOL_ANALYSIS_CACHE_MS)return {...cached.data,cached:true,cacheAgeMs:now-cached.at,cacheExpiresInMs:Math.max(0,SYMBOL_ANALYSIS_CACHE_MS-(now-cached.at)),cacheMs:SYMBOL_ANALYSIS_CACHE_MS};
   const [ideas,flow]=await Promise.all([getRankedIdeas().catch(()=>null),getMarketFlow().catch(()=>null)]);
   const idea=(ideas?.rows||[]).find(x=>x.symbol===clean&&(!direction||x.direction===direction))||(ideas?.rows||[]).find(x=>x.symbol===clean)||null;
   const profile=idea?.profile||symbolProjectProfile(clean);
-  if(!OPENAI_API_KEY){const data=quantOnlySymbolAnalysis(clean,idea,profile,'AI未連線');symbolAnalysisCache.set(key,{at:now,data});return data}
+  if(!OPENAI_API_KEY){const data={...quantOnlySymbolAnalysis(clean,idea,profile,'AI未連線'),cached:false,cacheAgeMs:0,cacheExpiresInMs:SYMBOL_ANALYSIS_CACHE_MS,cacheMs:SYMBOL_ANALYSIS_CACHE_MS};symbolAnalysisCache.set(key,{at:now,data});return data}
   const tracker=[...testSignalTrackers.values()].find(t=>t.symbol===clean&&(!direction||t.direction===direction))||null;
   const trackerView=tracker?publicTestTracker(tracker):null;
   const payload={
@@ -4335,8 +4378,8 @@ JSON schema={"profile":{"sector":"<=18字","purpose":"<=42字"},"bias":"偏多|�
     if(!r.ok)throw new Error(`OpenAI ${r.status}`);
     const json=await r.json(), parsed=JSON.parse(cleanJsonText(extractOpenAIText(json)));
     const data={ok:true,mode:'AI_WEB',symbol:clean,generatedAt:new Date().toISOString(),profile:{sector:String(parsed?.profile?.sector||profile.sector).slice(0,50),purpose:String(parsed?.profile?.purpose||profile.purpose).slice(0,120)},bias:['偏多','偏空','中性'].includes(parsed?.bias)?parsed.bias:'中性',strength:['強','偏強','中性','偏弱','弱'].includes(parsed?.strength)?parsed.strength:'中性',agreement:['高度一致','偏一致','分歧','高風險'].includes(parsed?.agreement)?parsed.agreement:'分歧',summary:String(parsed?.summary||'').slice(0,240),bullish:Array.isArray(parsed?.bullish)?parsed.bullish.slice(0,3).map(x=>String(x).slice(0,100)):[],bearish:Array.isArray(parsed?.bearish)?parsed.bearish.slice(0,3).map(x=>String(x).slice(0,100)):[],conflicts:Array.isArray(parsed?.conflicts)?parsed.conflicts.slice(0,4).map(x=>String(x).slice(0,100)):[],watch:Array.isArray(parsed?.watch)?parsed.watch.slice(0,4).map(x=>String(x).slice(0,100)):[],news:Array.isArray(parsed?.news)?parsed.news.slice(0,4).map(x=>({tone:['利多','利空','中性'].includes(x?.tone)?x.tone:'中性',text:String(x?.text||'').slice(0,110)})).filter(x=>x.text):[],entryTiming:String(parsed?.entryTiming||'').slice(0,150),action:String(parsed?.action||'').slice(0,190),aiReady:true,aiError:null};
-    symbolAnalysisCache.set(key,{at:Date.now(),data});return data;
-  }catch(e){const data=quantOnlySymbolAnalysis(clean,idea,profile,shortOpenAIError(e));symbolAnalysisCache.set(key,{at:Date.now(),data});return data}
+    const stamped={...data,cached:false,cacheAgeMs:0,cacheExpiresInMs:SYMBOL_ANALYSIS_CACHE_MS,cacheMs:SYMBOL_ANALYSIS_CACHE_MS};symbolAnalysisCache.set(key,{at:Date.now(),data:stamped});return stamped;
+  }catch(e){const data={...quantOnlySymbolAnalysis(clean,idea,profile,shortOpenAIError(e)),cached:false,cacheAgeMs:0,cacheExpiresInMs:SYMBOL_ANALYSIS_CACHE_MS,cacheMs:SYMBOL_ANALYSIS_CACHE_MS};symbolAnalysisCache.set(key,{at:Date.now(),data});return data}
 }
 
 async function fetchAIDailyBrief(flow, ideas) {

@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v930-persistent-detail-crosscheck",
-  "version": "9.3.0",
+  "name": "position-alert-v940-notify-health-cache",
+  "version": "9.4.0",
   "private": true,
   "type": "module",
   "scripts": {
