@@ -1,0 +1,27 @@
+V10.1.6 SWIPE NAVIGATION — TEST REPORT
+
+PASS  JavaScript syntax: server.js
+PASS  JavaScript syntax: public/app.js
+PASS  JavaScript syntax: public/sw.js
+PASS  V10 unit tests
+PASS  V10.1 multi-playbook tests
+PASS  swipe page order: 今日 / 監控 / 流向 / 建議 / 觀察 / 績效
+PASS  left swipe -> next page
+PASS  right swipe -> previous page
+PASS  minimum horizontal gesture threshold present (64px)
+PASS  vertical-scroll rejection present
+PASS  interactive-control guard present
+PASS  modal/sheet guard present
+PASS  horizontal-scroll-area guard present
+PASS  first/last page boundary guard present
+PASS  app.js cache-bust updated to v1016
+
+Behavior
+- 左滑：下一頁。
+- 右滑：上一頁。
+- 不循環；今日向右、績效向左不動。
+- 只有單指、橫向距離 >= 64px，且橫向明顯大於縱向才觸發。
+- 按鈕、連結、輸入欄、下拉、summary、彈窗與可橫向捲動區塊不搶手勢。
+
+Scope
+- V10.1.5 的策略、通知、監控、績效與資料邏輯保持不變。
