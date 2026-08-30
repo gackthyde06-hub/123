@@ -1,0 +1,9 @@
+V7.3 每日 AI 市場整理
+
+- AI 全球網搜固定每日台灣時間 08:05 自動整理一次。
+- 通知開關只控制每日 08:05 市場整理推播。
+- 保留手動更新；手動更新會立即再呼叫一次 OpenAI API。
+- 每日整理會持久化到 DATA_DIR/daily-brief-v73.json，Railway 重啟後同一交易日不重複燒 API。
+- 交易日以 08:05 Asia/Taipei 為分界。
+- OPENAI_API_KEY 未設定、KEY 無效、額度/速率限制、OpenAI 暫時異常會分開顯示，不再全部誤報成「未設定 KEY」。
+- Binance 市場流向與建議排名仍照原本頻率更新，不會因此增加 OpenAI 成本。

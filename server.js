@@ -106,8 +106,8 @@ const IDEA_STALE_MS = Math.max(5 * 60_000, Number(process.env.IDEA_STALE_MS || 2
 const IDEA_SYMBOLS = Math.max(8, Math.min(24, Number(process.env.IDEA_SYMBOLS || 16)));
 const IDEA_CONCURRENCY = Math.max(2, Math.min(6, Number(process.env.IDEA_CONCURRENCY || 4)));
 const FUTURES_DATA = 'https://fapi.binance.com/futures/data';
-const DAILY_BRIEF_MIN_MS = Math.max(60 * 60 * 1000, Number(process.env.DAILY_BRIEF_MIN_MS || 2 * 60 * 60 * 1000));
-const DAILY_BRIEF_DEFAULT_MS = Math.max(DAILY_BRIEF_MIN_MS, Number(process.env.DAILY_BRIEF_DEFAULT_MS || 3 * 60 * 60 * 1000));
+const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
+const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 
 let marketFlowCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
@@ -126,6 +126,7 @@ const REFERENCE_FILE = path.join(DATA_DIR, 'reference-v59.json');
 const SCREEN_FILE = path.join(DATA_DIR, 'screen-v65.json');
 const CONSENSUS_EPISODE_FILE = path.join(DATA_DIR, 'consensus-episodes-v65.json');
 const PULLBACK_FILE = path.join(DATA_DIR, 'pullback-trackers-v65.json');
+const DAILY_BRIEF_FILE = path.join(DATA_DIR, 'daily-brief-v73.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -141,6 +142,10 @@ function loadJson(file, fallback) {
 }
 function saveJson(file, data) {
   try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {}
+}
+const persistedDailyBrief = loadJson(DAILY_BRIEF_FILE, null);
+if (persistedDailyBrief?.data) {
+  dailyBriefCache = { at:Number(persistedDailyBrief.at||0), dayKey:String(persistedDailyBrief.dayKey||''), data:persistedDailyBrief.data, error:null, inflight:null };
 }
 function n(v) {
   const x = Number(v);
@@ -2081,10 +2086,7 @@ function cleanEventTypes(value, fallbackAll = true) {
   if (!Array.isArray(value)) return fallbackAll ? [...EVENT_TYPES] : [];
   return value.filter(type => EVENT_TYPE_SET.has(type));
 }
-function cleanBriefInterval(value) {
-  const n = Number(value);
-  return [2,3,6,12].includes(n) ? n : 3;
-}
+function cleanBriefInterval(_value) { return 24; }
 
 function migratedEventTypes(record) {
   const types = cleanEventTypes(record?.enabledTypes, true);
@@ -2103,7 +2105,8 @@ function normalizeSubRecord(x) {
       dailyBriefEnabled: x.dailyBriefEnabled === true,
       dailyBriefIntervalHours: cleanBriefInterval(x.dailyBriefIntervalHours),
       lastDailyBriefPushAt: x.lastDailyBriefPushAt || null,
-      preferenceVersion: 72,
+      lastDailyBriefPushDay: x.lastDailyBriefPushDay || null,
+      preferenceVersion: 73,
     };
   }
 
@@ -2115,9 +2118,10 @@ function normalizeSubRecord(x) {
       enabledTypes: [...EVENT_TYPES],
       consensusEnabled: true,
       dailyBriefEnabled: false,
-      dailyBriefIntervalHours: 3,
+      dailyBriefIntervalHours: 24,
       lastDailyBriefPushAt: null,
-      preferenceVersion: 72,
+      lastDailyBriefPushDay: null,
+      preferenceVersion: 73,
     };
   }
 
@@ -3290,10 +3294,10 @@ async function getRankedIdeas() {
   try{return {...await rankedIdeasCache.inflight,stale:false,cacheAgeMs:0}}catch(e){if(rankedIdeasCache.data&&now-rankedIdeasCache.lastGoodAt<IDEA_STALE_MS)return {...rankedIdeasCache.data,stale:true,error:rankedIdeasCache.error,cacheAgeMs:now-rankedIdeasCache.lastGoodAt};throw e}
 }
 
-function fallbackDailyBrief(flow, ideas) {
+function fallbackDailyBrief(flow, ideas, meta={}) {
   const sm=flow.summary||{}, top=(ideas?.rows||[]).slice(0,3);
   const bias=sm.direction==='LONG'?'偏多':sm.direction==='SHORT'?'偏空':'中性';
-  return { ok:true, mode:'MARKET_ONLY', generatedAt:new Date().toISOString(), bias, score:Number(sm.confidence||50), title:`市場${bias}｜AI網搜未啟用`, bullets:[`成交額加權 ${Number(sm.weightedChangePct||0).toFixed(2)}%`,`上漲 ${sm.advancers||0} / 下跌 ${sm.decliners||0}`,top.length?`排名：${top.map(x=>`${x.symbol} ${x.label}`).join('、')}`:'暫無高一致性排名'], action:sm.direction==='LONG'?'多單等回踩，空單只打弱勢標的':sm.direction==='SHORT'?'空單等反彈，多單只打強勢標的':'只做排名最前面的強弱分化', sources:[], aiReady:false };
+  return { ok:true, mode:'MARKET_ONLY', generatedAt:new Date().toISOString(), bias, score:Number(sm.confidence||50), title:`市場${bias}`, bullets:[`成交額加權 ${Number(sm.weightedChangePct||0).toFixed(2)}%`,`上漲 ${sm.advancers||0} / 下跌 ${sm.decliners||0}`,top.length?`排名：${top.map(x=>`${x.symbol} ${x.label}`).join('、')}`:'暫無高一致性排名'], action:sm.direction==='LONG'?'多單等回踩，空單只打弱勢標的':sm.direction==='SHORT'?'空單等反彈，多單只打強勢標的':'只做排名最前面的強弱分化', sources:[], aiReady:false, aiConfigured:meta.aiConfigured===true, aiError:meta.error||null };
 }
 
 function extractOpenAIText(json) {
@@ -3303,7 +3307,7 @@ function extractOpenAIText(json) {
 }
 
 async function fetchAIDailyBrief(flow, ideas) {
-  if(!process.env.OPENAI_API_KEY)return fallbackDailyBrief(flow,ideas);
+  if(!process.env.OPENAI_API_KEY)return fallbackDailyBrief(flow,ideas,{aiConfigured:false});
   const marketPayload={summary:flow.summary,leaders:(flow.leaders||[]).slice(0,8).map(x=>({symbol:x.symbol,changePct:x.changePct,fundingPct:x.fundingPct,quoteVolume:x.quoteVolume})),ranked:(ideas?.rows||[]).slice(0,8).map(x=>({symbol:x.symbol,direction:x.direction,estimatedWinRate:x.estimatedWinRate,rankScore:x.rankScore,reason:x.reason}))};
   const prompt=`你是加密貨幣日內市場研究助手。現在是台灣時間。請先使用網路搜尋，整理「當下」全球總經、Fed/利率/美元/美債、美股風險偏好、ETF/監管、BTC/ETH與重大加密新聞，再結合我提供的 Binance 即時摘要與量化排名。不要寫長文，只輸出嚴格 JSON，不要 markdown。JSON schema: {"bias":"偏多|偏空|中性","score":0-100,"title":"<=26個中文字","bullets":["最多6條，每條<=38中文字"],"action":"<=45中文字","sources":[{"title":"短標題","url":"https://..."}]}. 不要保證獲利，不要把模型估算勝率當成真實機率。市場資料=${JSON.stringify(marketPayload)}`;
   const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${process.env.OPENAI_API_KEY}`},body:JSON.stringify({model:OPENAI_MODEL,tools:[{type:'web_search_preview',search_context_size:'medium',user_location:{type:'approximate',country:'TW',timezone:'Asia/Taipei'}}],input:prompt,max_output_tokens:1200})});
@@ -3311,49 +3315,67 @@ async function fetchAIDailyBrief(flow, ideas) {
   const json=await r.json(), text=extractOpenAIText(json).trim();
   const cleaned=text.replace(/^```json\s*/i,'').replace(/```$/,'').trim();
   const parsed=JSON.parse(cleaned);
-  return {ok:true,mode:'AI_WEB',generatedAt:new Date().toISOString(),bias:String(parsed.bias||'中性'),score:clamp(Number(parsed.score||50),0,100),title:String(parsed.title||'今日市場整理').slice(0,80),bullets:Array.isArray(parsed.bullets)?parsed.bullets.slice(0,6).map(x=>String(x).slice(0,100)):[],action:String(parsed.action||'').slice(0,120),sources:Array.isArray(parsed.sources)?parsed.sources.slice(0,5).map(x=>({title:String(x?.title||'來源').slice(0,80),url:String(x?.url||'')})).filter(x=>/^https?:\/\//.test(x.url)):[],aiReady:true};
+  return {ok:true,mode:'AI_WEB',generatedAt:new Date().toISOString(),bias:String(parsed.bias||'中性'),score:clamp(Number(parsed.score||50),0,100),title:String(parsed.title||'今日市場整理').slice(0,80),bullets:Array.isArray(parsed.bullets)?parsed.bullets.slice(0,6).map(x=>String(x).slice(0,100)):[],action:String(parsed.action||'').slice(0,120),sources:Array.isArray(parsed.sources)?parsed.sources.slice(0,5).map(x=>({title:String(x?.title||'來源').slice(0,80),url:String(x?.url||'')})).filter(x=>/^https?:\/\//.test(x.url)):[],aiReady:true,aiConfigured:true,aiError:null};
 }
 
-async function getDailyBrief(force=false,maxAgeMs=DAILY_BRIEF_DEFAULT_MS) {
-  const now=Date.now(), ageLimit=Math.max(DAILY_BRIEF_MIN_MS,Number(maxAgeMs||DAILY_BRIEF_DEFAULT_MS));
-  if(!force&&dailyBriefCache.data&&now-dailyBriefCache.at<ageLimit)return dailyBriefCache.data;
+function taipeiClock(date=new Date()) {
+  const shifted = new Date(date.getTime() + 8*60*60*1000);
+  return { y:shifted.getUTCFullYear(), m:shifted.getUTCMonth()+1, d:shifted.getUTCDate(), hour:shifted.getUTCHours(), minute:shifted.getUTCMinutes(), shifted };
+}
+function ymdFromUtcDate(d){return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`}
+function dailyBriefDayKey(date=new Date()) {
+  const p=taipeiClock(date), d=new Date(Date.UTC(p.y,p.m-1,p.d));
+  if(p.hour*60+p.minute<DAILY_BRIEF_SCHEDULE_MINUTE)d.setUTCDate(d.getUTCDate()-1);
+  return ymdFromUtcDate(d);
+}
+function inDailyBriefWindow(date=new Date()) {
+  const p=taipeiClock(date), min=p.hour*60+p.minute;
+  return min>=DAILY_BRIEF_SCHEDULE_MINUTE && min<DAILY_BRIEF_SCHEDULE_MINUTE+DAILY_BRIEF_PUSH_WINDOW_MIN;
+}
+function shortOpenAIError(err) {
+  const s=String(err?.message||err||'');
+  if(/OpenAI 401/.test(s))return 'KEY 無效';
+  if(/OpenAI 429/.test(s))return '額度或速率限制';
+  if(/OpenAI 4\d\d/.test(s))return 'API 請求失敗';
+  if(/OpenAI 5\d\d/.test(s))return 'OpenAI 暫時異常';
+  return '網搜暫時失敗';
+}
+async function getDailyBrief(force=false) {
+  const dayKey=dailyBriefDayKey();
+  if(!force&&dailyBriefCache.data&&dailyBriefCache.dayKey===dayKey)return dailyBriefCache.data;
   if(!dailyBriefCache.inflight){
-    dailyBriefCache.inflight=(async()=>{const [flow,ideas]=await Promise.all([getMarketFlow(),getRankedIdeas().catch(()=>null)]);try{return await fetchAIDailyBrief(flow,ideas)}catch(e){const fb=fallbackDailyBrief(flow,ideas);return {...fb,error:String(e?.message||e)}}})().then(data=>{dailyBriefCache={at:Date.now(),data,error:null,inflight:null};return data}).catch(e=>{dailyBriefCache.error=String(e?.message||e);dailyBriefCache.inflight=null;throw e});
+    dailyBriefCache.inflight=(async()=>{const [flow,ideas]=await Promise.all([getMarketFlow(),getRankedIdeas().catch(()=>null)]);try{return await fetchAIDailyBrief(flow,ideas)}catch(e){return fallbackDailyBrief(flow,ideas,{aiConfigured:Boolean(process.env.OPENAI_API_KEY),error:shortOpenAIError(e)})}})().then(data=>{dailyBriefCache={at:Date.now(),dayKey,data,error:null,inflight:null};saveJson(DAILY_BRIEF_FILE,{at:dailyBriefCache.at,dayKey,data});return data}).catch(e=>{dailyBriefCache.error=String(e?.message||e);dailyBriefCache.inflight=null;throw e});
   }
   return dailyBriefCache.inflight;
 }
 
-
 async function dailyBriefLoop() {
   try {
-    const records=loadSubRecords(), enabled=records.filter(x=>x.dailyBriefEnabled===true);
-    if(enabled.length){
-      const minHours=Math.min(...enabled.map(x=>cleanBriefInterval(x.dailyBriefIntervalHours)));
-      const force=!dailyBriefCache.data || Date.now()-dailyBriefCache.at >= minHours*60*60*1000;
-      const brief=await getDailyBrief(force);
-      const now=Date.now(), keep=[];
+    if(inDailyBriefWindow()){
+      const brief=await getDailyBrief(false); // 每日 08:05 先整理一次，不依賴是否開通知
+      const dayKey=dailyBriefDayKey(), records=loadSubRecords(), keep=[];
       for(const rec of records){
         if(rec.dailyBriefEnabled!==true){keep.push(rec);continue}
-        const intervalMs=cleanBriefInterval(rec.dailyBriefIntervalHours)*60*60*1000;
-        const last=rec.lastDailyBriefPushAt?new Date(rec.lastDailyBriefPushAt).getTime():0;
-        if(last && now-last<intervalMs){keep.push(rec);continue}
+        if(rec.lastDailyBriefPushDay===dayKey){keep.push(rec);continue}
         try{
           await webpush.sendNotification(rec.subscription,JSON.stringify({
             title:`市場整理｜${brief.bias||'中性'} ${Math.round(Number(brief.score||50))}`,
             body:`${brief.title||'今日市場整理'}${brief.action?`｜${brief.action}`:''}`.slice(0,180),
-            tag:`daily-brief-${Math.floor(now/intervalMs)}`,
+            tag:`daily-brief-${dayKey}`,
             renotify:false,
             data:{url:'/'},
           }),{TTL:300,urgency:'normal'});
-          rec.lastDailyBriefPushAt=new Date(now).toISOString();
+          rec.lastDailyBriefPushAt=new Date().toISOString();
+          rec.lastDailyBriefPushDay=dayKey;
           keep.push(rec);
         }catch(e){if(![404,410].includes(e.statusCode))keep.push(rec)}
       }
       saveSubRecords(keep);
     }
   }catch(e){console.warn(`[daily-brief] ${String(e?.message||e)}`)}
-  dailyBriefTimer=setTimeout(dailyBriefLoop,10*60*1000);
+  dailyBriefTimer=setTimeout(dailyBriefLoop,5*60*1000);
 }
+
 
 app.get('/api/market-flow', async (_req, res) => {
   try {
@@ -3377,9 +3399,8 @@ app.get('/api/ranked-ideas', async (_req, res) => {
 app.get('/api/daily-brief', async (req, res) => {
   try {
     const force = String(req.query?.force || '') === '1';
-    const hours = cleanBriefInterval(req.query?.hours);
-    const data = await getDailyBrief(force, hours * 60 * 60 * 1000);
-    res.json({...data, refreshHours:hours});
+    const data = await getDailyBrief(force);
+    res.json({...data, schedule:'08:05 Asia/Taipei', dayKey:dailyBriefDayKey()});
   } catch (err) {
     res.status(503).json({ ok:false, error:String(err?.message || err) });
   }
@@ -3387,7 +3408,7 @@ app.get('/api/daily-brief', async (req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V7_2_AI_RANKING',
+    mode: 'V7_3_DAILY_0805',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
@@ -3396,7 +3417,7 @@ app.get('/api/config', (_req, res) => {
     statsRefreshMs: STATS_REFRESH_MS,
     statsMaxPages: STATS_MAX_PAGES,
     vapidPublicKey: vapid.publicKey,
-    dailyBrief: { aiReady: Boolean(process.env.OPENAI_API_KEY), model: process.env.OPENAI_API_KEY ? OPENAI_MODEL : null, intervals:[2,3,6,12], defaultHours:3 },
+    dailyBrief: { aiReady: Boolean(process.env.OPENAI_API_KEY), model: process.env.OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true },
     rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS },
     pushReady: true,
     traders: TRADERS,
@@ -3590,7 +3611,7 @@ app.post('/api/subscribe', (req, res) => {
   const enabledTypes = cleanEventTypes(body.enabledTypes, true);
   const consensusEnabled = body.consensusEnabled !== false;
   const dailyBriefEnabled = body.dailyBriefEnabled === true;
-  const dailyBriefIntervalHours = cleanBriefInterval(body.dailyBriefIntervalHours);
+  const dailyBriefIntervalHours = 24;
 
   const records = loadSubRecords();
   const idx = records.findIndex(r => r.endpoint === subscription.endpoint);
@@ -3604,7 +3625,8 @@ app.post('/api/subscribe', (req, res) => {
     dailyBriefEnabled,
     dailyBriefIntervalHours,
     lastDailyBriefPushAt: idx >= 0 ? records[idx]?.lastDailyBriefPushAt || null : null,
-    preferenceVersion: 72,
+    lastDailyBriefPushDay: idx >= 0 ? records[idx]?.lastDailyBriefPushDay || null : null,
+    preferenceVersion: 73,
   };
 
   if (idx >= 0) records[idx] = next;
@@ -3619,7 +3641,7 @@ app.post('/api/subscribe', (req, res) => {
     consensusEnabled,
     dailyBriefEnabled,
     dailyBriefIntervalHours,
-    preferenceVersion: 72,
+    preferenceVersion: 73,
   });
 });
 
@@ -3646,7 +3668,7 @@ app.post('/api/preferences', (req, res) => {
   }
   if (typeof req.body?.consensusEnabled === 'boolean') rec.consensusEnabled = req.body.consensusEnabled;
   if (typeof req.body?.dailyBriefEnabled === 'boolean') rec.dailyBriefEnabled = req.body.dailyBriefEnabled;
-  if (req.body?.dailyBriefIntervalHours !== undefined) rec.dailyBriefIntervalHours = cleanBriefInterval(req.body.dailyBriefIntervalHours);
+  if (req.body?.dailyBriefIntervalHours !== undefined) rec.dailyBriefIntervalHours = 24;
   rec.preferenceVersion = 72;
 
   saveSubRecords(records);
@@ -3657,8 +3679,8 @@ app.post('/api/preferences', (req, res) => {
     enabledTypes: rec.enabledTypes,
     consensusEnabled: rec.consensusEnabled !== false,
     dailyBriefEnabled: rec.dailyBriefEnabled === true,
-    dailyBriefIntervalHours: cleanBriefInterval(rec.dailyBriefIntervalHours),
-    preferenceVersion: 72,
+    dailyBriefIntervalHours: 24,
+    preferenceVersion: 73,
   });
 });
 
