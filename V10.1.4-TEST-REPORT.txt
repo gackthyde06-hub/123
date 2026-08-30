@@ -1,0 +1,27 @@
+V10.1.4 SOLO MAX — OBSERVE / NOTIFY / MONITOR TEST REPORT
+
+PASS JavaScript syntax: server.js
+PASS JavaScript syntax: public/app.js
+PASS JavaScript syntax: public/sw.js
+PASS V10 unit tests
+PASS V10.1 multi-playbook tests
+PASS HTML duplicate IDs: 0
+PASS Observation summary XP bar removed
+PASS Per-symbol total experience bar retained
+PASS Monitor requires successful notificationSentAt
+PASS Monitor accepts only notificationTier HIGH / NORMAL
+PASS Manual observation candidate cannot be forced into Monitor
+PASS Reached pool also restricted to notified HIGH / NORMAL signals
+PASS Unqualified observation card shows auto-monitor gate note instead of monitor button
+PASS Unified dark UI palette / typography / spacing overrides present
+PASS Service worker cache query bumped to v1014
+
+Behavior contract
+- OBSERVE: all strategy candidates can accumulate progress here.
+- 100% observation progress does NOT imply Monitor admission.
+- NOTIFY: NORMAL/HIGH only after existing risk/data gates pass and push succeeds.
+- MONITOR: only successfully notified NORMAL/HIGH opportunities are displayed.
+
+Scope note
+- Local tests validate syntax, logic, DOM and mocked strategy pipeline.
+- Final live acceptance remains Railway /api/self-test?live=1 plus one real iPhone push.

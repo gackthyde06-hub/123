@@ -151,7 +151,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V10.1.3';
+const BUILD_VERSION = 'V10.1.4';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -4718,7 +4718,7 @@ async function analyzeTestTracker(t, market) {
   const reasons=[...(playbook.reasons||[])];if(t1h?.trend===dir)reasons.push('1小時趨勢同向');if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');
   const activeZone=playbook.entryZone||{low:setup.zoneLow,high:setup.zoneHigh},activeZoneLow=Number(activeZone?.low),activeZoneHigh=Number(activeZone?.high),activeMid=Number.isFinite(activeZoneLow)&&Number.isFinite(activeZoneHigh)?(activeZoneLow+activeZoneHigh)/2:setup.zoneMid;
   const strategyChase=Number.isFinite(Number(playbook.chaseAtr))?Number(playbook.chaseAtr):(setup.atr5>0?(dir>0?Math.max(0,last.close-Math.max(activeZoneLow,activeZoneHigh)):Math.max(0,Math.min(activeZoneLow,activeZoneHigh)-last.close))/setup.atr5:0);
-  // V10.1.2: 動態強度與「策略品質」分離。品質看 setup / playbook 完整度；
+  // V10.1.4: 動態強度與「策略品質」分離。品質看 setup / playbook 完整度；
   // 動態強度只看此刻趨勢、動能、量能、資金流、深度、大盤與追價風險，避免兩欄永遠顯示同一數字。
   let liveStrength=50;
   liveStrength+=t5.trend===dir?8:t5.trend===-dir?-8:0;
@@ -5439,7 +5439,7 @@ app.get('/healthz', (_req, res) => {
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V10.1.2 SOLO MAX UI/STRENGTH HOTFIX started on ${PORT}`);
+    console.log(`Position Alert V10.1.4 SOLO MAX UI/STRENGTH HOTFIX started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
