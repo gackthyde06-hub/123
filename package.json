@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v1000-solo-max",
-  "version": "10.0.0",
+  "name": "position-alert-v1010-solo-max-multi-playbook",
+  "version": "10.1.0",
   "private": true,
   "type": "module",
   "scripts": {

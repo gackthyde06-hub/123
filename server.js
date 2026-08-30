@@ -151,7 +151,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V10.0';
+const BUILD_VERSION = 'V10.1.0';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -1676,7 +1676,7 @@ function performanceRecordForNotification(t,code,tier,delivery,options={}){
   if(!(delivery?.sent>0))return null;const phase=options.reentry?'REENTRY':'FIRST_ENTRY';const isEntry=code==='CONFIRMED'||(phase==='REENTRY'&&String(options.statusLabel||'').includes('二次確認'));if(!isEntry)return null;
   const dir=testSignalDirection(t.direction),rt=options.noticeSnapshot||realtimeSnapshot(t.symbol),entry=finiteMetric(options.noticeEntryPrice)??finiteMetric(realtimeBestPrice(t.symbol))??finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),stop=finiteMetric(options.reentry?t.reentryStop:t.stop),target=finiteMetric(options.reentry?t.reentryTarget1R:t.target1R);if(!(entry>0&&stop>0&&target>0))return null;
   const sentMs=performanceAckTime(new Date(options.noticeSentAt||Date.now()).getTime()),now=new Date(sentMs).toISOString(),risk=Math.abs(entry-stop);if(!(risk>0))return null;const cal=testCalibratedWinRate(t,{dynamic:true}),zone=testCurrentEntryZone(t),id=String(options.noticeId||`${t.key}:${phase}:${now}`),confirmedAt=options.reentry?t.reentryConfirmAt:t.confirmedAt,confirmedMs=new Date(confirmedAt||0).getTime();
-  const rec={id,version:'V10.0',signalKey:t.key,symbol:t.symbol,direction:t.direction,phase,tier:String(tier||'VALID'),notificationAt:now,pushAcceptedAt:options.pushAcceptedAt||new Date().toISOString(),pushServiceMs:finiteMetric(options.pushServiceMs),confirmedAt,signalToPushMs:Number.isFinite(confirmedMs)&&confirmedMs>0?Math.max(0,sentMs-confirmedMs):null,entryPrice:entry,signalConfirmationPrice:finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),stop,target,riskDistance:risk,targetR:Number((dir*(target-entry)/risk).toFixed(3)),zoneLow:finiteMetric(zone?.low),zoneHigh:finiteMetric(zone?.high),rank:Number(t.rank||0)||null,qualityScore:finiteMetric(options.reentry?t.reentryScore:(t.monitorScore||t.qualityScore)),calibratedWinRate:finiteMetric(cal.rate),marketRegime:t.marketRegime||t.lastCheck?.marketRegime||'UNKNOWN',dataCoverage:finiteMetric(t.dataHealth?.coveragePct),dataConfidence:finiteMetric(t.dataHealth?.confidencePct),notificationPriceSource:rt.lastTradePrice?'Binance WS aggTrade':rt.markPrice?'Binance mark':'tracker',sourceSnapshot:{spreadBps:rt.spreadBps,depthImbalance:rt.depthImbalance,takerRatio60s:rt.takerRatio60s,fundingPct:rt.fundingPct},status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:entry,lastPriceAt:now,lastSource:'notification',costBps:PERF_ROUND_TRIP_COST_BPS,deliveryCount:Number(delivery.sent||0),receivedAt:null,deliveryLatencyMs:null,clickedAt:null,clickLatencyMs:null};
+  const rec={id,version:'V10.0',signalKey:t.key,symbol:t.symbol,direction:t.direction,phase,tier:String(tier||'VALID'),notificationAt:now,pushAcceptedAt:options.pushAcceptedAt||new Date().toISOString(),pushServiceMs:finiteMetric(options.pushServiceMs),confirmedAt,signalToPushMs:Number.isFinite(confirmedMs)&&confirmedMs>0?Math.max(0,sentMs-confirmedMs):null,entryPrice:entry,signalConfirmationPrice:finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),stop,target,riskDistance:risk,targetR:Number((dir*(target-entry)/risk).toFixed(3)),zoneLow:finiteMetric(zone?.low),zoneHigh:finiteMetric(zone?.high),rank:Number(t.rank||0)||null,observationProgress:finiteMetric(t.observationProgress),strategyId:options.reentry?'REENTRY':((t.strategyAtConfirm||t.strategyProfile)?.id||null),strategyLabel:options.reentry?'二次回踩':((t.strategyAtConfirm||t.strategyProfile)?.label||null),qualityScore:finiteMetric(options.reentry?t.reentryScore:(t.monitorScore||t.qualityScore)),calibratedWinRate:finiteMetric(cal.rate),marketRegime:t.marketRegime||t.lastCheck?.marketRegime||'UNKNOWN',dataCoverage:finiteMetric(t.dataHealth?.coveragePct),dataConfidence:finiteMetric(t.dataHealth?.confidencePct),notificationPriceSource:rt.lastTradePrice?'Binance WS aggTrade':rt.markPrice?'Binance mark':'tracker',sourceSnapshot:{spreadBps:rt.spreadBps,depthImbalance:rt.depthImbalance,takerRatio60s:rt.takerRatio60s,fundingPct:rt.fundingPct},status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:entry,lastPriceAt:now,lastSource:'notification',costBps:PERF_ROUND_TRIP_COST_BPS,deliveryCount:Number(delivery.sent||0),receivedAt:null,deliveryLatencyMs:null,clickedAt:null,clickLatencyMs:null};
   signalPerformance.unshift(rec);performanceActiveSymbols.add(cleanFuturesSymbol(t.symbol));performanceMergePendingAcks(rec);schedulePerformanceSave();performanceOnPrice(t.symbol,entry,sentMs,'notification');return rec;
 }
 function performanceFinalize(rec,result,price,ts,source){if(rec.status!=='ACTIVE')return;const dir=testSignalDirection(rec.direction),gross=dir*(price-rec.entryPrice)/rec.entryPrice*100,r=dir*(price-rec.entryPrice)/rec.riskDistance;rec.status='RESOLVED';rec.result=result;rec.resultAt=new Date(ts).toISOString();rec.exitPrice=price;rec.grossReturnPct=Number(gross.toFixed(4));rec.netReturnPct=Number((gross-PERF_ROUND_TRIP_COST_BPS/100).toFixed(4));rec.realizedR=Number(r.toFixed(3));rec.resultSource=source;if(!signalPerformance.some(x=>x!==rec&&x.status==='ACTIVE'&&x.symbol===rec.symbol))performanceActiveSymbols.delete(cleanFuturesSymbol(rec.symbol));schedulePerformanceSave()}
@@ -1708,7 +1708,7 @@ function performanceAggregate(input=signalPerformance,includeBreakdowns=true){
   const avg=(arr,fn)=>arr.length?arr.reduce((a,x)=>a+Number(fn(x)||0),0)/arr.length:null,profits=resolved.map(x=>Number(x.realizedR||0)).filter(x=>x>0).reduce((a,b)=>a+b,0),lossSum=Math.abs(resolved.map(x=>Number(x.realizedR||0)).filter(x=>x<0).reduce((a,b)=>a+b,0));
   const recv=all.filter(x=>Number.isFinite(Number(x.deliveryLatencyMs))),clicks=all.filter(x=>Number.isFinite(Number(x.clickLatencyMs))),signalLag=all.map(x=>Number(x.signalToPushMs)).filter(Number.isFinite),pushMs=all.map(x=>Number(x.pushServiceMs)).filter(Number.isFinite);
   const base={sample:all.length,active:all.length-resolved.length,resolved:resolved.length,wins,losses,timeouts:resolved.filter(x=>x.result==='TIMEOUT').length,hitRate:resolved.length?Number((wins/resolved.length*100).toFixed(1)):null,decisiveHitRate:binary.length?Number((binary.filter(x=>x.result==='WIN').length/binary.length*100).toFixed(1)):null,profitFactor:lossSum>0?Number((profits/lossSum).toFixed(2)):(profits>0?99:null),expectancyR:resolved.length?Number(avg(resolved,x=>x.realizedR).toFixed(3)):null,avgGrossReturnPct:resolved.length?Number(avg(resolved,x=>x.grossReturnPct).toFixed(3)):null,avgNetReturnPct:resolved.length?Number(avg(resolved,x=>x.netReturnPct).toFixed(3)):null,avgMfePct:all.length?Number(avg(all,x=>x.mfePct).toFixed(3)):null,avgMaePct:all.length?Number(avg(all,x=>x.maePct).toFixed(3)):null,cumulativeGrossReturnPct:resolved.length?Number(resolved.reduce((a,x)=>a+Number(x.grossReturnPct||0),0).toFixed(4)):0,cumulativePer1000Notional:resolved.length?Number(resolved.reduce((a,x)=>a+1000*Number(x.netReturnPct||0)/100,0).toFixed(2)):0,receivedAcks:recv.length,deliveryAckRate:all.length?Number((recv.length/all.length*100).toFixed(1)):null,avgDeliveryLatencyMs:recv.length?Math.round(avg(recv,x=>x.deliveryLatencyMs)):null,p95DeliveryLatencyMs:recv.length?Math.round(performancePercentile(recv.map(x=>x.deliveryLatencyMs),.95)):null,clicked:clicks.length,clickRate:recv.length?Number((clicks.length/recv.length*100).toFixed(1)):null,avgClickLatencyMs:clicks.length?Math.round(avg(clicks,x=>x.clickLatencyMs)):null,avgSignalToPushMs:signalLag.length?Math.round(signalLag.reduce((a,b)=>a+b,0)/signalLag.length):null,p95SignalToPushMs:signalLag.length?Math.round(performancePercentile(signalLag,.95)):null,avgPushServiceMs:pushMs.length?Math.round(pushMs.reduce((a,b)=>a+b,0)/pushMs.length):null,p95PushServiceMs:pushMs.length?Math.round(performancePercentile(pushMs,.95)):null,calibration:performanceCalibration(all)};
-  if(!includeBreakdowns)return base;return {...base,byTier:performanceGroup(all,x=>x.tier),byDirection:performanceGroup(all,x=>x.direction),byRegime:performanceGroup(all,x=>x.marketRegime),bySymbol:performanceGroup(all,x=>x.symbol).slice(0,20)};
+  if(!includeBreakdowns)return base;return {...base,byTier:performanceGroup(all,x=>x.tier),byDirection:performanceGroup(all,x=>x.direction),byRegime:performanceGroup(all,x=>x.marketRegime),byStrategy:performanceGroup(all,x=>x.strategyLabel||x.strategyId||'未分類'),bySymbol:performanceGroup(all,x=>x.symbol).slice(0,20)};
 }
 function performanceResponse(){return {ok:true,generatedAt:new Date().toISOString(),version:'V10.0',preciseSampleStarts:'V10.0 deployment',defaultCostBps:PERF_ROUND_TRIP_COST_BPS,maxHorizonMinutes:Math.round(PERF_MAX_HORIZON_MS/60000),summary:performanceAggregate(),records:signalPerformance.filter(x=>x.version==='V10.0').slice(0,500),recent:signalPerformance.filter(x=>x.version==='V10.0').slice(0,100),methodology:'只統計真正成功送出的進場型通知；以通知當下即時成交/Mark作可執行參考進場，WebSocket逐筆追蹤目標/停損首觸、MFE/MAE與5～240分鐘報酬。Service Worker 會回報手機收到推播與點擊時間；WS失聯則以 Mark/5分K保守備援。統計是通知策略的實測表現，不冒充使用者帳戶真實成交損益。'};}
 
@@ -3726,7 +3726,7 @@ function testSignalKey(symbol, direction) {
 function testSignalDirection(direction) { return direction === 'SHORT' ? -1 : 1; }
 function testSignalStatusLabel(status) {
   return ({
-    WAIT_PULLBACK:'等待回踩', TOUCHING:'回踩中', CONFIRMED:'未破確認',
+    WAIT_PULLBACK:'觀察中', TOUCHING:'接近完成', CONFIRMED:'進場確認',
     WIN:'1R達成', LOSS:'失效', TIMEOUT:'90分逾時', INVALID:'失效', DROPPED:'移出監控', EXPIRED:'排名移出',
   })[status] || '等待';
 }
@@ -4034,6 +4034,7 @@ function testWeightedLiveCalibration(t) {
     if(x.symbol===t.symbol)w*=1.7;
     const q=Number(x.qualityScore);if(Number.isFinite(q)&&Math.abs(q-targetQ)<=8)w*=1.2;
     if(x.volatilityRegime&&t.setup?.volatilityRegime&&x.volatilityRegime===t.setup.volatilityRegime)w*=1.2;
+    const sid=(t.strategyAtConfirm||t.strategyProfile)?.id;if(sid&&x.strategyId===sid)w*=1.35;
     const xr=Number(x.rankAtConfirm||x.rank);if(Number.isFinite(xr)&&testRankBucket(xr)===targetBucket)w*=1.28;
     if(Number.isFinite(xr)&&Number.isFinite(targetRank)&&Math.abs(xr-targetRank)<=2)w*=1.12;
     if(!(w>0))continue;raw++;
@@ -4092,7 +4093,7 @@ function terminalTestStatus(status){return ['WIN','LOSS','TIMEOUT','DROPPED','EX
 function newTestTracker(idea, rank) {
   const now=new Date().toISOString();return {
     key:testSignalKey(idea.symbol,idea.direction),symbol:idea.symbol,direction:idea.direction,rank,idea:{...idea},
-    status:'WAIT_PULLBACK',statusLabel:'等待回踩',firstSeenAt:now,lastSeenIdeaAt:now,updatedAt:now,touchedAt:null,confirmedAt:null,
+    status:'WAIT_PULLBACK',statusLabel:'觀察中',firstSeenAt:now,lastSeenIdeaAt:now,updatedAt:now,touchedAt:null,confirmedAt:null,
     notificationSentAt:null,resultNotificationSentAt:null,resultSaved:false,setup:null,lastCheck:null,monitorState:'WATCHING',monitorLabel:'觀察',
     monitorScore:null,monitorCycle:0,breakoutLevel:null,breakoutAt:null,structureProtection:null,weakStreak:0,recoverStreak:0,badScoreStreak:0,
     lastMonitorBarTime:null,lifecycleNotifications:{},confirmedWinRate:null,winRateMetaAtConfirm:null,rankAtConfirm:null,stateChangedAt:now,weakSince:null,
@@ -4109,7 +4110,7 @@ function archiveTestTargetWin(t, at) {
     finishedAt:at||new Date().toISOString(),entryPrice:t.confirmationPrice||null,target:t.target1R||null,stop:t.stop||null,
     returnPct:Number(t.resultReturnPct||0),qualityScore:Number(t.qualityScore||0),historicalHitRate:t.setup?.backtest?.hitRate??null,
     rank:Number(t.rank||0)||null,rankAtConfirm:Number(t.rankAtConfirm||0)||null,backtestSample:t.setup?.backtest?.sample??0,
-    volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null
+    volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null,strategyId:(t.strategyAtConfirm||t.strategyProfile)?.id||null,strategyLabel:(t.strategyAtConfirm||t.strategyProfile)?.label||null
   });
   testSignalHistory=testSignalHistory.slice(0,300);t.resultSaved=true;
 }
@@ -4119,7 +4120,7 @@ function archiveTestReentryResult(t,result,at,returnPct) {
     id:`${t.key}:${t.reentryConfirmAt||at}:REENTRY`,symbol:t.symbol,direction:t.direction,result,phase:'REENTRY',
     confirmedAt:t.reentryConfirmAt||at,finishedAt:at||new Date().toISOString(),entryPrice:t.reentryEntryPrice||null,target:t.reentryTarget1R||null,stop:t.reentryStop||null,
     returnPct:Number(returnPct||0),qualityScore:Number(t.reentryScore||t.monitorScore||0),historicalHitRate:null,rank:Number(t.rank||0)||null,rankAtConfirm:Number(t.rank||0)||null,
-    backtestSample:0,volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null
+    backtestSample:0,volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null,strategyId:'REENTRY',strategyLabel:'二次回踩'
   });
   testSignalHistory=testSignalHistory.slice(0,300);t.reentryResultSaved=true;t.reentryResult=result;t.reentryResultAt=at||new Date().toISOString();
 }
@@ -4129,7 +4130,7 @@ function archiveTestResult(t) {
     id:`${t.key}:${t.confirmedAt||t.updatedAt}`,symbol:t.symbol,direction:t.direction,result:t.status,confirmedAt:t.confirmedAt,
     finishedAt:t.finishedAt||t.updatedAt,entryPrice:t.confirmationPrice||null,target:t.target1R||null,stop:t.stop||null,
     returnPct:Number(t.resultReturnPct||0),qualityScore:Number(t.qualityScore||0),historicalHitRate:t.setup?.backtest?.hitRate??null,rank:Number(t.rank||0)||null,rankAtConfirm:Number(t.rankAtConfirm||0)||null,
-    backtestSample:t.setup?.backtest?.sample??0,volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null
+    backtestSample:t.setup?.backtest?.sample??0,volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null,strategyId:(t.strategyAtConfirm||t.strategyProfile)?.id||null,strategyLabel:(t.strategyAtConfirm||t.strategyProfile)?.label||null
   });
   testSignalHistory=testSignalHistory.slice(0,300);t.resultSaved=true;
 }
@@ -4139,7 +4140,7 @@ function archiveTestFirstTouchLoss(t, at, returnPct) {
     id:`${t.key}:${t.confirmedAt||t.updatedAt}`,symbol:t.symbol,direction:t.direction,result:'LOSS',confirmedAt:t.confirmedAt,
     finishedAt:at||new Date().toISOString(),entryPrice:t.confirmationPrice||null,target:t.target1R||null,stop:t.stop||null,
     returnPct:Number(returnPct||0),qualityScore:Number(t.qualityScore||0),historicalHitRate:t.setup?.backtest?.hitRate??null,
-    backtestSample:t.setup?.backtest?.sample??0,volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null
+    backtestSample:t.setup?.backtest?.sample??0,volatilityRegime:t.setup?.volatilityRegime||null,monitorScore:t.monitorScore??null,strategyId:(t.strategyAtConfirm||t.strategyProfile)?.id||null,strategyLabel:(t.strategyAtConfirm||t.strategyProfile)?.label||null
   });
   testSignalHistory=testSignalHistory.slice(0,300);t.resultSaved=true;
 }
@@ -4171,8 +4172,9 @@ function testMonitorRoute(t){return `/?page=monitor&testSignal=${encodeURICompon
 function testCurrentEntryZone(t) {
   if(t?.targetReachedAt&&!['TOUCHING','READY'].includes(t?.reentryStage))return null;
   const useReentry=!!t?.targetReachedAt&&['TOUCHING','READY'].includes(t?.reentryStage)&&Number.isFinite(Number(t?.reentryZoneLow))&&Number.isFinite(Number(t?.reentryZoneHigh));
-  const low=useReentry?Number(t.reentryZoneLow):Number(t?.setup?.zoneLow),high=useReentry?Number(t.reentryZoneHigh):Number(t?.setup?.zoneHigh);
-  return Number.isFinite(low)&&Number.isFinite(high)?{low:Math.min(low,high),high:Math.max(low,high),reentry:useReentry}:null;
+  const strategyZone=(t?.status==='CONFIRMED'?t?.strategyAtConfirm?.entryZone:null)||t?.strategyProfile?.entryZone||null;
+  const low=useReentry?Number(t.reentryZoneLow):Number(strategyZone?.low??t?.setup?.zoneLow),high=useReentry?Number(t.reentryZoneHigh):Number(strategyZone?.high??t?.setup?.zoneHigh);
+  return Number.isFinite(low)&&Number.isFinite(high)?{low:Math.min(low,high),high:Math.max(low,high),reentry:useReentry,strategyId:useReentry?'REENTRY':(t?.strategyAtConfirm?.id||t?.strategyProfile?.id||'TREND_PULLBACK')}:null;
 }
 function testPreferredEntryZone(t) {
   const z=testCurrentEntryZone(t);if(!z)return null;
@@ -4183,13 +4185,18 @@ function testPreferredEntryZone(t) {
 }
 function testEntryStrategy(t, statusLabel='') {
   const state=String(t?.monitorState||''),status=String(t?.status||''),label=String(statusLabel||testTrackerStatusLabel(t));
-  if(status==='INVALID'||status==='DROPPED'||state==='WEAKENING')return '暫停進場，等重新收復後再判讀';
+  if(status==='INVALID'||status==='DROPPED'||state==='WEAKENING')return '暫停進場，等資料重新同向後再判讀';
   if(t?.targetReachedAt&&!['TOUCHING','READY'].includes(t?.reentryStage))return '已達標，不追價；只等二次回踩';
   if(t?.reentryStage==='TOUCHING')return '二次回踩中，等5分K收回確認';
   if(t?.reentryStage==='READY')return '二次確認完成，只在建議區間內分批';
-  if(label.includes('續強')||state==='CONTINUING')return '續強但不追突破K，只等回踩區';
-  if(state==='CONSOLIDATING')return '盤整中，等放量或結構重新同向；不追價';
-  return '回踩區內等5分K收回，分批；破失效位取消';
+  const s=t?.strategyAtConfirm||t?.strategyProfile||{},id=String(s.id||'TREND_PULLBACK');
+  if(id==='BREAKOUT_RETEST')return s.ready?'突破回測已確認，只在回測區內分批':'突破後等待回測守住，不追突破K';
+  if(id==='LIQUIDITY_SWEEP')return s.ready?'掃流動性收回已確認，依保護位分批':'等掃高/掃低後收回＋動能翻向';
+  if(id==='MOMENTUM_CONTINUATION')return s.ready?'動能續攻條件完整，僅限小平台/近突破位進場':'強趨勢續攻觀察中，量/OI/Taker未滿不追';
+  if(id==='RANGE_EXTREME')return s.ready?'區間極值反轉確認，只做邊界不做中間':'震盪只等區間邊界掃盤/拒絕';
+  if(label.includes('續強')||state==='CONTINUING')return '續強但不追突破K，只等可執行區';
+  if(state==='CONSOLIDATING')return '盤整中，等策略條件完成；中間區不進';
+  return s.ready?'順勢回踩確認完成，只在建議區間內分批':'順勢回踩觀察中，等守住＋短週期重新同向';
 }
 function testSignalTier(t,{reentry=false}={}) {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||0),low=Number(cal.conservativeLow||0);
@@ -4225,7 +4232,7 @@ function testSignalTier(t,{reentry=false}={}) {
   if(rate<TEST_SIGNAL_HIGH_RATE)highMissing.push(`校準勝率<${TEST_SIGNAL_HIGH_RATE}%`);
   if(low<50)highMissing.push('保守下界<50%');
   if(score<TEST_SIGNAL_HIGH_SCORE)highMissing.push(`品質<${TEST_SIGNAL_HIGH_SCORE}`);
-  if(rank>6)highMissing.push('排名>6');
+  if(rank>6)highMissing.push('市場熱度排名>6');
   if(Number.isFinite(chaseAtr)&&chaseAtr>TEST_SIGNAL_HIGH_MAX_CHASE_ATR)highMissing.push(`追價>${TEST_SIGNAL_HIGH_MAX_CHASE_ATR.toFixed(2)}ATR`);
   if(regime==='CHOP'&&score<90)highMissing.push('震盪行情品質<90');
   if(['LIQUIDATION','HIGH_VOL'].includes(regime)&&(coverage<95||dataConfidence<90))highMissing.push('高波動需完整度95/可信度90');
@@ -4237,7 +4244,7 @@ function testSignalTier(t,{reentry=false}={}) {
   if(rate<TEST_SIGNAL_NORMAL_RATE)normalMissing.push(`校準勝率<${TEST_SIGNAL_NORMAL_RATE}%`);
   if(low<43)normalMissing.push('保守下界<43%');
   if(score<TEST_SIGNAL_NORMAL_SCORE)normalMissing.push(`品質<${TEST_SIGNAL_NORMAL_SCORE}`);
-  if(rank>9)normalMissing.push('排名>9');
+  if(rank>9)normalMissing.push('市場熱度排名>9');
   if(regime==='CHOP'&&score<84)normalMissing.push('震盪行情品質<84');
   if(regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol))normalMissing.push('清算行情山寨只允許最高級確認');
   if(!hardSafe)return {tier:'BLOCKED',rate,low,score,rank,blockers,highMissing,normalMissing};
@@ -4250,7 +4257,7 @@ function testPushCopy(t,statusLabel='') {
   const entry=zone?`${fmtPrice(zone.low)}～${fmtPrice(zone.high)}`:'暫停';
   const label=statusLabel||testTrackerStatusLabel(t)||testMonitorStateLabel(t.monitorState,t.status);
   return {
-    title:`${t.symbol}｜${label}｜${Number.isFinite(rate)?rate.toFixed(1):'—'}%`,
+    title:`${t.symbol}｜${(t.strategyAtConfirm||t.strategyProfile)?.label||'多策略'}｜${label}｜${Number.isFinite(rate)?rate.toFixed(1):'—'}%`,
     body:`進場 ${entry}｜${testEntryStrategy(t,label)}`
   };
 }
@@ -4672,9 +4679,13 @@ async function analyzeTestTracker(t, market) {
   }
 
   const zoneTouch=rows5.slice(-4).some(c=>c.low<=setup.zoneHigh&&c.high>=setup.zoneLow);if(zoneTouch&&!t.touchedAt)t.touchedAt=new Date().toISOString();
+  // V10.1 多策略觀察：舊的回踩失效位不能直接淘汰整個標的。
+  // 只有價格明顯穿越保護區，且 15m + (30m/1h) 也同步反向，才視為「全策略結構失效」。
+  // 這讓突破回測、掃流動性反轉、動能續攻、區間極值等策略仍有機會接管。
   const beyond=dir>0?last.close<setup.invalidation:last.close>setup.invalidation,deep=dir>0?last.close<setup.invalidation-setup.atr5*.15:last.close>setup.invalidation+setup.atr5*.15,prevBeyond=dir>0?prev.close<setup.invalidation:prev.close>setup.invalidation;
-  if((beyond&&prevBeyond)||deep){
-    const now=new Date().toISOString();t.status='DROPPED';t.statusLabel='條件失效';t.droppedAt=now;t.finishedAt=now;t.updatedAt=now;testSetState(t,'INVALIDATED','失效',now);return t;
+  const broadStructuralInvalid=deep&&t15?.trend===-dir&&((t30?.trend===-dir)||(t1h?.trend===-dir));
+  if(broadStructuralInvalid){
+    const now=new Date().toISOString();t.status='DROPPED';t.statusLabel='全策略結構失效';t.droppedAt=now;t.finishedAt=now;t.updatedAt=now;testSetState(t,'INVALIDATED','全策略失效',now);return t;
   }
   const reclaim=dir>0?last.close>setup.zoneMid:last.close<setup.zoneMid,candleOk=dir>0?last.close>last.open:last.close<last.open;
   const body=Math.max(Math.abs(last.close-last.open),setup.atr5*.04),lower=Math.max(0,Math.min(last.open,last.close)-last.low),upper=Math.max(0,last.high-Math.max(last.open,last.close)),wicker=dir>0?lower/body>=.65:upper/body>=.65;
@@ -4686,16 +4697,20 @@ async function analyzeTestTracker(t, market) {
   const chaseDistance=dir>0?Math.max(0,last.close-setup.zoneHigh):Math.max(0,setup.zoneLow-last.close),chaseAtr=setup.atr5>0?chaseDistance/setup.atr5:0;
   const spreadVal=finiteMetric(micro?.spreadBps),spreadOk=spreadVal==null||spreadVal<=TEST_SIGNAL_MAX_SPREAD_BPS;
   const adlRisk=String(riskCtx?.adlRisk||'unknown').toLowerCase(),fundingPct=finiteMetric(riskCtx?.fundingPct),fundingCrowded=fundingPct!=null&&(dir>0?fundingPct>=.08:fundingPct<=-.08);
-  let score=0;score+=clamp((Number(t.idea.rankScore||50)-45)*.45,0,22);score+=Math.min(16,(setup.confluenceCount||0)*5.5);score+=zoneTouch?8:0;score+=reclaim?12:0;score+=candleOk?6:0;score+=sweep?10:wicker?6:0;score+=momentum?8:0;score+=macdImprove?6:0;score+=t5.volumeRatio>=1.05?6:t5.volumeRatio<.70?-4:2;score+=derivDir*5;score+=topDir*3;score+=depthDir*3;score+=oiOk?3:-5;score+=marketAlign*7;score+=h1Opposed?-7:(t1h?.trend===dir?3:0);score+=t30Opposed?-6:(t30?.trend===dir?2:0);score+=spreadOk?1:-7;score+=chaseAtr<=.15?3:chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR?0:-9;score+=adlRisk==='high'?-9:adlRisk==='low'?1:0;score+=fundingCrowded?-5:0;score=clamp(Math.round(score),0,100);
-  const reasons=testReasonList({setup,reclaim,wicker,sweep,momentum,macdImprove,volumeRatio:t5.volumeRatio,deriv,marketAlign,direction:t.direction});
-  if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');if(t1h?.trend===dir)reasons.push('1小時趨勢同向');
-  t.currentPrice=last.close;t.qualityScore=score;t.status=zoneTouch?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','等待',new Date().toISOString());t.updatedAt=new Date().toISOString();
-  t.lastCheck={at:t.updatedAt,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(chaseAtr.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
-  const confirm=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketAlign>=0&&!h1Opposed&&!t30Opposed&&depthDir>=0&&spreadOk&&chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR&&adlRisk!=='high'&&!fundingCrowded&&score>=TEST_SIGNAL_CONFIRM_SCORE;
+  let baseScore=0;baseScore+=clamp((Number(t.idea.rankScore||50)-45)*.45,0,22);baseScore+=Math.min(16,(setup.confluenceCount||0)*5.5);baseScore+=zoneTouch?8:0;baseScore+=reclaim?12:0;baseScore+=candleOk?6:0;baseScore+=sweep?10:wicker?6:0;baseScore+=momentum?8:0;baseScore+=macdImprove?6:0;baseScore+=t5.volumeRatio>=1.05?6:t5.volumeRatio<.70?-4:2;baseScore+=derivDir*5;baseScore+=topDir*3;baseScore+=depthDir*3;baseScore+=oiOk?3:-5;baseScore+=marketAlign*7;baseScore+=h1Opposed?-7:(t1h?.trend===dir?3:0);baseScore+=t30Opposed?-6:(t30?.trend===dir?2:0);baseScore+=spreadOk?1:-7;baseScore+=chaseAtr<=.15?3:chaseAtr<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR?0:-9;baseScore+=adlRisk==='high'?-9:adlRisk==='low'?1:0;baseScore+=fundingCrowded?-5:0;baseScore=clamp(Math.round(baseScore),0,100);
+  const playbook=testStrategyPlaybooks(t,{rows5,last,prev,setup,dir,t5,t15,t30,t1h,market,derivDir,topDir,depthDir,oiVal,zoneTouch,reclaim,candleOk,wicker,sweep,momentum,macdImprove,spreadOk,chaseAtr,h1Opposed,t30Opposed,adlRisk,fundingCrowded,baseScore});
+  let score=Number(playbook.qualityScore||baseScore);t.strategyProfile=playbook;t.observationProgress=Number(playbook.progress||0);
+  const reasons=[...(playbook.reasons||[])];if(t1h?.trend===dir)reasons.push('1小時趨勢同向');if(topDir>0)reasons.push('大戶持倉同向');if(depthDir>0)reasons.push('委託簿同向');
+  const activeZone=playbook.entryZone||{low:setup.zoneLow,high:setup.zoneHigh},activeZoneLow=Number(activeZone?.low),activeZoneHigh=Number(activeZone?.high),activeMid=Number.isFinite(activeZoneLow)&&Number.isFinite(activeZoneHigh)?(activeZoneLow+activeZoneHigh)/2:setup.zoneMid;
+  const strategyChase=Number.isFinite(Number(playbook.chaseAtr))?Number(playbook.chaseAtr):(setup.atr5>0?(dir>0?Math.max(0,last.close-Math.max(activeZoneLow,activeZoneHigh)):Math.max(0,Math.min(activeZoneLow,activeZoneHigh)-last.close))/setup.atr5:0);
+  t.currentPrice=last.close;t.qualityScore=score;t.status=t.observationProgress>=58?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','觀察中',new Date().toISOString());t.updatedAt=new Date().toISOString();
+  t.lastCheck={at:t.updatedAt,strategyId:playbook.id,strategyLabel:playbook.label,observationProgress:t.observationProgress,strategyCandidates:playbook.candidates,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(strategyChase.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
+  const globalSafety=spreadOk&&adlRisk!=='high'&&!fundingCrowded&&Number(t.dataHealth?.coveragePct||0)>=72&&Number(t.dataHealth?.confidencePct||0)>=65;
+  const confirm=playbook.ready===true&&globalSafety&&score>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
-    const entry=last.close,rawRisk=Math.abs(entry-setup.invalidation),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.65,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
+    const entry=last.close,strategyInvalid=finiteMetric(playbook.invalidation)??finiteMetric(setup.invalidation),rawRisk=Math.abs(entry-strategyInvalid),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.85,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
     const before=rows5.slice(-22,-2),breakoutLevel=dir>0?Math.max(...before.map(x=>x.high)):Math.min(...before.map(x=>x.low)),now=new Date().toISOString();
-    t.status='CONFIRMED';t.statusLabel='未破確認';t.confirmedAt=now;t.rankAtConfirm=Number(t.rank||0)||null;t.confirmationPrice=entry;t.stop=stop;t.target1R=entry+dir*risk;t.target15R=entry+dir*risk*1.5;t.riskPct=Number((risk/entry*100).toFixed(2));t.breakoutLevel=breakoutLevel;t.structureProtection=stop;
+    t.status='CONFIRMED';t.statusLabel='進場確認';t.observationProgress=100;t.strategyAtConfirm={...playbook,progress:100,ready:true};t.confirmedAt=now;t.rankAtConfirm=Number(t.rank||0)||null;t.confirmationPrice=entry;t.stop=stop;t.target1R=entry+dir*risk;t.target15R=entry+dir*risk*1.5;t.riskPct=Number((risk/entry*100).toFixed(2));t.breakoutLevel=finiteMetric(playbook.breakoutLevel)??breakoutLevel;t.structureProtection=stop;
     testSetState(t,score>=84?'STRONG':'CONFIRMED',score>=84?'強勢':'成立',now);t.monitorScore=score;t.lastMonitorBarTime=last.openTime;t.updatedAt=now;
     const calibrated=testCalibratedWinRate(t,{dynamic:false});t.confirmedWinRate=calibrated.rate;t.winRateMetaAtConfirm=calibrated;
     const tier=testSignalTier(t,{reentry:false});t.confirmNotificationTier=tier.tier;
@@ -4703,11 +4718,70 @@ async function analyzeTestTracker(t, market) {
   }
   return t;
 }
+
+function testWeightedProgress(items){
+  let got=0,total=0;for(const x of items||[]){const w=Math.max(0,Number(x?.weight||0));total+=w;if(x?.ok===true)got+=w}
+  return total>0?clamp(Math.round(got/total*100),0,100):0;
+}
+function testPlaybookZone(center,atr,half=.18){const c=Number(center),a=Math.abs(Number(atr));if(!(Number.isFinite(c)&&a>0))return null;return {low:c-a*half,high:c+a*half}}
+function testStrategyPlaybooks(t,ctx){
+  const {rows5,last,prev,setup,dir,t5,t15,t30,t1h,market,derivDir,topDir,depthDir,oiVal,zoneTouch,reclaim,candleOk,wicker,sweep,momentum,macdImprove,spreadOk,chaseAtr,h1Opposed,t30Opposed,adlRisk,fundingCrowded,baseScore}=ctx;
+  const atr=Math.max(1e-12,Number(setup?.atr5||t5?.atr14||0)),regime=String(market?.regime||'NORMAL');
+  const trend15=t15?.trend===dir,trend30=!t30||t30.trend===dir,trend1h=!t1h||t1h.trend===dir,marketOk=market?.dir===0||market?.dir===dir;
+  const flowOk=derivDir>=0&&topDir>=0&&(oiVal==null||Number(oiVal)>-1.5),depthOk=depthDir>=0;
+  const safe=spreadOk&&adlRisk!=='high'&&!fundingCrowded;
+  const priorBreak=rows5.slice(-26,-6),recentBreak=rows5.slice(-6,-1),breakoutLevel=priorBreak.length?(dir>0?Math.max(...priorBreak.map(x=>x.high)):Math.min(...priorBreak.map(x=>x.low))):null;
+  const broke=Number.isFinite(breakoutLevel)&&recentBreak.some(c=>dir>0?Number(c.close)>breakoutLevel+atr*.04:Number(c.close)<breakoutLevel-atr*.04);
+  const retest=Number.isFinite(breakoutLevel)&&(dir>0?(Number(last.low)<=breakoutLevel+atr*.20&&Number(last.close)>=breakoutLevel):(Number(last.high)>=breakoutLevel-atr*.20&&Number(last.close)<=breakoutLevel));
+  const breakoutChase=Number.isFinite(breakoutLevel)?Math.abs(Number(last.close)-breakoutLevel)/atr:99;
+  const priorExtreme=rows5.slice(-9,-1),sweepLevel=priorExtreme.length?(dir>0?Math.min(...priorExtreme.map(x=>x.low)):Math.max(...priorExtreme.map(x=>x.high))):null;
+  const sweepHold=Number.isFinite(sweepLevel)&&(dir>0?Number(last.close)>sweepLevel:Number(last.close)<sweepLevel);
+  const momentumExtremeRows=rows5.slice(-22,-2),momentumLevel=momentumExtremeRows.length?(dir>0?Math.max(...momentumExtremeRows.map(x=>x.high)):Math.min(...momentumExtremeRows.map(x=>x.low))):null;
+  const nearMomentumBreak=Number.isFinite(momentumLevel)?Math.abs(Number(last.close)-momentumLevel)/atr<=.48:false;
+  const adxStrong=Number(t15?.adx14||0)>=24&&Number(t15?.diBias||0)===dir,volumeStrong=Number(t5?.volumeRatio||0)>=1.05||Number(t15?.volumeRatio||0)>=1.05,oiPositive=oiVal==null?false:Number(oiVal)>=0;
+  const rangeRows=rows5.slice(-42,-3),rangeLow=rangeRows.length?Math.min(...rangeRows.map(x=>x.low)):null,rangeHigh=rangeRows.length?Math.max(...rangeRows.map(x=>x.high)):null,rangeWidth=Number.isFinite(rangeLow)&&Number.isFinite(rangeHigh)?rangeHigh-rangeLow:0;
+  const edgeDist=rangeWidth>0?(dir>0?(Number(last.close)-rangeLow)/rangeWidth:(rangeHigh-Number(last.close))/rangeWidth):99,nearRangeEdge=edgeDist>=-.08&&edgeDist<=.22;
+  const mk=(id,label,fit,items,ready,entryZone,invalidation,nextStep,extra={})=>{const progress=testWeightedProgress(items),quality=clamp(Math.round(Number(baseScore||70)*.48+progress*.40+fit*.12),0,100);return {id,label,fit,progress,qualityScore:quality,ready:!!ready,entryZone,invalidation:Number.isFinite(Number(invalidation))?Number(invalidation):null,nextStep,reasons:items.filter(x=>x.ok).map(x=>x.label).slice(0,6),missing:items.filter(x=>!x.ok).map(x=>x.label).slice(0,5),...extra}};
+  const pullItems=[{label:'進入回踩區',ok:zoneTouch,weight:12},{label:'收回關鍵區',ok:reclaim,weight:13},{label:'確認K同向',ok:candleOk,weight:7},{label:'拒絕影線/掃盤',ok:wicker||sweep,weight:9},{label:'RSI動能回復',ok:momentum,weight:9},{label:'MACD改善',ok:macdImprove,weight:8},{label:'15分趨勢同向',ok:trend15,weight:8},{label:'30分/1H無逆向',ok:!t30Opposed&&!h1Opposed,weight:8},{label:'資金流無逆向',ok:flowOk,weight:7},{label:'委託簿無逆向',ok:depthOk,weight:5},{label:'大盤無逆向',ok:marketOk,weight:5},{label:'價差/ADL/Funding安全',ok:safe,weight:5},{label:'未追價',ok:Number(chaseAtr)<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR,weight:4}];
+  const pullFit=['TREND_UP','TREND_DOWN','NORMAL'].includes(regime)?92:regime==='CHOP'?64:72;
+  const pullReady=zoneTouch&&reclaim&&candleOk&&(wicker||sweep)&&momentum&&macdImprove&&marketOk&&!h1Opposed&&!t30Opposed&&depthOk&&safe&&Number(chaseAtr)<=TEST_SIGNAL_FIRST_MAX_CHASE_ATR;
+  const pull=mk('TREND_PULLBACK','順勢回踩',pullFit,pullItems,pullReady,{low:setup.zoneLow,high:setup.zoneHigh},setup.invalidation,'等回踩守住＋5/15分重新同向');
+
+  const brItems=[{label:'已突破關鍵位',ok:broke,weight:17},{label:'第一次回測',ok:retest,weight:17},{label:'回測收住',ok:retest&&candleOk,weight:10},{label:'15分趨勢同向',ok:trend15,weight:10},{label:'30分趨勢同向',ok:trend30,weight:7},{label:'1H趨勢同向',ok:trend1h,weight:7},{label:'動能續回',ok:momentum&&macdImprove,weight:10},{label:'量能有效',ok:Number(t5.volumeRatio||0)>=.90,weight:6},{label:'OI/Taker/大戶無逆向',ok:flowOk,weight:6},{label:'委託簿無逆向',ok:depthOk,weight:4},{label:'大盤無逆向',ok:marketOk,weight:3},{label:'未離突破位太遠',ok:breakoutChase<=.45,weight:3}];
+  const brFit=['TREND_UP','TREND_DOWN'].includes(regime)?98:regime==='NORMAL'?86:58;
+  const brReady=broke&&retest&&candleOk&&trend15&&trend30&&trend1h&&momentum&&macdImprove&&flowOk&&depthOk&&marketOk&&safe&&breakoutChase<=.45;
+  const brZone=testPlaybookZone(breakoutLevel,atr,.20);const brInvalid=Number.isFinite(breakoutLevel)?breakoutLevel-dir*atr*.62:null;
+  const br=mk('BREAKOUT_RETEST','突破回測',brFit,brItems,brReady,brZone,brInvalid,'等突破後第一次回測守住', {breakoutLevel, chaseAtr:Number.isFinite(breakoutChase)?Number(breakoutChase.toFixed(2)):null});
+
+  const swItems=[{label:'掃過短線流動性',ok:sweep,weight:20},{label:'收回掃盤位',ok:sweepHold,weight:14},{label:'拒絕影線成立',ok:wicker,weight:10},{label:'確認K翻向',ok:candleOk,weight:8},{label:'RSI翻向',ok:momentum,weight:10},{label:'MACD改善',ok:macdImprove,weight:10},{label:'委託簿不反對',ok:depthOk,weight:7},{label:'主動資金不反對',ok:derivDir>=0,weight:7},{label:'量能不是死量',ok:Number(t5.volumeRatio||0)>=.80,weight:5},{label:'市場型態適合',ok:['CHOP','HIGH_VOL','LIQUIDATION'].includes(regime)||marketOk,weight:5},{label:'價差/ADL/Funding安全',ok:safe,weight:4}];
+  const swFit=['HIGH_VOL','LIQUIDATION'].includes(regime)?100:regime==='CHOP'?96:76;
+  const swReady=sweep&&sweepHold&&wicker&&candleOk&&momentum&&macdImprove&&depthOk&&derivDir>=0&&safe&&(['CHOP','HIGH_VOL','LIQUIDATION'].includes(regime)||marketOk);
+  const swZone=testPlaybookZone(sweepLevel,atr,.22),swInvalid=Number.isFinite(sweepLevel)?sweepLevel-dir*atr*.72:null;
+  const sw=mk('LIQUIDITY_SWEEP','流動性掃盤反轉',swFit,swItems,swReady,swZone,swInvalid,'等掃高/掃低後收回＋短週期翻向',{sweepLevel});
+
+  const moItems=[{label:'15分強趨勢',ok:trend15&&adxStrong,weight:14},{label:'30分同向',ok:trend30,weight:9},{label:'1H同向',ok:trend1h,weight:9},{label:'價格貼近突破區',ok:nearMomentumBreak,weight:12},{label:'5分量能放大',ok:volumeStrong,weight:10},{label:'OI增加',ok:oiPositive,weight:10},{label:'Taker同向',ok:derivDir>0,weight:10},{label:'大戶不反向',ok:topDir>=0,weight:6},{label:'委託簿不反向',ok:depthOk,weight:6},{label:'BTC/ETH同向',ok:marketOk,weight:6},{label:'MACD續強',ok:macdImprove,weight:5},{label:'價差/擁擠安全',ok:safe,weight:3}];
+  const moFit=['TREND_UP','TREND_DOWN'].includes(regime)?100:regime==='NORMAL'?78:48;
+  const moReady=trend15&&adxStrong&&trend30&&trend1h&&nearMomentumBreak&&volumeStrong&&oiPositive&&derivDir>0&&topDir>=0&&depthOk&&marketOk&&macdImprove&&safe;
+  const moZone=testPlaybookZone(momentumLevel,atr,.24),moInvalid=Number.isFinite(momentumLevel)?momentumLevel-dir*atr*.82:null;
+  const mo=mk('MOMENTUM_CONTINUATION','強勢動能續攻',moFit,moItems,moReady,moZone,moInvalid,'等強趨勢＋量/OI/Taker同步，僅做近突破區',{breakoutLevel:momentumLevel});
+
+  const rgItems=[{label:'市場為震盪',ok:regime==='CHOP',weight:18},{label:'到達區間極值',ok:nearRangeEdge,weight:18},{label:'掃盤/拒絕影線',ok:sweep||wicker,weight:13},{label:'確認K翻向',ok:candleOk,weight:9},{label:'RSI翻向',ok:momentum,weight:10},{label:'MACD改善',ok:macdImprove,weight:9},{label:'委託簿不反向',ok:depthOk,weight:7},{label:'資金流不反向',ok:derivDir>=0,weight:6},{label:'價差/ADL/Funding安全',ok:safe,weight:5},{label:'不是區間中間',ok:nearRangeEdge,weight:5}];
+  const rgFit=regime==='CHOP'?100:regime==='NORMAL'?55:35;
+  const rangeEdge=dir>0?rangeLow:rangeHigh,rgZone=testPlaybookZone(rangeEdge,atr,.22),rgInvalid=Number.isFinite(rangeEdge)?rangeEdge-dir*atr*.68:null;
+  const rgReady=regime==='CHOP'&&nearRangeEdge&&(sweep||wicker)&&candleOk&&momentum&&macdImprove&&depthOk&&derivDir>=0&&safe;
+  const rg=mk('RANGE_EXTREME','區間極值反轉',rgFit,rgItems,rgReady,rgZone,rgInvalid,'只等區間上/下緣反轉，中間區完全不做',{rangeLow,rangeHigh});
+
+  const candidates=[pull,br,sw,mo,rg].map(x=>({...x,selectionScore:Number(((x.ready?18:0)+x.progress*.57+x.qualityScore*.28+x.fit*.15).toFixed(1))})).sort((a,b)=>b.selectionScore-a.selectionScore||b.progress-a.progress||b.qualityScore-a.qualityScore);
+  const best=candidates[0];
+  return {...best,candidates:candidates.map(x=>({id:x.id,label:x.label,progress:x.progress,qualityScore:x.qualityScore,fit:x.fit,ready:x.ready,nextStep:x.nextStep,missing:x.missing.slice(0,3)}))};
+}
+
 function testMonitorPriority(t, calibratedRate=null) {
   const win=Number.isFinite(Number(calibratedRate))?Number(calibratedRate):Number(testCalibratedWinRate(t,{dynamic:true}).rate||50);
-  const heat=testRankHeat(t.rank),dynamic=Number(t.monitorScore||t.qualityScore||70);
-  // 排序以「當日建議熱度」為重要基準，但仍要求勝率與即時結構共同成立。
-  return clamp(heat*.46+win*.39+dynamic*.15,0,100);
+  const completion=t.status==='CONFIRMED'?100:t.status==='INVALID'?Math.min(20,Number(t.observationProgress||0)):Number(t.observationProgress||0);
+  const dynamic=Number(t.monitorScore||t.qualityScore||70);
+  // 觀察榜像經驗條：完成度主導，勝率第二，動態品質第三。條件越接近可通知越往前。
+  return clamp(completion*.50+win*.40+dynamic*.10,0,100);
 }
 function testTrackerFreshness(t) {
   const at=t.lastEvaluatedAt||null,ms=at?Date.now()-new Date(at).getTime():Infinity;
@@ -4726,7 +4800,7 @@ function publicTestTracker(t) {
   return {
     key:t.key,symbol:t.symbol,direction:t.direction,label:t.direction==='LONG'?'做多':'做空',rank:t.rank,rankAtConfirm:t.rankAtConfirm??null,rankHeat:Number(rankHeat.toFixed(0)),priorityScore:Number(priorityScore.toFixed(1)),status:t.status,statusLabel:testTrackerStatusLabel(t),
     monitorState:t.monitorState||'WATCHING',monitorLabel:testMonitorStateLabel(t.monitorState,t.status),monitorClass:testMonitorStateClass(t.monitorState,t.status),monitorScore:t.monitorScore??null,
-    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,score:tier.score,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,
+    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,score:tier.score,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,observationProgress:Number(t.observationProgress||0),strategyProfile:t.strategyProfile||null,strategyAtConfirm:t.strategyAtConfirm||null,
     calibratedWinRate:currentRate,confirmedWinRate:confirmedRate,currentWinRate:currentRate,winRateDelta:confirmedRate!=null&&currentRate!=null?Number((currentRate-confirmedRate).toFixed(1)):null,winRateMeta:dynamic?calibrated:(t.winRateMetaAtConfirm||calibrated),
     freshness,marketRegime:t.marketRegime||t.lastCheck?.marketRegime||null,realtime:realtimeSnapshot(t.symbol),lastEvaluatedAt:t.lastEvaluatedAt??null,lastEvaluatedBarAt:t.lastEvaluatedBarAt??null,lastEvaluationError:t.lastEvaluationError??null,lastEvaluationErrorAt:t.lastEvaluationErrorAt??null,priceUpdatedAt:markPriceUpdatedAt??null,
     eventAt,stateChangedAt:t.stateChangedAt??null,finishedAt:t.finishedAt??null,invalidatedAt:t.invalidatedAt??null,invalidReason:t.invalidReason??null,reactivateUntil:t.reactivateUntil??null,reactivatedAt:t.reactivatedAt??null,droppedAt:t.droppedAt??null,targetReachedAt:t.targetReachedAt??null,reentryStage:t.reentryStage??null,reentryStageAt:t.reentryStageAt??null,reentryZoneLow:t.reentryZoneLow??null,reentryZoneHigh:t.reentryZoneHigh??null,reentryZoneMid:t.reentryZoneMid??null,reentryInvalidation:t.reentryInvalidation??null,reentryConfirmAt:t.reentryConfirmAt??null,reentryEntryPrice:t.reentryEntryPrice??null,reentryStop:t.reentryStop??null,reentryTarget1R:t.reentryTarget1R??null,reentryScore:t.reentryScore??null,reentryReasons:t.reentryReasons||[],reentryResult:t.reentryResult??null,reentryResultAt:t.reentryResultAt??null,
@@ -4752,13 +4826,13 @@ async function runTestSignalScan(force=false) {
 function testSignalLoop(){void runTestSignalScan(false).finally(()=>{testSignalTimer=setTimeout(testSignalLoop,TEST_SIGNAL_SCAN_MS)})}
 function scheduleNextFiveMinuteScan(){if(testBarTimer)clearTimeout(testBarTimer);const now=Date.now(),step=5*60_000,next=(Math.floor(now/step)+1)*step+2500;testBarTimer=setTimeout(()=>{testCandleCache.clear();testMicroCache.clear();testDerivCache.clear();void runTestSignalScan(true).finally(scheduleNextFiveMinuteScan)},Math.max(1000,next-now));testBarTimer.unref?.()}
 function testSignalResponse() {
-  const rows=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000).sort((a,b)=>{const pa={CONFIRMED:0,INVALID:1,TOUCHING:2,WAIT_PULLBACK:3,WIN:4,TIMEOUT:5,DROPPED:6,LOSS:7,EXPIRED:8};const sa=(pa[a.status]??9),sb=(pa[b.status]??9);if(sa!==sb)return sa-sb;if(sa<=1)return testMonitorPriority(b)-testMonitorPriority(a)||(a.rank||99)-(b.rank||99);return (a.rank||99)-(b.rank||99)}).slice(0,24).map(publicTestTracker);
+  const visible=[...testSignalTrackers.values()].filter(t=>Date.now()-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000);visible.sort((a,b)=>{const ta=terminalTestStatus(a.status),tb=terminalTestStatus(b.status);if(ta!==tb)return ta?1:-1;const p=testMonitorPriority(b)-testMonitorPriority(a);if(Math.abs(p)>.01)return p;const wa=Number(testCalibratedWinRate(a,{dynamic:['CONFIRMED','INVALID'].includes(a.status)}).rate||0),wb=Number(testCalibratedWinRate(b,{dynamic:['CONFIRMED','INVALID'].includes(b.status)}).rate||0);return wb-wa||(a.rank||99)-(b.rank||99)});const rows=visible.slice(0,24).map((t,i)=>({...publicTestTracker(t),observationRank:i+1}));
   const notifyStats={high:0,normal:0,valid:0,blocked:0,highNormalEligible:0};
   for(const row of rows){const k=String(row.notificationTier||'VALID').toLowerCase();if(k in notifyStats)notifyStats[k]++;if(row.notificationTier==='HIGH'||row.notificationTier==='NORMAL')notifyStats.highNormalEligible++}
   const now=Date.now(),scanAgeMs=testSignalLastRunAt?Math.max(0,now-testSignalLastRunAt):null,priceAgeMs=markPriceUpdatedAt?Math.max(0,now-new Date(markPriceUpdatedAt).getTime()):null;
   const staleCount=rows.filter(r=>r.freshness?.state==='STALE').length,delayedCount=rows.filter(r=>r.freshness?.state==='DELAYED').length;
   const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError,realtime:realtimeHealthSnapshot(),radar:realtimeRadarSummary()};
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V10 SOLO MAX：Binance REST + WebSocket 雙路；depth20 100ms、aggTrade、Mark 1s、全市場 ticker、清算流即時接入，REST/Bybit/OKX 自動備援。深度判讀約30秒＋每根5分K收盤後強制刷新；進場通知先短暫去抖再檢查失效/追價。市場先分 TREND/CHOP/HIGH_VOL/LIQUIDATION 再決定通知門檻。所有成功送達的進場型通知另建精準績效帳本，逐筆追蹤 MFE/MAE、1R首觸、5/15/30/60/90/240分鐘報酬。缺值不以0或中性值冒充有效訊號。',error:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,liveStats:testLiveAggregate(),recent:testSignalHistory.slice(0,12),methodology:'V10.1 SOLO MAX MULTI-PLAYBOOK：五策略自動交叉比對（順勢回踩／突破回測／流動性掃盤反轉／強勢動能續攻／區間極值反轉），依市場 Regime 自動選主策略；觀察完成度像經驗條，越接近可通知越往前，排序再疊加校準勝率與動態品質。Binance REST + WebSocket 雙路；depth20 100ms、aggTrade、Mark 1s、全市場 ticker、清算流即時接入，REST/Bybit/OKX 自動備援。深度判讀約30秒＋每根5分K收盤後強制刷新；進場通知先短暫去抖再檢查失效/追價。市場先分 TREND/CHOP/HIGH_VOL/LIQUIDATION 再決定通知門檻。所有成功送達的進場型通知另建精準績效帳本，逐筆追蹤 MFE/MAE、1R首觸、5/15/30/60/90/240分鐘報酬。缺值不以0或中性值冒充有效訊號。',error:testSignalLastError};
 }
 
 
@@ -4779,7 +4853,7 @@ function cleanJsonText(text){return String(text||'').trim().replace(/^```json\s*
 function quantOnlySymbolAnalysis(symbol, idea, profile, error=null){
   const dir=idea?.direction==='LONG'?'偏多':idea?.direction==='SHORT'?'偏空':'中性';
   const strength=Number(idea?.modelScore||0)>=75?'偏強':Number(idea?.modelScore||0)<=55?'偏弱':'中性';
-  return {ok:true,mode:'QUANT_ONLY',symbol,generatedAt:new Date().toISOString(),profile,bias:dir,strength,agreement:'量化資料',summary:idea?`量化排名 ${Number(idea.rankScore||0).toFixed(0)} 分；${idea.reason||'訊號分歧'}。`:'目前只有市場資料。',bullish:[],bearish:[],conflicts:[],watch:['等待回踩/反彈確認','觀察高週期與主動資金是否同向'],news:[],entryTiming:idea?.direction==='LONG'?'等回踩成功再評估，不追突破K':idea?.direction==='SHORT'?'等反彈轉弱再評估，不追殺':'等待方向一致',action:idea?.direction==='LONG'?'等回踩確認，不追突破K':idea?.direction==='SHORT'?'等反彈/回踩轉弱，不追殺':'觀望等方向一致',aiReady:false,aiError:error};
+  return {ok:true,mode:'QUANT_ONLY',symbol,generatedAt:new Date().toISOString(),profile,bias:dir,strength,agreement:'量化資料',summary:idea?`量化排名 ${Number(idea.rankScore||0).toFixed(0)} 分；${idea.reason||'訊號分歧'}。`:'目前只有市場資料。',bullish:[],bearish:[],conflicts:[],watch:['等待多策略條件確認','觀察高週期與主動資金是否同向'],news:[],entryTiming:idea?.direction==='LONG'?'等最適策略完成再評估，不追價':idea?.direction==='SHORT'?'等反彈轉弱再評估，不追殺':'等待方向一致',action:idea?.direction==='LONG'?'等策略確認，不追價':idea?.direction==='SHORT'?'等反彈/回踩轉弱，不追殺':'觀望等方向一致',aiReady:false,aiError:error};
 }
 async function getSymbolWebAnalysis(symbol, direction=''){
   const clean=cleanFuturesSymbol(symbol), key=`${clean}:${String(direction||'').toUpperCase()}`, now=Date.now(), cached=symbolAnalysisCache.get(key);
@@ -4793,9 +4867,9 @@ async function getSymbolWebAnalysis(symbol, direction=''){
   const payload={
     symbol:clean,profile,market:flow?.summary||null,
     idea:idea?{direction:idea.direction,modelScore:idea.modelScore,rankScore:idea.rankScore,estimatedWinRate:idea.estimatedWinRate,historicalHitRate:idea.historicalHitRate,backtestSample:idea.backtestSample,changePct:idea.changePct,fundingPct:idea.fundingPct,metrics:idea.metrics,reason:idea.reason}:null,
-    monitor:trackerView?{rank:trackerView.rank,rankHeat:trackerView.rankHeat,priorityScore:trackerView.priorityScore,calibratedWinRate:trackerView.calibratedWinRate,confirmedWinRate:trackerView.confirmedWinRate,winRateDelta:trackerView.winRateDelta,monitorLabel:trackerView.monitorLabel,monitorScore:trackerView.monitorScore,notificationTier:trackerView.notificationTier,freshness:trackerView.freshness,currentPrice:trackerView.currentPrice,entryZone:trackerView.preferredEntryZone,entryStrategy:trackerView.entryStrategy,confirmationPrice:trackerView.confirmationPrice,structureProtection:trackerView.structureProtection,stop:trackerView.stop,target1R:trackerView.target1R,mfePct:trackerView.mfePct,maePct:trackerView.maePct,setup:trackerView.setup,lastCheck:trackerView.lastCheck,monitorEvidence:trackerView.monitorEvidence}:null
+    monitor:trackerView?{rank:trackerView.rank,rankHeat:trackerView.rankHeat,priorityScore:trackerView.priorityScore,observationProgress:trackerView.observationProgress,strategyProfile:trackerView.strategyProfile,calibratedWinRate:trackerView.calibratedWinRate,confirmedWinRate:trackerView.confirmedWinRate,winRateDelta:trackerView.winRateDelta,monitorLabel:trackerView.monitorLabel,monitorScore:trackerView.monitorScore,notificationTier:trackerView.notificationTier,freshness:trackerView.freshness,currentPrice:trackerView.currentPrice,entryZone:trackerView.preferredEntryZone,entryStrategy:trackerView.entryStrategy,confirmationPrice:trackerView.confirmationPrice,structureProtection:trackerView.structureProtection,stop:trackerView.stop,target1R:trackerView.target1R,mfePct:trackerView.mfePct,maePct:trackerView.maePct,setup:trackerView.setup,lastCheck:trackerView.lastCheck,monitorEvidence:trackerView.monitorEvidence}:null
   };
-  const prompt=`你是加密貨幣日內研究與風險交叉驗證助手。請用網路搜尋 ${clean} 對應專案最新資料，優先官方、主流可靠媒體與最近24小時消息；再把網路消息與我提供的 Binance Futures 多維量化資料交叉比對。量化包含5/15/30/60分結構與動能、OI、主動買賣、大戶/全市場多空、Funding、20檔委託簿/價差、ADL風險、BTC/ETH大盤對齊、當日排名、回踩區與保護位。請主動指出「互相支持」與「互相矛盾」的地方，不要因單一利多/利空改變結論。只輸出繁體中文嚴格 JSON，不要 markdown，不要保證獲利，不要把模型估算勝率當真實機率。若沒有可靠重大消息要明確寫「未見重大催化」。
+  const prompt=`你是加密貨幣日內研究與風險交叉驗證助手。請用網路搜尋 ${clean} 對應專案最新資料，優先官方、主流可靠媒體與最近24小時消息；再把網路消息與我提供的 Binance Futures 多維量化資料交叉比對。量化包含5/15/30/60分結構與動能、OI、主動買賣、大戶/全市場多空、Funding、20檔委託簿/價差、ADL風險、BTC/ETH大盤對齊、當日排名，以及順勢回踩、突破回測、流動性掃盤反轉、強勢動能續攻、區間極值反轉五套自動策略。請主動指出「互相支持」與「互相矛盾」的地方，不要因單一利多/利空改變結論。只輸出繁體中文嚴格 JSON，不要 markdown，不要保證獲利，不要把模型估算勝率當真實機率。若沒有可靠重大消息要明確寫「未見重大催化」。
 JSON schema={"profile":{"sector":"<=18字","purpose":"<=42字"},"bias":"偏多|偏空|中性","strength":"強|偏強|中性|偏弱|弱","agreement":"高度一致|偏一致|分歧|高風險","summary":"<=100字","bullish":["最多3條，每條<=42字"],"bearish":["最多3條，每條<=42字"],"conflicts":["最多4條，每條<=42字"],"watch":["最多4條，每條<=42字"],"news":[{"tone":"利多|利空|中性","text":"<=48字"}],"entryTiming":"現在適合|等回踩|等反彈|等轉強|不適合 + <=45字理由","action":"<=75字"}. 今日策略必須避免追高/追殺；若價格已離較佳進場區太遠，entryTiming 必須要求等待。量化資料=${JSON.stringify(payload)}`;
   try{
     const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'content-type':'application/json','authorization':`Bearer ${OPENAI_API_KEY}`},body:JSON.stringify({model:OPENAI_MODEL,tools:[{type:'web_search',search_context_size:'medium',user_location:{type:'approximate',country:'TW',timezone:'Asia/Taipei'}}],input:prompt,max_output_tokens:1400})});
@@ -4908,7 +4982,7 @@ app.get('/api/symbol-analysis', async (req, res) => {
 
 app.get('/api/performance', (_req,res)=>res.json(performanceResponse()));
 app.get('/api/performance.csv', (_req,res)=>{
-  const cols=['notificationAt','receivedAt','clickedAt','symbol','direction','phase','tier','marketRegime','entryPrice','stop','target','targetR','calibratedWinRate','dataCoverage','dataConfidence','status','result','resultAt','exitPrice','mfePct','maePct','realizedR','grossReturnPct','netReturnPct','signalToPushMs','pushServiceMs','deliveryLatencyMs','clickLatencyMs','notificationPriceSource'];
+  const cols=['notificationAt','receivedAt','clickedAt','symbol','direction','phase','tier','strategyLabel','strategyId','observationProgress','marketRegime','entryPrice','stop','target','targetR','calibratedWinRate','dataCoverage','dataConfidence','status','result','resultAt','exitPrice','mfePct','maePct','realizedR','grossReturnPct','netReturnPct','signalToPushMs','pushServiceMs','deliveryLatencyMs','clickLatencyMs','notificationPriceSource'];
   const escCsv=v=>{if(v==null)return'';const x=String(v);return /[\",\n\r]/.test(x)?`\"${x.replace(/\"/g,'\"\"')}\"`:x};
   const rows=signalPerformance.filter(x=>x?.version==='V10.0'),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');
   res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=signal-performance-v10-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
@@ -4962,8 +5036,8 @@ app.get('/api/data-probe', async (req, res) => {
 app.post('/api/test-signal-push', async (_req, res) => {
   try {
     await sendPush({
-      title:'測試｜回踩未破 82',
-      body:'BTCUSDT 做多｜歷史 68.4% · 平均90分 +0.42%｜點開監控',
+      title:'測試｜多策略觀察完成 82',
+      body:'BTCUSDT 做多｜突破回測 · 校準 68.4%｜點開策略判讀',
       tag:`test-signal-demo-${Date.now()}`,
       renotify:true,
       data:{url:'/?page=monitor&testSignal=BTCUSDT&dir=LONG'},
@@ -5119,7 +5193,7 @@ app.get('/api/reference-levels', async (req, res) => {
 
 app.get('/api/diagnostics', (_req, res) => {
   res.json({
-    mode: 'V10.0',
+    mode: BUILD_VERSION,
     dataDir: DATA_DIR,
     statsRunning,
     statsCursor,
@@ -5324,7 +5398,7 @@ app.get('/healthz', (_req, res) => {
     ok: rows.some(s => Boolean(s.lastFetch)),
     healthy: rows.filter(s => Boolean(s.lastFetch)).length,
     total: rows.length,
-    mode: 'V10.0',
+    mode: BUILD_VERSION,
     realtime: realtimeHealthSnapshot(),
     performanceRecords: signalPerformance.filter(x=>x.version==='V10.0').length,
   });
@@ -5332,7 +5406,7 @@ app.get('/healthz', (_req, res) => {
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V10.0 SOLO MAX started on ${PORT}`);
+    console.log(`Position Alert V10.1 SOLO MAX MULTI-PLAYBOOK started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
@@ -5394,6 +5468,9 @@ export {
   realtimeHealthSnapshot,
   summarizeDepth,
   testSignalTier,
+  testWeightedProgress,
+  testStrategyPlaybooks,
+  testMonitorPriority,
   testPushCopy,
   testLifecycleMessage,
   sendTestLifecyclePush,
