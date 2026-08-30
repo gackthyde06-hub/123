@@ -1,0 +1,27 @@
+V10.2.1 TEST REPORT
+
+BUG FIX
+PASS 二次回踩階段不再混用第一輪 target1R/target15R
+PASS reentryZoneLow/High 優先作為二進建議區
+PASS reentryInvalidation / reentryStop 優先作為二進失效位
+PASS LONG invariant: SL < Entry < TP1 < TP2
+PASS SHORT invariant: TP2 < TP1 < Entry < SL
+PASS 舊 TP 位於錯誤方向時，自動依 Entry↔SL 風險距離重算 1R / 1.5R
+PASS 二進區尚未形成時不回退顯示第一輪舊入場區/TP
+
+REGRESSION
+PASS node --check server.js
+PASS node --check public/app.js
+PASS node --check public/sw.js
+PASS npm test: V10 unit tests passed
+PASS npm test: V10.1 multi-playbook tests passed
+PASS BUILD_VERSION V10.2.1
+PASS app.js cache key v1021
+
+DIRECTION SANITY CASES
+PASS AUCTIONUSDT screenshot example: LONG 4.187348 / SL 3.967914 -> TP1 4.406782 / TP2 4.516499
+PASS ZORAUSDT screenshot example: LONG 0.00707075 / SL 0.00686711 -> TP1 0.00727439 / TP2 0.00737621
+PASS SHORT synthetic invariant
+
+NOTE
+Live Railway deployment, exchange data and iPhone UI still require deployment acceptance testing.

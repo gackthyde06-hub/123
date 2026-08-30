@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v1020-solo-max-system-chart",
-  "version": "10.2.0",
+  "name": "position-alert-v1021-solo-max-chart-level-fix",
+  "version": "10.2.1",
   "private": true,
   "type": "module",
   "scripts": {

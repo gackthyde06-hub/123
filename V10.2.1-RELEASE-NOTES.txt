@@ -1,0 +1,10 @@
+V10.2.1 — SYSTEM CHART LEVEL DIRECTION HOTFIX
+
+修正：內建圖表在「1R 已達成 → 等二次回踩」階段，可能把第一輪 target1R/target15R 與目前策略/二進入場區混在一起，導致做多時 TP 顯示在入場下方（做空反之）。
+
+現在：
+1. 二進階段只使用 reentryZoneLow/High、reentryInvalidation、reentryEntryPrice/reentryStop/reentryTarget1R。
+2. 尚未有二進 target 時，以目前最佳入場到失效位的風險距離即時計算 TP1=1R、TP2=1.5R。
+3. 顯示前再做方向 invariant 檢查；LONG 必須 SL < Entry < TP，SHORT 必須 TP < Entry < SL。
+4. 二進區尚未形成時不再拿第一輪舊入場線冒充。
+5. 其餘觀察/通知/監控/試算/固定頁籤/左右滑邏輯不變。
