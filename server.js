@@ -4220,7 +4220,7 @@ function testSignalTier(t,{reentry=false}={}) {
   const highMissing=[];
   if(Number.isFinite(coverage)&&coverage<90)highMissing.push('資料完整度<90%');
   if(Number.isFinite(dataConfidence)&&dataConfidence<86)highMissing.push('資料可信度<86%');
-  for(const k of ['k5','k15','k30','h1','oi','taker','depth','funding','mark','market','backtest'])if(sources[k]!==true)highMissing.push(`關鍵資料缺:${k}`);
+  for(const k of ['k5','k15','k30','h1','oi15','oi1h','taker','depth','funding','mark','market','backtest'])if(sources[k]!==true)highMissing.push(`關鍵資料缺:${k}`);
   if(!(sources.topPos===true||sources.topAccount===true))highMissing.push('關鍵資料缺:大戶');
   if(rate<TEST_SIGNAL_HIGH_RATE)highMissing.push(`校準勝率<${TEST_SIGNAL_HIGH_RATE}%`);
   if(low<50)highMissing.push('保守下界<50%');
@@ -4552,7 +4552,7 @@ function testBuildLiveSnapshot(t,{rows5,rows15,t5,t15,t30,t1h,deriv,micro,riskCt
   const macdImprove=macdNow!=null&&macdPrev!=null?(dir>0?macdNow>=macdPrev:macdNow<=macdPrev):null;
   return {...(t.lastCheck||{}),at:new Date().toISOString(),inZone,reclaim,candleOk,wicker:wickReject,momentum,macdImprove,
     volumeRatio:finiteMetric(t5?.volumeRatio),volumeRatio15:finiteMetric(t15?.volumeRatio),rsi5:rsiNow,rsi15:finiteMetric(t15?.rsi14),macd5:macdNow,macd15:finiteMetric(t15?.macdHist),adx5:finiteMetric(t5?.adx14),adx15:finiteMetric(t15?.adx14),atrPct5:finiteMetric(t5?.atrPct),
-    oiChangePct:finiteMetric(deriv?.oiChangePct),takerRatio:finiteMetric(deriv?.takerRatio),topPositionRatio:finiteMetric(deriv?.topPositionRatio),topAccountRatio:finiteMetric(deriv?.topAccountRatio),globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio),
+    oiChangePct:finiteMetric(deriv?.oiChangePct),oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:finiteMetric(deriv?.takerRatio),topPositionRatio:finiteMetric(deriv?.topPositionRatio),topAccountRatio:finiteMetric(deriv?.topAccountRatio),globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio),
     depthImbalance:finiteMetric(micro?.depthImbalance),spreadBps:finiteMetric(micro?.spreadBps),bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:finiteMetric(chaseAtr),
     adlRisk:String(riskCtx?.adlRisk||'unknown').toLowerCase(),fundingPct:finiteMetric(riskCtx?.fundingPct),basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),markPrice:finiteMetric(riskCtx?.markPrice),indexPrice:finiteMetric(riskCtx?.indexPrice),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),
     fundingCrowded:finiteMetric(riskCtx?.fundingPct)!=null&&(dir>0?Number(riskCtx.fundingPct)>=.08:Number(riskCtx.fundingPct)<=-.08),t30Trend:t30?.trend??null,h1Trend:t1h?.trend??null,marketAlign,crossAlign,crossExchange:crossCtx||null,marketRegime:market?.regime||'UNKNOWN',liquidation5mUsd:finiteMetric(market?.liquidation5mUsd),realtime:realtimeSnapshot(t.symbol),
@@ -4591,25 +4591,29 @@ async function analyzeTestTracker(t, market) {
   t.lastCheck=testBuildLiveSnapshot(t,{rows5,rows15,t5,t15,t30,t1h,deriv,micro,riskCtx,market,crossCtx});
   const ksrc=(interval,limit)=>testCandleSourceCache.get(`${cleanFuturesSymbol(t.symbol)}:${interval}:${limit}`)||null;
   const btSample=Number(t.setup?.backtest?.sample||0);
+  const oi15Ok=deriv?._health?.oi===true&&finiteMetric(deriv?.oi15mChangePct)!=null;
+  const oi1hOk=deriv?._health?.oi===true&&finiteMetric(deriv?.oi1hChangePct)!=null;
   const sourceFlags={
     k5:rows5.length>=80,k15:rows15.length>=80,k30:rows30.length>=60,h1:rows1h.length>=60,
-    oi:deriv?._health?.oi===true,taker:deriv?._health?.taker===true,globalLs:deriv?._health?.globalLs===true,topPos:deriv?._health?.topPos===true,topAccount:deriv?._health?.topAccount===true,
+    oi:oi15Ok||oi1hOk,oi15:oi15Ok,oi1h:oi1hOk,taker:deriv?._health?.taker===true,globalLs:deriv?._health?.globalLs===true,topPos:deriv?._health?.topPos===true,topAccount:deriv?._health?.topAccount===true,
     depth:micro?._health?.depth===true,funding:riskCtx?._health?.funding===true,basis:riskCtx?._health?.basis===true,adl:riskCtx?._health?.adl===true,mark:(riskCtx?._health?.mark===true)||(Number.isFinite(liveMark)&&liveMark>0),
     market:market?.ok===true,backtest:btSample>0
   };
   const sourceDetails={
     k5:{source:ksrc('5m',500)?.source||null,fallback:ksrc('5m',500)?.fallback===true,error:ksrc('5m',500)?.error||null},k15:{source:ksrc('15m',260)?.source||null,fallback:ksrc('15m',260)?.fallback===true,error:ksrc('15m',260)?.error||null},k30:{source:ksrc('30m',220)?.source||null,fallback:ksrc('30m',220)?.fallback===true,error:ksrc('30m',220)?.error||null},h1:{source:ksrc('1h',180)?.source||null,fallback:ksrc('1h',180)?.fallback===true,error:ksrc('1h',180)?.error||null},
-    oi:{source:deriv?._source?.oi||null,error:deriv?._errors?.oi||deriv?._errors?.oiFallback||null},taker:{source:deriv?._source?.taker||null,error:deriv?._errors?.taker||deriv?._errors?.takerFallback||deriv?._errors?.takerBybitFallback||null},globalLs:{source:deriv?._source?.globalLs||null,error:deriv?._errors?.global||deriv?._errors?.globalFallback||null},topPos:{source:deriv?._source?.topPos||null,error:deriv?._errors?.top||null},topAccount:{source:deriv?._source?.topAccount||null,error:deriv?._errors?.topAccount||null},depth:{source:micro?._source?.depth||null,error:micro?._errors?.depth||null},funding:{source:riskCtx?._source?.funding||null,error:riskCtx?._errors?.premium||riskCtx?._errors?.bybitTicker||null},basis:{source:riskCtx?._source?.basis||null,error:riskCtx?._errors?.basis||null},adl:{source:riskCtx?._source?.adl||null,error:riskCtx?._errors?.adl||null},mark:{source:riskCtx?._source?.mark||(Number.isFinite(liveMark)&&liveMark>0?'Binance':null),error:riskCtx?._errors?.premium||null},market:{source:'Binance BTC/ETH'},backtest:{source:'Binance K線自算',sample:btSample}
+    oi:{source:deriv?._source?.oi||null,error:deriv?._errors?.oi||deriv?._errors?.oiFallback||null},oi15:{source:deriv?._source?.oi||null,error:oi15Ok?null:(deriv?._errors?.oi||deriv?._errors?.oiFallback||'15分鐘 OI 變化缺值')},oi1h:{source:deriv?._source?.oi||null,error:oi1hOk?null:(deriv?._errors?.oi||deriv?._errors?.oiFallback||'1小時 OI 變化缺值')},taker:{source:deriv?._source?.taker||null,error:deriv?._errors?.taker||deriv?._errors?.takerFallback||deriv?._errors?.takerBybitFallback||null},globalLs:{source:deriv?._source?.globalLs||null,error:deriv?._errors?.global||deriv?._errors?.globalFallback||null},topPos:{source:deriv?._source?.topPos||null,error:deriv?._errors?.top||null},topAccount:{source:deriv?._source?.topAccount||null,error:deriv?._errors?.topAccount||null},depth:{source:micro?._source?.depth||null,error:micro?._errors?.depth||null},funding:{source:riskCtx?._source?.funding||null,error:riskCtx?._errors?.premium||riskCtx?._errors?.bybitTicker||null},basis:{source:riskCtx?._source?.basis||null,error:riskCtx?._errors?.basis||null},adl:{source:riskCtx?._source?.adl||null,error:riskCtx?._errors?.adl||null},mark:{source:riskCtx?._source?.mark||(Number.isFinite(liveMark)&&liveMark>0?'Binance':null),error:riskCtx?._errors?.premium||null},market:{source:'Binance BTC/ETH'},backtest:{source:'Binance K線自算',sample:btSample}
   };
   for(const [k,d] of Object.entries(sourceDetails)){d.status=sourceFlags[k]===true?'OK':d?.error?'FETCH_ERROR':'MISSING';}
   sourceDetails.realtime={source:realtime?.source||null,status:(realtime?.markAgeMs!=null&&realtime.markAgeMs<=REALTIME_STALE_MS)?'OK':'STALE_OR_FALLBACK',markAgeMs:realtime?.markAgeMs??null,bookAgeMs:realtime?.bookAgeMs??null,takerAgeMs:realtime?.takerAgeMs??null};
-  const qualityKeys=['k5','k15','k30','h1','oi','taker','globalLs','topPos','topAccount','depth','funding','basis','adl','mark','market','backtest'];
-  const validCount=qualityKeys.filter(k=>sourceFlags[k]).length,coveragePct=Math.round(validCount/qualityKeys.length*100);
+  // OI 是一個資料類別，但 15分 / 1小時各佔半格；缺其中一個不再誤顯示 100%。
+  const qualityWeights={k5:1,k15:1,k30:1,h1:1,oi15:.5,oi1h:.5,taker:1,globalLs:1,topPos:1,topAccount:1,depth:1,funding:1,basis:1,adl:1,mark:1,market:1,backtest:1};
+  const qualityKeys=Object.keys(qualityWeights),totalWeight=Object.values(qualityWeights).reduce((a,b)=>a+b,0),validWeight=qualityKeys.reduce((sum,k)=>sum+(sourceFlags[k]?qualityWeights[k]:0),0);
+  const validCount=qualityKeys.filter(k=>sourceFlags[k]).length,coveragePct=Math.round(validWeight/totalWeight*100);
   const fallbackCount=Object.values(sourceDetails).filter(x=>x?.fallback||String(x?.source||'').includes('備援')).length;
   let confidencePct=coveragePct;
   if(btSample>0&&btSample<20)confidencePct-=8;else if(btSample>=20&&btSample<50)confidencePct-=3;
   confidencePct-=Math.min(8,fallbackCount*2);confidencePct=Math.max(0,Math.min(100,Math.round(confidencePct)));
-  t.dataHealth={coveragePct,confidencePct,validCount,total:qualityKeys.length,fallbackCount,sources:sourceFlags,details:sourceDetails,checkedAt:evaluatedAt,backtestSample:btSample,backtestLevel:btSample>=50?'充足':btSample>=20?'可用':'樣本偏少',crossExchange:crossCtx,adlNote:'ADL Risk 使用 Binance 公開端點（約30分鐘更新）；主資料抓取失敗時，允許 Bybit / OKX 或 Binance 成交資料作明確標示的備援，不再用 0 或中性值假裝有效'};
+  t.dataHealth={coveragePct,confidencePct,validCount,total:qualityKeys.length,validWeight,totalWeight,fallbackCount,sources:sourceFlags,details:sourceDetails,checkedAt:evaluatedAt,backtestSample:btSample,backtestLevel:btSample>=50?'充足':btSample>=20?'可用':'樣本偏少',crossExchange:crossCtx,adlNote:'ADL Risk 使用 Binance 公開端點（約30分鐘更新）；主資料抓取失敗時，允許 Bybit / OKX 或 Binance 成交資料作明確標示的備援，不再用 0 或中性值假裝有效'};
 
   if(t.status==='INVALID'){
     t=await updateInvalidMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,market,rsi,macd,micro});

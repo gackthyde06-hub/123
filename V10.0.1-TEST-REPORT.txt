@@ -1,0 +1,18 @@
+V10.0.1 SOLO MAX HOTFIX TEST REPORT
+
+PASS - server.js syntax (node --check)
+PASS - public/app.js syntax (node --check)
+PASS - public/sw.js syntax (node --check)
+PASS - V10 unit tests (UNIT_TEST=1 node test_v100.mjs, using existing local node_modules)
+PASS - OI 15m / 1h separate source flags present
+PASS - weighted completeness formula present (OI 15m + 1h each 0.5)
+PASS - HIGH notification gate requires oi15 and oi1h
+PASS - detailed source chips show OI 15m and OI 1h separately
+PASS - freshness label reports 判讀延遲/過期 seconds
+PASS - iPhone sticky tabs use env(safe-area-inset-top)
+
+Expected example:
+- all data valid: coverage = 100%
+- only OI 1h missing: coverage = round(15.5 / 16 * 100) = 97%
+
+Live exchange/API and real iPhone Push still require deployed Railway/Vercel environment.
