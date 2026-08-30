@@ -1,4 +1,4 @@
 {
-  "publicKey": "TEST_PUBLIC_KEY",
-  "privateKey": "TEST_PRIVATE_KEY"
+  "publicKey": "test-public-key",
+  "privateKey": "test-private-key"
 }

@@ -1,0 +1,17 @@
+V10.1.7 NAV ORDER HOTFIX - TEST REPORT
+
+Change scope
+- Visible page order changed to: 今日 -> 績效 -> 流向 -> 建議 -> 監控 -> 觀察
+- Horizontal swipe order changed to the same sequence.
+- No strategy, notification, monitoring, market-data, or performance logic was intentionally changed.
+
+Checks passed
+- node --check server.js
+- node --check public/app.js
+- node --check public/sw.js
+- npm test
+  - V10 unit tests passed
+  - V10.1 multi-playbook tests passed
+- Static verification confirmed tab order and PAGE_SWIPE_ORDER match.
+
+Live Railway/iPhone behavior still requires deployment verification.

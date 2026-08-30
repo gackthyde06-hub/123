@@ -1,0 +1,6 @@
+V10.1.7 NAV ORDER HOTFIX
+
+Only page navigation order changed.
+New order: 今日 → 績效 → 流向 → 建議 → 監控 → 觀察
+Horizontal swipe order is synchronized with the visible tab order.
+No strategy, notification, monitoring, market-data, or performance logic changed.
