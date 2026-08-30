@@ -2846,6 +2846,131 @@ function marketRecommendation(row, volumeRank) {
   };
 }
 
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function buildTodayView(rows, byVolume, recommendations, summary) {
+  const scoredAll = [...rows].map(x => {
+    const funding = Number(x.fundingPct || 0);
+    const change = Number(x.changePct || 0);
+    const volumeRank = Number(x.volumeRank || 0.5);
+    const volumeFactor = 0.35 + volumeRank * 0.65;
+
+    // V7.0 核心：X 軸 = 資金流向代理、Y 軸 = 漲跌動能。
+    // flowScore > 0 代表偏資金流入（圖左），< 0 代表偏資金流出（圖右）。
+    // momentumScore > 0 代表價格上漲（圖上），< 0 代表價格下跌（圖下）。
+    const flowRaw = (change * 0.8 - funding * 18) * volumeFactor;
+    const momentumRaw = change - funding * 4;
+    const flowScore = clamp(Number(flowRaw.toFixed(2)), -12, 12);
+    const momentumScore = clamp(Number(momentumRaw.toFixed(2)), -12, 12);
+    const bubbleSize = clamp(20 + volumeRank * 26 + Math.min(10, Math.abs(change) * 1.2), 18, 56);
+
+    let bias = 'LONG_WATCH';
+    let biasLabel = '多頭觀察';
+    if (flowScore >= 0 && momentumScore >= 0) {
+      bias = 'LONG';
+      biasLabel = '做多優先';
+    } else if (flowScore >= 0 && momentumScore < 0) {
+      bias = 'LONG_WATCH';
+      biasLabel = '多頭觀察';
+    } else if (flowScore < 0 && momentumScore >= 0) {
+      bias = 'SHORT_WATCH';
+      biasLabel = '空頭觀察';
+    } else {
+      bias = 'SHORT';
+      biasLabel = '做空優先';
+    }
+
+    const biasScore = bias === 'LONG'
+      ? flowScore + momentumScore + volumeRank * 4
+      : bias === 'LONG_WATCH'
+        ? flowScore - Math.abs(momentumScore) * 0.35 + volumeRank * 3
+        : bias === 'SHORT_WATCH'
+          ? Math.abs(flowScore) + momentumScore * 0.55 + volumeRank * 3
+          : Math.abs(flowScore) + Math.abs(momentumScore) + volumeRank * 4;
+
+    return {
+      symbol: x.symbol,
+      price: x.price,
+      changePct: change,
+      fundingPct: funding,
+      quoteVolume: Number(x.quoteVolume || 0),
+      volumeRank,
+      flowScore,
+      momentumScore,
+      bubbleSize: Number(bubbleSize.toFixed(1)),
+      quadrant: bias,
+      bias,
+      biasLabel,
+      biasScore: Number(biasScore.toFixed(2)),
+      score: Number(x?.recommendation?.score || 0),
+    };
+  });
+
+  const biasMeta = {
+    LONG: { key: 'LONG', label: '做多', sub: '資金流入 + 價格上漲', className: 'long' },
+    LONG_WATCH: { key: 'LONG_WATCH', label: '多頭觀察', sub: '資金流入 + 價格下跌', className: 'longWatch' },
+    SHORT_WATCH: { key: 'SHORT_WATCH', label: '空頭觀察', sub: '資金流出 + 價格上漲', className: 'shortWatch' },
+    SHORT: { key: 'SHORT', label: '做空', sub: '資金流出 + 價格下跌', className: 'short' },
+  };
+
+  const biasBuckets = Object.fromEntries(Object.keys(biasMeta).map(k => [k, []]));
+  for (const row of scoredAll) biasBuckets[row.bias].push(row);
+  for (const k of Object.keys(biasBuckets)) {
+    biasBuckets[k].sort((a, b) => b.biasScore - a.biasScore || b.quoteVolume - a.quoteVolume);
+  }
+
+  const topLongs = biasBuckets.LONG.slice(0, 3).map(x => ({ symbol: x.symbol, score: x.score, changePct: x.changePct, fundingPct: x.fundingPct, quoteVolume: x.quoteVolume }));
+  const topShorts = biasBuckets.SHORT.slice(0, 3).map(x => ({ symbol: x.symbol, score: x.score, changePct: x.changePct, fundingPct: x.fundingPct, quoteVolume: x.quoteVolume }));
+
+  const sentimentScore = clamp(Math.round(50 + Number(summary.weightedChangePct || 0) * 6 + Number(summary.breadth || 0) * 32), 5, 95);
+  const sentimentLabel = sentimentScore >= 62 ? '偏多' : sentimentScore <= 38 ? '偏空' : '中性';
+  const opinionTitle = sentimentScore >= 62
+    ? '今日偏多，優先找做多回踩'
+    : sentimentScore <= 38
+      ? '今日偏空，優先找做空反彈'
+      : '今日中性，只挑最強多與最弱空';
+  const opinionText = sentimentScore >= 62
+    ? `高流動性標的整體偏強，先找「資金流入 + 上漲」的做多候選；若價格已急拉或資金費率過熱，等回踩再進。`
+    : sentimentScore <= 38
+      ? `高流動性標的整體偏弱，先找「資金流出 + 下跌」的做空候選；若跌幅已過深，等反彈確認再空。`
+      : `市場沒有單邊優勢，只挑「資金流入 + 上漲」的強多與「資金流出 + 下跌」的強空，中間兩類只觀察不追。`;
+
+  const biases = Object.keys(biasMeta).map(key => ({
+    ...biasMeta[key],
+    count: biasBuckets[key].length,
+    items: biasBuckets[key].slice(0, 12),
+  }));
+
+  const candidates = [...byVolume]
+    .map(x => scoredAll.find(y => y.symbol === x.symbol) || null)
+    .filter(Boolean)
+    .sort((a, b) => Math.abs(b.flowScore) + Math.abs(b.momentumScore) - Math.abs(a.flowScore) - Math.abs(a.momentumScore) || b.quoteVolume - a.quoteVolume)
+    .slice(0, 10);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    openTimeUtc: '00:00 UTC',
+    openTimeTaiwan: '08:00 台灣',
+    sentimentScore,
+    sentimentLabel,
+    opinionTitle,
+    opinionText,
+    topLongs,
+    topShorts,
+    biases,
+    defaultBias: [...biases].sort((a,b)=>b.count-a.count)[0]?.key || 'LONG',
+    bubbleMap: {
+      xAxisLeft: '資金流入',
+      xAxisRight: '資金流出',
+      yAxisTop: '上漲',
+      yAxisBottom: '下跌',
+      items: candidates,
+    },
+  };
+}
+
 function buildMarketFlow(tickers, premiums) {
   const premiumMap = new Map((Array.isArray(premiums) ? premiums : []).map(x => [String(x?.symbol || ''), x]));
   const rows = (Array.isArray(tickers) ? tickers : [])
@@ -2883,12 +3008,15 @@ function buildMarketFlow(tickers, premiums) {
     .filter(x => x.recommendation.direction !== 'WAIT')
     .sort((a,b)=>b.recommendation.score-a.recommendation.score || b.quoteVolume-a.quoteVolume)
     .slice(0,12);
+  const summary = { direction, label, confidence, weightedChangePct:Number(weighted.toFixed(3)), breadth:Number(breadth.toFixed(3)), advancers, decliners };
+  const today = buildTodayView(rows, byVolume, recommendations, summary);
 
   return {
     ok:true,
     source:'Binance Futures public API',
     generatedAt:new Date().toISOString(),
-    summary:{ direction, label, confidence, weightedChangePct:Number(weighted.toFixed(3)), breadth:Number(breadth.toFixed(3)), advancers, decliners },
+    summary,
+    today,
     leaders:byVolume,
     recommendations,
   };
@@ -2945,7 +3073,7 @@ app.get('/api/market-flow', async (_req, res) => {
 
 app.get('/api/config', (_req, res) => {
   res.json({
-    mode: 'V6_6_MARKET_FLOW',
+    mode: 'V7_0_DIRECTION_LOGIC',
     pollMs: POLL_MS,
     coreOrderPollMs: CORE_ORDER_POLL_MS,
     secondaryOrderPollMs: SECONDARY_ORDER_POLL_MS,
