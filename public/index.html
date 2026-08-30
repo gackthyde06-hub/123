@@ -191,7 +191,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 .briefControls{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;margin:8px 0}.briefControls select,.briefControls button{height:34px;border:1px solid #313334;border-radius:9px;background:#101213;color:#d9d2c6;font-size:9px;font-weight:800;padding:0 8px}.briefNotifyWrap{display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:9px;color:#9a9287}.briefMsg{min-height:11px;margin:2px 2px 7px;color:#6f6961;font-size:8px}.briefBullets{margin:9px 0 0;padding:0;list-style:none;display:grid;gap:5px}.briefBullets li{font-size:10px;line-height:1.45;color:#d6cec1;padding-left:10px;position:relative}.briefBullets li::before{content:"·";position:absolute;left:0;color:#d5aa56}.briefAction{margin-top:9px;padding-top:8px;border-top:1px solid #2b2925;font-size:10px;font-weight:850;color:#e0c37c;line-height:1.45}.briefSources{margin-top:7px;font-size:8px;color:#6e685f}.briefSources a{color:#b79a60;text-decoration:none;margin-right:5px}.rankCard{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid #303234;border-radius:13px;background:#0e1011;padding:10px}.rankNo{font-size:14px;font-weight:900;color:#8f887d;text-align:center}.rankMain{min-width:0}.rankTop{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.rankSymbol{font-size:15px}.rankReason{margin-top:4px;font-size:9px;color:#9a9287;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rankMini{margin-top:4px;font-size:8px;color:#6e685f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rankWin{text-align:right;min-width:60px}.rankWin b{display:block;font-size:17px;color:#e6bd67}.rankWin span{display:block;font-size:8px;color:#746d64}.rankWin small{display:block;margin-top:3px;font-size:8px;color:#91897d}.ideaNote{margin:0 2px 9px;color:#6d675f;font-size:8px;line-height:1.4}
 @media(max-width:420px){.wrap{padding-left:12px;padding-right:12px}.brandTitle{font-size:25px}.brandSub{font-size:12px}.sectionTitle{font-size:15px}.traderName{font-size:18px}.stateInfo,.consensusMeta,.note{font-size:9px}.pageTab{font-size:12px;padding:10px 4px}.flowHeroTitle{font-size:22px}.flowStats{grid-template-columns:1fr 1fr}.marketRow{grid-template-columns:minmax(92px,1.1fr) .9fr .9fr;padding:11px 9px;gap:6px}.marketSym{font-size:16px}.marketMetric b{font-size:12px}.recSymbol{font-size:18px}.recTag{font-size:11px}.todayHeroTitle{font-size:20px}.todayScore{font-size:20px}.todayBiasGrid{grid-template-columns:repeat(4,1fr);gap:5px}.biasCard{padding:8px 2px}.biasCard .label{font-size:9px}.biasCard .count{font-size:19px}.biasCard .sub{display:none}.biasRow{grid-template-columns:24px minmax(0,1fr) auto;padding:8px 8px}.biasExtra{font-size:7px}.miniMatrix{gap:5px}.matrixCell{padding:6px}.matrixCoin{min-height:40px;padding:4px 6px}.matrixCoin b{font-size:9px}.matrixCoin span{font-size:8px}.briefControls{grid-template-columns:1fr auto}.briefNotifyWrap{grid-column:1/-1;justify-content:flex-start}.rankCard{grid-template-columns:24px minmax(0,1fr) auto;padding:9px 8px}.rankWin b{font-size:15px}}
 
-</style>
+.briefSchedule{height:42px;display:flex;align-items:center;justify-content:center;border:1px solid #34302a;border-radius:11px;background:#0e1011;color:#d9c28b;font-size:11px;font-weight:900}</style>
 </head>
 <body>
 <div class="wrap">
@@ -211,7 +211,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   <section id="page-today" class="page active">
     <div class="sectionBar"><div class="sectionTitle">今日</div><div id="todayAge" class="radarCount">—</div></div>
     <div id="todayHero" class="loadingBox">讀取中…</div>
-    <div class="briefControls"><select id="briefInterval" aria-label="整理更新間隔"><option value="2">2 小時</option><option value="3">3 小時</option><option value="6">6 小時</option><option value="12">12 小時</option></select><div class="briefNotifyWrap"><span>通知</span><label class="switch"><input id="briefNotify" type="checkbox"><span class="slider"></span></label></div><button id="briefRefresh" type="button">更新</button></div>
+    <div class="briefControls"><div class="briefSchedule">每日 08:05</div><div class="briefNotifyWrap"><span>通知</span><label class="switch"><input id="briefNotify" type="checkbox"><span class="slider"></span></label></div><button id="briefRefresh" type="button">手動更新</button></div>
     <div id="briefMsg" class="briefMsg"></div>
     <div id="todayBiases" class="todayBiasGrid"><div class="loadingBox">整理中…</div></div>
     <div id="todayBiasList" class="biasListPanel"><div class="loadingBox">整理中…</div></div>
@@ -340,6 +340,6 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
   </div>
 </div>
 
-<script src="/app.js?v=720"></script>
+<script src="/app.js?v=730"></script>
 </body>
 </html>
