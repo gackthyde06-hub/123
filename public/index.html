@@ -82,6 +82,7 @@ button,input{font:inherit}
 
 
 
+.testTrendTag{font-size:8px;font-weight:950;border-radius:999px;padding:3px 7px;border:1px solid #343638;background:#111314;color:#9a9389;white-space:nowrap}.testTrendTag.strong{border-color:#765d2a;background:#1b1710;color:#efc76f}.testTrendTag.continuing{border-color:#6b4b22;background:#21170c;color:#ffbd59}.testTrendTag.weakening{border-color:#713535;background:#211111;color:#ff8383}.testTrendTag.recovering{border-color:#2e5e4a;background:#0e1d17;color:#72e1ae}.testTrendTag.confirmed{border-color:#4c5154;color:#c4beb5}.testTrendTag.win{border-color:#245b42;background:#0d1d16;color:#72dfa8}.testTrendTag.invalid{border-color:#713535;background:#211111;color:#ff8080}
 @media(max-width:420px){.calcGrid{grid-template-columns:1.05fr .72fr 1fr;gap:5px}.calcPositionPick select{font-size:13px}.calcAutoGrid .calcField input{padding:0 6px;font-size:13px}.calcLead{grid-template-columns:1fr .66fr 1fr;gap:5px}.calcLead .calcField input{padding:0 6px;font-size:14px}.calcPrices{gap:5px}.calcPrices .calcField input{padding:0 6px;font-size:14px}.calcResult{grid-template-columns:repeat(2,1fr)}.autoAdopt{grid-template-columns:1fr}.levelCell b{font-size:10px}}
 
 
@@ -340,7 +341,7 @@ button.action{width:100%;border:0;border-radius:10px;padding:11px;margin-top:8px
 
   <section id="page-test" class="page">
     <div class="sectionBar"><div class="sectionTitle">回踩測試</div><div id="testAge" class="radarCount">—</div></div>
-    <div class="testToolbar"><div class="testToolbarLeft"><div class="testToolbarTitle">建議標的自動等回踩</div><div class="testToolbarSub">確認未破才通知 · 點通知先回監控，不直接開 TV</div></div><div class="testNotify"><span>通知</span><label class="switch"><input id="testSignalNotify" type="checkbox"><span class="slider"></span></label></div></div>
+    <div class="testToolbar"><div class="testToolbarLeft"><div class="testToolbarTitle">建議標的自動等回踩</div><div class="testToolbarSub">成立後持續通知續強 / 轉弱 / 轉強 / 達標 / 失效 · 點通知先回監控</div></div><div class="testNotify"><span>通知</span><label class="switch"><input id="testSignalNotify" type="checkbox"><span class="slider"></span></label></div></div>
     <div id="testSummary" class="testSummary"><div class="testSummaryCell"><span>監控</span><b>—</b></div><div class="testSummaryCell"><span>回踩中</span><b>—</b></div><div class="testSummaryCell"><span>已確認</span><b>—</b></div><div class="testSummaryCell"><span>實測勝率</span><b>—</b></div></div>
     <div id="testGrid" class="testGrid"><div class="loadingBox">建立回踩模型中…</div></div>
     <div id="testMethod" class="testMethod"></div>
