@@ -69,3 +69,52 @@
 @media(pointer:coarse){.sg-brand-toggle,.sg-explore-grid button,.sg-lesson>summary,.sg-candidate-card>summary,.sg-accordion>summary,.sg-manual summary,.sg-intel-btn{min-height:44px}}
 @media(prefers-reduced-motion:reduce){.sg-panel.open,.sg-loading::before,.sg-skeleton{animation:none!important}.sg-xp i,.sg-stage-bar i,.sg-chevron,.sg-toast{transition:none!important}.sg-panel{scroll-behavior:auto!important}}
 @keyframes sg-panel-in{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}@keyframes sg-pulse{0%,100%{opacity:.45}50%{opacity:1}}@keyframes sg-shimmer{to{background-position:-120% 0}}
+
+/* SYSTEM GROWTH UI v1.2.1 — readability pass: larger type, calmer density */
+.sg-panel-topline,.sg-panel-topline b{font-size:11px}.sg-panel-topline em{font-size:10px}
+.sg-kicker{font-size:11.5px}.sg-kicker em{font-size:10px}
+.sg-level-row>div:first-child small{font-size:10.5px}.sg-level-row strong{font-size:38px}
+.sg-personality span{font-size:10px}.sg-personality b{font-size:13px}.sg-personality small{font-size:10px}
+.sg-xp-row>div>b{font-size:14px}.sg-xp-row>div>span{font-size:11px}.sg-xp-row>small{font-size:10.5px}
+.sg-stage span,.sg-stage b{font-size:11px}.sg-stage p{font-size:10.5px}.sg-stage-node i{font-size:8.5px}.sg-stage-node span{font-size:9px}.sg-stage-node small{font-size:8px}
+.sg-today-growth span{font-size:10px}.sg-today-growth b{font-size:14px}
+.sg-card-title{font-size:14px}.sg-card-title span{font-size:10px}
+.sg-radar-label{font-size:11.5px}.sg-radar-value{font-size:12px}.sg-radar-hint{font-size:10px}
+.sg-quick span{font-size:10.5px}.sg-quick b{font-size:21px}.sg-quick small{font-size:9.5px}
+.sg-explore-head span{font-size:12px}.sg-explore-head b{font-size:18px}.sg-explore-head small{font-size:10.5px}.sg-explore-grid button span{font-size:11.5px}.sg-explore-grid button i{font-size:9px}
+.sg-lesson>summary span,.sg-lesson-current span{font-size:9.5px}.sg-lesson>summary b{font-size:17px}.sg-lesson>summary small{font-size:11px}.sg-lesson>summary>i{font-size:10.5px}.sg-lesson-current b{font-size:12px}.sg-lesson-body li{font-size:11.5px}.sg-lesson-body p{font-size:10.5px}
+.sg-section-head b{font-size:14px}.sg-section-head div>span,.sg-section-head>span{font-size:10px}.sg-empty{font-size:11.5px}
+.sg-candidate-main b{font-size:13.5px}.sg-candidate-main span,.sg-candidate-main em{font-size:9px;padding:4px 7px}.sg-candidate-meta span{font-size:10.5px}.sg-candidate-meta small{font-size:9.5px}.sg-chevron{font-size:15px}
+.sg-detail-grid span{font-size:9.5px}.sg-detail-grid b{font-size:13px}.sg-detail-grid small{font-size:8.5px}.sg-why span{font-size:10px}.sg-why li,.sg-why p{font-size:10.5px}.sg-teach-note{font-size:10.5px;line-height:1.6}
+.sg-accordion>summary b{font-size:13.5px}.sg-accordion>summary span{font-size:10px}.sg-accordion>summary em{font-size:9.5px}
+.sg-skill-rank{font-size:8.5px}.sg-skill-head b{font-size:13.5px}.sg-skill-head small{font-size:9.5px}.sg-skill>p{font-size:10.5px;line-height:1.55}.sg-skill-foot{font-size:9.5px}.sg-skill-next{font-size:9px}
+.sg-journal-grid span{font-size:10px}.sg-journal-grid b{font-size:13px}.sg-journal-note{font-size:11px}.sg-journal-note>span{font-size:10px}.sg-journal-note i{font-size:9.5px}.sg-history-labels{font-size:9.5px}.sg-history-labels b{font-size:10.5px}.sg-history-empty{font-size:10.5px}
+.sg-ach-copy b{font-size:12px}.sg-ach-copy span{font-size:9.5px}.sg-ach-copy>small{font-size:9px}
+.sg-manual summary{font-size:11.5px}.sg-manual p{font-size:10.5px}
+.sg-intel-note{font-size:10.5px}.sg-intel-head b{font-size:13px}.sg-intel-head span{font-size:10px}.sg-intel-btn{font-size:10.5px}.sg-intel-body{font-size:10.5px}.sg-intel-loading{font-size:11px}.sg-intel-summary{font-size:11.5px}.sg-intel-summary>span{font-size:9.5px}.sg-intel-summary>b{font-size:11.5px}.sg-intel-summary>small{font-size:9.5px}.sg-intel-cols>div>span,.sg-intel-watch>span,.sg-intel-news>span{font-size:10.5px}.sg-intel-cols li,.sg-intel-watch li,.sg-intel-news p{font-size:10.5px}.sg-intel-news p i{font-size:9.5px}
+.sg-rules b{font-size:11.5px}.sg-rules span{font-size:10.5px}.sg-rule-note{font-size:10.5px}.sg-footer{font-size:10.5px}.sg-toast{font-size:11px}
+
+@media(max-width:520px){
+  .sg-brand-toggle{font-size:.52em!important}
+  .sg-panel-topline,.sg-panel-topline b{font-size:10.5px!important}
+  .sg-kicker{font-size:11.5px!important}.sg-kicker em{font-size:9.5px!important}
+  .sg-level-row strong{font-size:36px!important}.sg-level-row>div:first-child small{font-size:10.5px!important}
+  .sg-personality span,.sg-personality small{font-size:10px!important}.sg-personality b{font-size:13px!important}
+  .sg-xp-row>div>b{font-size:14px!important}.sg-xp-row>div>span,.sg-xp-row>small{font-size:10.5px!important}
+  .sg-stage span,.sg-stage b{font-size:10.5px!important}.sg-stage p{font-size:10px!important}.sg-stage-node span{font-size:8.5px!important}.sg-stage-node i{font-size:8px!important}
+  .sg-today-growth span{font-size:9.5px!important}.sg-today-growth b{font-size:13px!important}
+  .sg-card-title{font-size:14px!important}.sg-card-title span{font-size:9.5px!important}
+  .sg-radar-label{font-size:10.5px!important}.sg-radar-value{font-size:11px!important}.sg-radar-hint{font-size:9.5px!important}
+  .sg-quick span{font-size:10px!important}.sg-quick b{font-size:19px!important}.sg-quick small{font-size:9px!important}
+  .sg-explore-head span{font-size:12px!important}.sg-explore-head b{font-size:17px!important}.sg-explore-head small{font-size:10px!important}.sg-explore-grid button span{font-size:11.5px!important}
+  .sg-lesson>summary b{font-size:16px!important}.sg-lesson>summary small{font-size:10.5px!important}.sg-lesson-body li{font-size:11.5px!important}.sg-lesson-body p{font-size:10.5px!important}
+  .sg-section-head b{font-size:14px!important}.sg-section-head div>span,.sg-section-head>span{font-size:10px!important}
+  .sg-candidate-main b{font-size:14px!important}.sg-candidate-main span,.sg-candidate-main em{font-size:9.5px!important}.sg-candidate-meta span{font-size:11px!important}.sg-candidate-meta small{font-size:9.5px!important}.sg-teach-note{font-size:10.5px!important}
+  .sg-detail-grid span{font-size:9.5px!important}.sg-detail-grid b{font-size:13px!important}.sg-detail-grid small{font-size:8.5px!important}.sg-why span{font-size:10px!important}.sg-why li,.sg-why p{font-size:10.5px!important}
+  .sg-accordion>summary b{font-size:13.5px!important}.sg-accordion>summary span{font-size:10px!important}
+  .sg-skill-head b{font-size:12.5px!important}.sg-skill-head small{font-size:9.5px!important}.sg-skill>p{min-height:auto!important;font-size:10.5px!important}.sg-skill-foot{font-size:9.5px!important}.sg-skill-next{font-size:9px!important}
+  .sg-ach-copy b{font-size:12px!important}.sg-ach-copy span{font-size:9.5px!important}.sg-ach-copy>small{font-size:9px!important}
+  .sg-manual summary{font-size:11.5px!important}.sg-manual p,.sg-intel-note,.sg-intel-body,.sg-rules span,.sg-rule-note{font-size:10.5px!important}
+  .sg-intel-head b{font-size:13px!important}.sg-intel-head span{font-size:10px!important}.sg-intel-btn{font-size:10.5px!important}.sg-toast{font-size:10.5px!important}
+}
+@media(max-width:420px){.sg-skills{grid-template-columns:1fr!important}.sg-skill{padding:12px!important}.sg-skill-head{grid-template-columns:34px minmax(0,1fr)!important}.sg-skill-icon{width:34px!important;height:34px!important}.sg-skill>p{margin-top:8px!important}.sg-today-growth{grid-template-columns:1fr 1fr!important}.sg-today-growth>div:last-child{grid-column:1/-1}}

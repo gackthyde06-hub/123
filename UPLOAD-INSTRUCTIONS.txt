@@ -1,16 +1,13 @@
-V10.2.7 系統養成 v1.2.0 上傳方式
+SYSTEM GROWTH v1.2.1 — READABILITY HOTFIX
 
-GitHub repo：gackthyde06-hub/123
-位置：最外層根目錄（不要丟進 public）
+GitHub repo: gackthyde06-hub/123
+Upload these files to the repository ROOT and overwrite files with the same names:
+- package.json
+- prepare-ui.mjs
+- system-growth.js
+- system-growth.css
+- SYSTEM-GROWTH-V1.2-NOTES.txt (optional documentation)
 
-覆蓋 / 上傳：
-1. package.json
-2. prepare-ui.mjs
-3. system-growth.js
-4. system-growth.css
-5. SYSTEM-GROWTH-V1.2-NOTES.txt（說明檔，可留）
+Do NOT upload these into public/. Railway runs prepare-ui.mjs on startup and copies the UI assets into public/ automatically.
 
-上傳完成後 Railway 會自動部署。
-prepare-ui.mjs 會在啟動時把 system-growth.js / css 複製到 public，並將 index.html 的引用更新成 sg120，避免舊快取。
-
-本版不修改 server.js，也不改 V10.2.7 的交易 / 通知 / 自動學習核心。
+This hotfix only enlarges / rearranges the System Growth UI. V10.2.7 trading logic is unchanged.

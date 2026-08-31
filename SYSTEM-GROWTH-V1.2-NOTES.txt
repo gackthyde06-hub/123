@@ -1,4 +1,4 @@
-SYSTEM GROWTH v1.2.0 — 2026-09-01
+SYSTEM GROWTH v1.2.1 — 2026-09-01
 
 定位：V10.2.7 的純 UI / 閱讀 / 養成層。沒有修改交易訊號、通知門檻、Shadow Learning、State Learning、C-mode 或實際建倉邏輯。
 
@@ -20,3 +20,11 @@ SYSTEM GROWTH v1.2.0 — 2026-09-01
 - 即時回饋用來解釋進度，不用來催促交易。
 - 遊戲化支援「能力感 / 自主探索 / 清楚目標」，避免把交易次數當獎勵。
 - 今日探索是閱讀導覽，不是模型數據；系統 XP 仍只由真實研究資料構成。
+
+
+READABILITY HOTFIX v1.2.1
+- Desktop and mobile typography enlarged substantially.
+- Mobile micro text is no longer 7–9px in most core areas.
+- Candidate, lesson, skill, journal, manual, and intel text moved up one readability tier.
+- On <=420px phones, skill cards switch to one column to protect legibility.
+- Trading / notification / learning logic remains untouched.

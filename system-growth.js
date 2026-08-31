@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='1.2.0';
+  const VERSION='1.2.1';
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
