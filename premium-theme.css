@@ -322,3 +322,33 @@ body{
   .testFocusPanel{border-radius:22px!important}
   .testMonitorItem{border-radius:18px!important}
 }
+
+
+/* PREMIUM THEME v1.8.0 — softer FFXIV integration */
+
+:root{
+  --ui-surface:#0d131b;
+  --ui-surface-2:#111924;
+  --ui-line:rgba(147,166,197,.18);
+  --ui-line-strong:rgba(217,179,108,.34);
+  --ui-gold:#dbb66a;
+  --ui-gold-2:#f1dcaf;
+  --ui-blue:#99b6e9;
+  --ui-blue-2:#ccd9f0;
+}
+body{
+  background:
+    radial-gradient(circle at 14% -7%,rgba(219,182,106,.10),transparent 28%),
+    radial-gradient(circle at 92% 4%,rgba(153,182,233,.08),transparent 22%),
+    linear-gradient(180deg,#070c12 0%,#091019 48%,#080c12 100%)!important;
+}
+.brandTitle{color:var(--ui-gold-2)!important;text-shadow:0 0 18px rgba(223,180,95,.10)!important}
+.pageTabs{background:rgba(7,12,18,.97)!important;border-bottom-color:rgba(145,162,193,.16)!important}
+.pageTab{color:#94a0ad!important}.pageTab.active{color:var(--ui-gold-2)!important}
+.latest,.consensusPanel,.tradeCalc,.bottomMaster,.traderCard,.flowHero,.marketRow,.recCard,.todayHero,.biasCard,.biasListPanel,.matrixCell,.matrixCoin,.rankCard,.testFocusPanel,.testMonitorItem,.testCard,.testSummaryCell,.judgeCoreCell,.judgeStrategy,.judgeMore,.testPlannerFold,.testCardMore,.moreMonitorPool,.reachedPool,.autoLevels,.levelCell,.calcCell,.testMetric,.testLevels{
+  background:linear-gradient(180deg,rgba(17,24,34,.97),rgba(10,14,20,.99))!important;
+  border-color:var(--ui-line)!important;
+}
+.latest::before,.consensusPanel::before,.tradeCalc::before,.bottomMaster::before,.traderCard::before,.flowHero::before,.recCard::before,.todayHero::before,.biasListPanel::before,.rankCard::before,.testFocusPanel::before{
+  content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(149,170,206,.30),rgba(223,180,95,.26),transparent)
+}

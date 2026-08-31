@@ -1,10 +1,10 @@
 (()=>{
   'use strict';
-  const VERSION='1.7.0';
+  const VERSION='1.8.0';
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
-  const PROGRESS_KEY='sg-progress-v14';
+  const PROGRESS_KEY='sg-progress-v18';
   const VISIT_KEY='sg-visits-v1';
   const EXPLORE_PREFIX='sg-explore-v1-';
   const rootDoc=document;
@@ -106,7 +106,7 @@
 
   function stagePath(m){
     const stages=[['探索',20],['校準',50],['驗證',100],['穩定',300]],n=m.xp.effective;
-    return `<div class="sg-stage-path">${stages.map(([label,cut],i)=>`<div class="sg-stage-node ${n>=cut?'done':n>=([0,20,50,100][i]||0)?'current':''}"><i>${n>=cut?'◆':i+1}</i><span>${label}</span><small>${cut}樣本</small></div>`).join('')}</div>`;
+    return `<div class="sg-stage-path">${stages.map(([label,cut],i)=>`<div class="sg-stage-node ${n>=cut?'done':n>=([0,20,50,100][i]||0)?'current':''}"><i>${n>=cut?sigilSvg('node-on'):sigilSvg('node')}</i><span>${label}</span><small>${cut}樣本</small></div>`).join('')}</div>`;
   }
   function recordHistory(m){
     const arr=storageGet(HISTORY_KEY,[])||[],today=todayKey(),entry={date:today,xp:m.xp.xp,effective:m.xp.effective,hit:has(m.sh.hitRate)?Number(m.sh.hitRate):null,pf:has(m.sh.profitFactor)?Number(m.sh.profitFactor):null};
@@ -116,6 +116,27 @@
     const list=(rows||[]).filter(x=>has(x.xp)).slice(-7);if(list.length<2)return `<div class="sg-history-empty">再回來幾天，這裡會開始畫出你的系統成長曲線。</div>`;
     const w=300,h=90,p=10,min=Math.min(...list.map(x=>Number(x.xp))),max=Math.max(...list.map(x=>Number(x.xp))),span=Math.max(1,max-min),pts=list.map((x,i)=>`${p+i*(w-p*2)/(list.length-1)},${h-p-(Number(x.xp)-min)/span*(h-p*2)}`).join(' ');
     return `<svg class="sg-history-svg" viewBox="0 0 ${w} ${h}" aria-label="近七日研究經驗曲線"><polyline points="${pts}" fill="none" class="sg-history-line"/>${pts.split(' ').map(pt=>{const [x,y]=pt.split(',');return `<circle cx="${x}" cy="${y}" r="3" class="sg-history-dot"/>`}).join('')}</svg><div class="sg-history-labels"><span>${esc(list[0].date.slice(5))}</span><b>${num(list[list.length-1].xp)} XP</b><span>${esc(list[list.length-1].date.slice(5))}</span></div>`;
+  }
+
+  function sigilSvg(type){
+    const wrap=(cls,inner)=>`<svg viewBox="0 0 32 32" class="sg-sigil-svg ${cls}" aria-hidden="true">${inner}</svg>`;
+    switch(type){
+      case 'return': return wrap('return',`<circle cx="16" cy="16" r="9.5" fill="none"/><path d="M10 16c0-3.5 2.8-6.3 6.3-6.3 2.2 0 4.2 1.1 5.3 2.9" fill="none"/><path d="M19.8 9.6h3.9v3.9" fill="none"/><path d="M22.6 17.5c-.7 3.2-3.6 5.6-7 5.6-2.3 0-4.4-1.1-5.8-2.8" fill="none"/>`);
+      case 'break': return wrap('break',`<path d="M16 4 26 16 16 28 6 16Z" fill="none"/><path d="M11 16h10" fill="none"/><path d="M16 11v10" fill="none"/>`);
+      case 'shadow': return wrap('shadow',`<path d="M16 5 25 10v12l-9 5-9-5V10Z" fill="none"/><circle cx="16" cy="16" r="3.5"/><path d="M16 8v5" fill="none"/>`);
+      case 'state': return wrap('state',`<circle cx="16" cy="16" r="9.5" fill="none"/><circle cx="16" cy="16" r="3.5"/><path d="M16 6v4M16 22v4M6 16h4M22 16h4" fill="none"/>`);
+      case 'depth': return wrap('depth',`<path d="M7 11c2.2-2.2 4.8-3.3 7.8-3.3s5.6 1.1 7.8 3.3" fill="none"/><path d="M9 16c1.8-1.6 3.8-2.4 6-2.4 2.4 0 4.6.8 6.5 2.4" fill="none"/><path d="M11 21c1.4-1 2.8-1.5 4.3-1.5 1.7 0 3.2.5 4.8 1.5" fill="none"/><circle cx="16" cy="23.2" r="1.9"/>`);
+      case 'risk': return wrap('risk',`<path d="M16 6 26 24H6Z" fill="none"/><path d="M16 12v5" fill="none"/><circle cx="16" cy="21" r="1.6"/>`);
+      case 'crest': return wrap('crest',`<path d="M16 4 26 10v7c0 5.6-3.6 9.2-10 11-6.4-1.8-10-5.4-10-11v-7Z" fill="none"/><path d="M16 9v14" fill="none"/><path d="M10.5 14.2c1.8-1.8 3.6-2.7 5.5-2.7s3.7.9 5.5 2.7" fill="none"/><path d="M11.5 20c1.4-1.3 2.9-1.9 4.5-1.9 1.7 0 3.2.6 4.5 1.9" fill="none"/>`);
+      case 'node': return wrap('node',`<circle cx="16" cy="16" r="10" fill="none"/><circle cx="16" cy="16" r="3.3"/>`);
+      case 'node-on': return wrap('node-on',`<path d="M16 5 25 16 16 27 7 16Z" fill="none"/><circle cx="16" cy="16" r="3"/>`);
+      default: return wrap('generic',`<path d="M16 5 25 16 16 27 7 16Z" fill="none"/>`);
+    }
+  }
+
+  function coreEmblem(m){
+    const steps=Array.from({length:4},(_,i)=>`<i class="${i<=m.stage.index?'on':''}">${sigilSvg(i<=m.stage.index?'node-on':'node')}</i>`).join('');
+    return `<aside class="sg-core-emblem sg-phase-${m.stage.index}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg('crest')}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b><span>${esc(m.personality)}</span></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
   }
 
   function skillCard(icon,name,desc,count,meta=''){
@@ -171,9 +192,14 @@
       <div class="sg-panel-topline"><span><i class="sg-mini-sigil">◇</i> 成長核心 · V${VERSION}</span><div><b>${m.stage.name}</b><em>${formatAge(state.perf.generatedAt||state.signals?.generatedAt)}</em></div></div>
       <div class="sg-hero">
         <section class="sg-core-card">
-          <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日 ${visits}D</em></div><div class="sg-core-seal" aria-hidden="true"><i></i><b>◇</b><span></span></div>
-          <div class="sg-level-row"><div><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
-          <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
+          <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日 ${visits}D</em></div>
+          <div class="sg-core-intro">
+            <div class="sg-core-main">
+              <div class="sg-level-row"><div><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
+              <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
+            </div>
+            ${coreEmblem(m)}
+          </div>
           <div class="sg-stage"><div><span>研究階段 · ${esc(m.stage.name)}</span><b>${m.xp.effective} / ${m.stage.to} 去相關樣本</b></div><div class="sg-stage-bar"><i style="width:${stagePct}%"></i></div><p>${esc(m.stage.desc)}</p>${stagePath(m)}</div>
           <div class="sg-today-growth"><div><span>今日有效樣本</span><b>+${de}</b></div><div><span>今日淘汰研究</span><b>+${db}</b></div><div><span>今日通知樣本</span><b>+${dn}</b></div></div>
         </section>
@@ -185,7 +211,7 @@
       <section class="sg-live" id="sgCandidateSection"><div class="sg-section-head"><div><b>正在發生</b><span>LIVE RESEARCH</span></div><span>${rows.length} 個觀察狀態</span></div>${candidateHtml(rows)}</section>
       <div class="sg-accordions">
         <details class="sg-accordion" open><summary><div><b>技能樹</b><span>SKILL BOARD</span></div><em>6 PATHS</em></summary><div class="sg-detail-body"><div class="sg-skills sg-skill-tree">
-          ${skillCard('◎','回踩獵手','順勢回踩 · Regime 表現',skillReturn,'回踩模式樣本')}${skillCard('◇','破局之眼','突破 / 回測 · 事件命中',skillBreak,'突破模式樣本')}${skillCard('⬡','影子研究','未通知樣本 · 去偏誤研究',m.xp.effective,'去相關有效樣本')}${skillCard('◉','狀態學習','策略 × Regime × 資金 × 深度',stateResearch,'模式有效樣本')}${skillCard('⌁','流動性雷達','Depth / Spread / 流動性',depthResearch,'Depth 模式樣本')}${skillCard('△','危機預警','風險閘門 · 反證樣本',m.xp.blocked,'被擋樣本')}
+          ${skillCard(sigilSvg('return'),'回踩獵手','順勢回踩 · Regime 表現',skillReturn,'回踩模式樣本')}${skillCard(sigilSvg('break'),'破局之眼','突破 / 回測 · 事件命中',skillBreak,'突破模式樣本')}${skillCard(sigilSvg('shadow'),'影子研究','未通知樣本 · 去偏誤研究',m.xp.effective,'去相關有效樣本')}${skillCard(sigilSvg('state'),'狀態學習','策略 × Regime × 資金 × 深度',stateResearch,'模式有效樣本')}${skillCard(sigilSvg('depth'),'流動性雷達','Depth / Spread / 流動性',depthResearch,'Depth 模式樣本')}${skillCard(sigilSvg('risk'),'危機預警','風險閘門 · 反證樣本',m.xp.blocked,'被擋樣本')}
         </div></div></details>
         <details class="sg-accordion" id="sgJournal"><summary><div><b>模型日誌</b><span>MODEL LOG</span></div><em>${patterns.length} ACTIVE</em></summary><div class="sg-detail-body"><div class="sg-journal-grid"><div class="good"><span>目前最強模式</span><b>${esc(patternText(m.best))}</b></div><div class="bad"><span>目前最弱模式</span><b>${esc(patternText(m.worst))}</b></div></div><div class="sg-journal-note"><span>目前最常阻擋</span><div>${m.blockerTop.length?m.blockerTop.map(([k,v])=>`<i>${esc(k)} <b>${v}</b></i>`).join(''):'<i>暫無集中風險</i>'}</div></div><div class="sg-journal-note"><span>今日狀態</span><b>${m.tierCounts.HIGH+m.tierCounts.NORMAL>0?`READY · ${m.tierCounts.HIGH+m.tierCounts.NORMAL} 通知級`:'WAIT'}</b></div></div></details>
         <details class="sg-accordion"><summary><div><b>研究足跡</b><span>TRACE LOG</span></div><em>7D</em></summary><div class="sg-detail-body"><div class="sg-history-card">${historySvg(history)}</div></div></details>
