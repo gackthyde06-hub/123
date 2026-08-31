@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { performanceAggregate, performanceCalibration, realtimeSocketUrl, technicalSnapshot, testWeightedProgress, testStrategyPlaybooks, testMonitorPriority } from './server.js';
+import { performanceAggregate, performanceCalibration, shadowStats, stateLearningAdjustmentFromStats, realtimeSocketUrl, technicalSnapshot, testWeightedProgress, testStrategyPlaybooks, testMonitorPriority } from './server.js';
 const rows=[
   {version:'V10.0',status:'RESOLVED',result:'WIN',realizedR:1,grossReturnPct:1,netReturnPct:.88,mfePct:1.2,maePct:.2,tier:'HIGH',direction:'LONG',marketRegime:'TREND_UP',symbol:'BTCUSDT',calibratedWinRate:65,signalToPushMs:2800,pushServiceMs:120,deliveryLatencyMs:430},
   {version:'V10.0',status:'RESOLVED',result:'LOSS',realizedR:-1,grossReturnPct:-1,netReturnPct:-1.12,mfePct:.1,maePct:1,tier:'HIGH',direction:'LONG',marketRegime:'TREND_UP',symbol:'BTCUSDT',calibratedWinRate:65,signalToPushMs:3100,pushServiceMs:180,deliveryLatencyMs:520},
@@ -22,3 +22,11 @@ const pb=testStrategyPlaybooks({direction:'LONG'},{rows5:pbRows,last:pbRows.at(-
 assert.equal(pb.candidates.length,5);assert.ok(pb.candidates.some(x=>x.id==='BREAKOUT_RETEST'));assert.ok(pb.candidates.some(x=>x.id==='LIQUIDITY_SWEEP'));assert.ok(pb.candidates.some(x=>x.id==='MOMENTUM_CONTINUATION'));assert.ok(pb.candidates.some(x=>x.id==='RANGE_EXTREME'));
 
 console.log('V10.1 multi-playbook tests passed');
+
+const sh=shadowStats([{status:'RESOLVED',result:'WIN',realizedR:1},{status:'RESOLVED',result:'LOSS',realizedR:-1},{status:'RESOLVED',result:'TIMEOUT',realizedR:.25}]);
+assert.equal(sh.sample,3);assert.equal(sh.hitRate,33.3);assert.ok(sh.expectancyR>0);
+assert.equal(stateLearningAdjustmentFromStats({sample:19,hitRate:80,expectancyR:.6,profitFactor:3}),0);
+const learnGood=stateLearningAdjustmentFromStats({sample:60,hitRate:68,expectancyR:.28,profitFactor:1.9});assert.ok(learnGood>0&&learnGood<=4);
+const learnBad=stateLearningAdjustmentFromStats({sample:110,hitRate:40,expectancyR:-.25,profitFactor:.65});assert.ok(learnBad<0&&learnBad>=-6);
+console.log('V10.2.2 shadow/state-learning tests passed');
+

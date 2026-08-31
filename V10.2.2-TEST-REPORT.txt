@@ -1,0 +1,31 @@
+V10.2.2 TEST REPORT
+
+PASS
+- node --check server.js
+- node --check public/app.js
+- node --check public/sw.js
+- V10 unit tests passed
+- V10.1 multi-playbook tests passed
+- V10.2.2 shadow/state-learning tests passed
+  - <20 samples => 0 learning adjustment
+  - strong 60-sample state => positive adjustment within ±4 cap
+  - weak 110-sample state => negative adjustment within ±6 cap
+- HTML IDs: 125 total / 125 unique / 0 duplicate
+- Performance UI contains shadow summary / state learning / filter audit
+- Observation UI exposes learning adjustment and raw→adjusted notification score
+- Notification monitor gate requires delivery.sent > 0 before notificationSentAt is set
+- Learning affects soft scoring only; hard blockers remain independent
+- Dynamic strength is not overwritten by strategy quality at confirmation
+- app.js cache key = v1022
+- top nav order retained: 今日 → 績效 → 流向 → 建議 → 監控 → 觀察
+- sticky top tabs retained
+- no TEST_PUBLIC_KEY embedded in server.js
+
+TEST HARNESS NOTE
+- Algorithmic unit tests were executed with minimal local stubs only for Express / web-push / dotenv imports because package installation was unavailable in this environment. The tested trading/statistical functions are the real V10.2.2 code.
+
+NOT LIVE-VERIFIED HERE
+- Railway production boot / healthcheck
+- real Binance/Bybit/OKX network fetches
+- real iPhone push receipt
+- live accumulation of 20+ same-state shadow samples

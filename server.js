@@ -117,6 +117,11 @@ const TEST_MONITOR_STALE_MS = Math.max(TEST_MONITOR_DELAY_MS + 30_000, Number(pr
 const TEST_ENTRY_DEBOUNCE_MS = Math.max(0, Math.min(8_000, Number(process.env.TEST_ENTRY_DEBOUNCE_MS || 3_500)));
 const PERF_MAX_HORIZON_MS = Math.max(90*60*1000, Math.min(12*60*60*1000, Number(process.env.PERF_MAX_HORIZON_MS || 4*60*60*1000)));
 const PERF_ROUND_TRIP_COST_BPS = Math.max(0, Math.min(100, Number(process.env.PERF_ROUND_TRIP_COST_BPS || 12)));
+const SHADOW_MIN_SCORE = Math.max(60, Math.min(85, Number(process.env.SHADOW_MIN_SCORE || 70)));
+const SHADOW_MAX_RECORDS = Math.max(1200, Math.min(12000, Number(process.env.SHADOW_MAX_RECORDS || 6000)));
+const SHADOW_REARM_MS = Math.max(5*60*1000, Math.min(60*60*1000, Number(process.env.SHADOW_REARM_MS || 15*60*1000)));
+const STATE_LEARNING_MIN_SAMPLE = Math.max(10, Math.min(50, Number(process.env.STATE_LEARNING_MIN_SAMPLE || 20)));
+const STATE_LEARNING_MAX_BONUS = Math.max(2, Math.min(8, Number(process.env.STATE_LEARNING_MAX_BONUS || 6)));
 const REGIME_LIQUIDATION_5M_USD = Math.max(1_000_000, Number(process.env.REGIME_LIQUIDATION_5M_USD || 15_000_000));
 const TEST_SIGNAL_MAX = Math.max(4, Math.min(12, Number(process.env.TEST_SIGNAL_MAX || 12)));
 const TEST_SIGNAL_IDEA_TTL_MS = Math.max(10 * 60 * 1000, Number(process.env.TEST_SIGNAL_IDEA_TTL_MS || 25 * 60 * 1000));
@@ -151,7 +156,7 @@ const DAILY_BRIEF_SCHEDULE_MINUTE = 8 * 60 + 5; // 08:05 Asia/Taipei
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 const RUNTIME_PROJECT = String(process.env.RAILWAY_PROJECT_NAME || '').trim();
 const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
-const BUILD_VERSION = 'V10.2.1';
+const BUILD_VERSION = 'V10.2.2';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
@@ -177,6 +182,7 @@ const DAILY_BRIEF_FILE = path.join(DATA_DIR, 'daily-brief-v73.json');
 const TEST_SIGNAL_FILE = path.join(DATA_DIR, 'test-signals-v78.json'); // keep filename so upgrades retain accumulated live history
 const TEST_SIGNAL_HISTORY_FILE = path.join(DATA_DIR, 'test-signal-history-v78.json');
 const SIGNAL_PERFORMANCE_FILE = path.join(DATA_DIR, 'signal-performance-v10.json');
+const SHADOW_PERFORMANCE_FILE = path.join(DATA_DIR, 'shadow-performance-v1022.json');
 
 app.use(express.json({ limit: '128kb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -210,7 +216,11 @@ const persistedTestSignals = loadJson(TEST_SIGNAL_FILE, {});
 const testSignalTrackers = new Map(Object.entries(persistedTestSignals && typeof persistedTestSignals === 'object' ? persistedTestSignals : {}));
 let testSignalHistory = Array.isArray(loadJson(TEST_SIGNAL_HISTORY_FILE, [])) ? loadJson(TEST_SIGNAL_HISTORY_FILE, []) : [];
 let signalPerformance = Array.isArray(loadJson(SIGNAL_PERFORMANCE_FILE, [])) ? loadJson(SIGNAL_PERFORMANCE_FILE, []) : [];
+let shadowPerformance = Array.isArray(loadJson(SHADOW_PERFORMANCE_FILE, [])) ? loadJson(SHADOW_PERFORMANCE_FILE, []) : [];
 let performanceSaveTimer = null;
+let shadowPerformanceSaveTimer = null;
+let shadowLearningRevision = 1;
+let shadowLearningIndexCache = { revision:-1, maps:null };
 let performanceTimer = null;
 let testBarTimer = null;
 let testSignalTimer = null;
@@ -1672,6 +1682,58 @@ function performanceApplyNotificationAck(kind,id,clientTs){
 function performanceMergePendingAcks(rec){
   for(const kind of ['received','clicked']){const x=notificationAckPending[kind].get(rec.id);if(!x)continue;notificationAckPending[kind].delete(rec.id);performanceApplyNotificationAck(kind,rec.id,x.ts);}
 }
+
+const shadowActiveSymbols=new Set(shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='ACTIVE').map(x=>cleanFuturesSymbol(x.symbol)));
+function scheduleShadowPerformanceSave(){
+  if(shadowPerformanceSaveTimer)return;
+  shadowPerformanceSaveTimer=setTimeout(()=>{shadowPerformanceSaveTimer=null;const before=shadowPerformance.length;shadowPerformance=shadowPerformance.slice(0,SHADOW_MAX_RECORDS);if(shadowPerformance.length!==before)shadowLearningRevision++;saveJson(SHADOW_PERFORMANCE_FILE,shadowPerformance)},1500);
+  shadowPerformanceSaveTimer.unref?.();
+}
+function stateLearningFeatures(t){
+  const dir=testSignalDirection(t?.direction),lc=t?.lastCheck||{},strategy=t?.strategyAtConfirm||t?.strategyProfile||{},oi=finiteMetric(lc.oi15mChangePct)??finiteMetric(lc.oiChangePct),taker=finiteMetric(lc.takerRatio),depth=finiteMetric(lc.depthImbalance),top=finiteMetric(lc.topPositionRatio),marketAlign=Number(lc.marketAlign||0),regime=String(t?.marketRegime||lc.marketRegime||'NORMAL');
+  const bucket=(v,kind)=>{if(v==null)return 'NA';if(kind==='oi')return v>=.35?'RISING':v<=-.35?'FALLING':'FLAT';if(kind==='taker')return dir>0?(v>=1.02?'ALIGNED':v<=.96?'OPPOSED':'NEUTRAL'):(v<=.98?'ALIGNED':v>=1.04?'OPPOSED':'NEUTRAL');if(kind==='depth')return dir>0?(v>=.06?'ALIGNED':v<=-.10?'OPPOSED':'NEUTRAL'):(v<=-.06?'ALIGNED':v>=.10?'OPPOSED':'NEUTRAL');if(kind==='top')return dir>0?(v>=1.02?'ALIGNED':v<=.96?'OPPOSED':'NEUTRAL'):(v<=.98?'ALIGNED':v>=1.04?'OPPOSED':'NEUTRAL');return 'NA'};
+  return {strategyId:String(strategy.id||'UNKNOWN'),strategyLabel:String(strategy.label||'未分類'),regime,direction:t?.direction||'LONG',oi:bucket(oi,'oi'),taker:bucket(taker,'taker'),depth:bucket(depth,'depth'),top:bucket(top,'top'),market:marketAlign>0?'ALIGNED':marketAlign<0?'OPPOSED':'NEUTRAL'};
+}
+function stateLearningKeys(features){const f=features||{};return {detail:[f.strategyId,f.regime,f.direction,f.oi,f.taker,f.depth,f.top,f.market].join('|'),core:[f.strategyId,f.regime,f.direction].join('|'),broad:[f.strategyId,f.regime].join('|')}}
+function shadowStats(rows){
+  const resolved=(rows||[]).filter(x=>x?.status==='RESOLVED'),wins=resolved.filter(x=>x.result==='WIN').length,losses=resolved.filter(x=>x.result==='LOSS').length,timeouts=resolved.filter(x=>x.result==='TIMEOUT').length,rr=resolved.map(x=>Number(x.realizedR)).filter(Number.isFinite),profits=rr.filter(x=>x>0).reduce((a,b)=>a+b,0),lossSum=Math.abs(rr.filter(x=>x<0).reduce((a,b)=>a+b,0));
+  const hitRate=resolved.length?wins/resolved.length*100:null,expectancyR=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:null,profitFactor=lossSum>0?profits/lossSum:(profits>0?99:null);
+  return {sample:resolved.length,wins,losses,timeouts,hitRate:hitRate==null?null:Number(hitRate.toFixed(1)),expectancyR:expectancyR==null?null:Number(expectancyR.toFixed(3)),profitFactor:profitFactor==null?null:Number(profitFactor.toFixed(2))};
+}
+function stateLearningAdjustmentFromStats(stats){
+  const sample=Number(stats?.sample||0);if(sample<STATE_LEARNING_MIN_SAMPLE)return 0;const cap=Math.min(STATE_LEARNING_MAX_BONUS,sample>=100?6:sample>=50?4:2),hit=Number(stats?.hitRate??50),exp=Number(stats?.expectancyR??0),pf=Number(stats?.profitFactor??1);
+  let raw=((hit-55)*.14)+(exp*3.2)+(clamp(pf-1,-1.2,1.6)*1.35);if(hit<48&&exp<=0)raw-=1.2;if(hit>=65&&exp>.15)raw+=.8;const confidence=Math.min(1,Math.sqrt(sample/100));return clamp(Math.round(raw*confidence),-cap,cap);
+}
+function stateLearningIndex(){
+  if(shadowLearningIndexCache.revision===shadowLearningRevision&&shadowLearningIndexCache.maps)return shadowLearningIndexCache.maps;
+  const resolved=shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'),maps={detail:new Map(),core:new Map(),broad:new Map()};
+  for(const rec of resolved){for(const level of ['detail','core','broad']){const key=rec?.stateKeys?.[level];if(!key)continue;if(!maps[level].has(key))maps[level].set(key,[]);maps[level].get(key).push(rec)}}shadowLearningIndexCache={revision:shadowLearningRevision,maps};return maps;
+}
+function stateLearningAdjustment(t){
+  const features=stateLearningFeatures(t),keys=stateLearningKeys(features),idx=stateLearningIndex();
+  for(const level of ['detail','core','broad']){const rows=idx[level].get(keys[level])||[],stats=shadowStats(rows);if(stats.sample>=STATE_LEARNING_MIN_SAMPLE)return {adjustment:stateLearningAdjustmentFromStats(stats),level,key:keys[level],features,stats,active:true}}
+  return {adjustment:0,level:null,key:null,features,stats:{sample:0,hitRate:null,profitFactor:null,expectancyR:null},active:false};
+}
+function stateLearningTable(limit=24){
+  const idx=stateLearningIndex(),rows=[];for(const [key,a] of idx.detail.entries()){const stats=shadowStats(a),rec=a[0];if(stats.sample<5)continue;rows.push({key,label:rec?.stateLabel||key,features:rec?.stateFeatures||null,adjustment:stateLearningAdjustmentFromStats(stats),...stats})}
+  return rows.sort((a,b)=>Math.abs(b.adjustment)-Math.abs(a.adjustment)||b.sample-a.sample||Number(b.expectancyR||0)-Number(a.expectancyR||0)).slice(0,limit);
+}
+function shadowRecordCandidate(t,{entry,stop,target,tier='VALID',rawScore=null,adjustedScore=null}={}){
+  const e=finiteMetric(entry),s=finiteMetric(stop),tg=finiteMetric(target);if(!(e>0&&s>0&&tg>0))return null;const risk=Math.abs(e-s);if(!(risk>0))return null;const features=stateLearningFeatures(t),keys=stateLearningKeys(features),learning=stateLearningAdjustment(t),now=new Date().toISOString(),id=`shadow-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,label=`${features.strategyLabel}｜${features.regime}｜${features.direction}｜OI ${features.oi}｜Taker ${features.taker}｜Depth ${features.depth}`;
+  const rec={id,version:'V10.2.2',signalKey:t.key,symbol:t.symbol,direction:t.direction,phase:'FIRST_ENTRY',shadowAt:now,entryPrice:e,stop:s,target:tg,riskDistance:risk,targetR:Number((testSignalDirection(t.direction)*(tg-e)/risk).toFixed(3)),strategyId:features.strategyId,strategyLabel:features.strategyLabel,marketRegime:features.regime,stateFeatures:features,stateKeys:keys,stateLabel:label,rawScore:finiteMetric(rawScore),adjustedScore:finiteMetric(adjustedScore),learningAdjustmentAtEntry:Number(learning.adjustment||0),tierAtEntry:String(tier||'VALID'),notified:false,notificationId:null,status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:e,lastPriceAt:now,lastSource:'shadow-entry',costBps:PERF_ROUND_TRIP_COST_BPS};
+  shadowPerformance.unshift(rec);shadowActiveSymbols.add(cleanFuturesSymbol(t.symbol));scheduleShadowPerformanceSave();t.shadowRecordId=id;t.shadowReadyLatch=features.strategyId;shadowOnPrice(t.symbol,e,Date.now(),'shadow-entry');return rec;
+}
+function shadowMarkNotified(t,noticeId,tier){const id=t?.shadowRecordId;if(!id)return false;const rec=shadowPerformance.find(x=>x.id===id);if(!rec)return false;rec.notified=true;rec.notificationId=noticeId||null;rec.notifiedAt=new Date().toISOString();rec.finalTier=String(tier||rec.tierAtEntry||'VALID');scheduleShadowPerformanceSave();return true}
+function shadowFinalize(rec,result,price,ts,source){if(rec.status!=='ACTIVE')return;const dir=testSignalDirection(rec.direction),gross=dir*(price-rec.entryPrice)/rec.entryPrice*100,r=dir*(price-rec.entryPrice)/rec.riskDistance;rec.status='RESOLVED';rec.result=result;rec.resultAt=new Date(ts).toISOString();rec.exitPrice=price;rec.grossReturnPct=Number(gross.toFixed(4));rec.netReturnPct=Number((gross-PERF_ROUND_TRIP_COST_BPS/100).toFixed(4));rec.realizedR=Number(r.toFixed(3));rec.resultSource=source;shadowLearningRevision++;if(!shadowPerformance.some(x=>x!==rec&&x.status==='ACTIVE'&&x.symbol===rec.symbol))shadowActiveSymbols.delete(cleanFuturesSymbol(rec.symbol));scheduleShadowPerformanceSave()}
+function shadowOnPrice(symbol,price,ts=Date.now(),source='price'){
+  const px=Number(price);if(!(px>0))return;const key=cleanFuturesSymbol(symbol);if(!shadowActiveSymbols.has(key))return;const now=Number(ts)||Date.now();let dirty=false;
+  for(const rec of shadowPerformance){if(rec.status!=='ACTIVE'||rec.symbol!==key)continue;const start=new Date(rec.shadowAt).getTime();if(!(now>=start))continue;const dir=testSignalDirection(rec.direction),signed=dir*(px-rec.entryPrice)/rec.entryPrice*100,r=dir*(px-rec.entryPrice)/rec.riskDistance;rec.lastPrice=px;rec.lastPriceAt=new Date(now).toISOString();rec.lastSource=source;rec.mfePct=Number(Math.max(Number(rec.mfePct||0),signed).toFixed(4));rec.maePct=Number(Math.max(Number(rec.maePct||0),-signed).toFixed(4));rec.maxR=Number(Math.max(Number(rec.maxR||0),r).toFixed(3));rec.minR=Number(Math.min(Number(rec.minR||0),r).toFixed(3));const elapsed=now-start;for(const min of PERF_HORIZONS_MIN){if(elapsed>=min*60_000&&!rec.snapshots?.[min]){rec.snapshots=rec.snapshots||{};rec.snapshots[min]={at:new Date(now).toISOString(),price:px,returnPct:Number(signed.toFixed(4)),r:Number(r.toFixed(3)),source}}}const hitStop=dir>0?px<=rec.stop:px>=rec.stop,hitTarget=dir>0?px>=rec.target:px<=rec.target;if(hitStop)shadowFinalize(rec,'LOSS',rec.stop,now,source);else if(hitTarget)shadowFinalize(rec,'WIN',rec.target,now,source);else if(elapsed>=PERF_MAX_HORIZON_MS)shadowFinalize(rec,'TIMEOUT',px,now,source);dirty=true}
+  if(dirty)scheduleShadowPerformanceSave();
+}
+function shadowPerformanceAggregate(){
+  const all=shadowPerformance.filter(x=>x?.version==='V10.2.2'),resolved=all.filter(x=>x.status==='RESOLVED'),base=shadowStats(resolved),blocked=resolved.filter(x=>!x.notified),blockedStats=shadowStats(blocked),notified=resolved.filter(x=>x.notified),notifiedStats=shadowStats(notified),group=(keyFn)=>{const m=new Map();for(const x of resolved){const k=String(keyFn(x)||'UNKNOWN');if(!m.has(k))m.set(k,[]);m.get(k).push(x)}return [...m.entries()].map(([key,a])=>({key,...shadowStats(a)})).sort((a,b)=>b.sample-a.sample)};
+  return {sample:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,...base,blockedSample:blocked.length,blockedHitRate:blockedStats.hitRate,blockedProfitFactor:blockedStats.profitFactor,blockedExpectancyR:blockedStats.expectancyR,notifiedSample:notified.length,notifiedHitRate:notifiedStats.hitRate,byTier:group(x=>x.finalTier||x.tierAtEntry||'VALID'),byRegime:group(x=>x.marketRegime),byStrategy:group(x=>x.strategyLabel||x.strategyId||'未分類')};
+}
 function performanceRecordForNotification(t,code,tier,delivery,options={}){
   if(!(delivery?.sent>0))return null;const phase=options.reentry?'REENTRY':'FIRST_ENTRY';const isEntry=code==='CONFIRMED'||(phase==='REENTRY'&&String(options.statusLabel||'').includes('二次確認'));if(!isEntry)return null;
   const dir=testSignalDirection(t.direction),rt=options.noticeSnapshot||realtimeSnapshot(t.symbol),entry=finiteMetric(options.noticeEntryPrice)??finiteMetric(realtimeBestPrice(t.symbol))??finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),stop=finiteMetric(options.reentry?t.reentryStop:t.stop),target=finiteMetric(options.reentry?t.reentryTarget1R:t.target1R);if(!(entry>0&&stop>0&&target>0))return null;
@@ -1681,17 +1743,19 @@ function performanceRecordForNotification(t,code,tier,delivery,options={}){
 }
 function performanceFinalize(rec,result,price,ts,source){if(rec.status!=='ACTIVE')return;const dir=testSignalDirection(rec.direction),gross=dir*(price-rec.entryPrice)/rec.entryPrice*100,r=dir*(price-rec.entryPrice)/rec.riskDistance;rec.status='RESOLVED';rec.result=result;rec.resultAt=new Date(ts).toISOString();rec.exitPrice=price;rec.grossReturnPct=Number(gross.toFixed(4));rec.netReturnPct=Number((gross-PERF_ROUND_TRIP_COST_BPS/100).toFixed(4));rec.realizedR=Number(r.toFixed(3));rec.resultSource=source;if(!signalPerformance.some(x=>x!==rec&&x.status==='ACTIVE'&&x.symbol===rec.symbol))performanceActiveSymbols.delete(cleanFuturesSymbol(rec.symbol));schedulePerformanceSave()}
 function performanceOnPrice(symbol,price,ts=Date.now(),source='price'){
-  const px=Number(price);if(!(px>0))return;const key=cleanFuturesSymbol(symbol);if(!performanceActiveSymbols.has(key))return;const now=Number(ts)||Date.now();let dirty=false;
+  const px=Number(price);if(!(px>0))return;const key=cleanFuturesSymbol(symbol),hasNotify=performanceActiveSymbols.has(key),hasShadow=shadowActiveSymbols.has(key);if(!hasNotify&&!hasShadow)return;const now=Number(ts)||Date.now();let dirty=false;
   for(const rec of signalPerformance){if(rec.status!=='ACTIVE'||rec.symbol!==key)continue;const start=new Date(rec.notificationAt).getTime();if(!(now>=start))continue;const dir=testSignalDirection(rec.direction),signed=dir*(px-rec.entryPrice)/rec.entryPrice*100,r=dir*(px-rec.entryPrice)/rec.riskDistance;rec.lastPrice=px;rec.lastPriceAt=new Date(now).toISOString();rec.lastSource=source;rec.mfePct=Number(Math.max(Number(rec.mfePct||0),signed).toFixed(4));rec.maePct=Number(Math.max(Number(rec.maePct||0),-signed).toFixed(4));rec.maxR=Number(Math.max(Number(rec.maxR||0),r).toFixed(3));rec.minR=Number(Math.min(Number(rec.minR||0),r).toFixed(3));const elapsed=now-start;
     for(const min of PERF_HORIZONS_MIN){if(elapsed>=min*60_000&&!rec.snapshots?.[min]){rec.snapshots=rec.snapshots||{};rec.snapshots[min]={at:new Date(now).toISOString(),price:px,returnPct:Number(signed.toFixed(4)),r:Number(r.toFixed(3)),source};}}
     const hitStop=dir>0?px<=rec.stop:px>=rec.stop,hitTarget=dir>0?px>=rec.target:px<=rec.target;if(hitStop)performanceFinalize(rec,'LOSS',rec.stop,now,source);else if(hitTarget)performanceFinalize(rec,'WIN',rec.target,now,source);else if(elapsed>=PERF_MAX_HORIZON_MS)performanceFinalize(rec,'TIMEOUT',px,now,source);dirty=true;
   }
   if(dirty)schedulePerformanceSave();
+  if(hasShadow)shadowOnPrice(key,px,now,source);
 }
 function performanceTrackerFallback(){
   const now=Date.now();for(const rec of signalPerformance){if(rec.status!=='ACTIVE')continue;const t=testSignalTrackers.get(rec.signalKey);if(t){if(rec.phase==='FIRST_ENTRY'&&t.outcomeFirstTouch&&new Date(t.outcomeFirstTouchAt||0).getTime()>=new Date(rec.notificationAt).getTime()){performanceFinalize(rec,t.outcomeFirstTouch==='WIN'?'WIN':'LOSS',t.outcomeFirstTouch==='WIN'?rec.target:rec.stop,new Date(t.outcomeFirstTouchAt).getTime()||now,'5m candle fallback');continue}if(rec.phase==='REENTRY'&&['WIN','LOSS'].includes(t.reentryResult)&&new Date(t.reentryResultAt||0).getTime()>=new Date(rec.notificationAt).getTime()){performanceFinalize(rec,t.reentryResult,t.reentryResult==='WIN'?rec.target:rec.stop,new Date(t.reentryResultAt).getTime()||now,'tracker fallback');continue}}
     const px=realtimeBestPrice(rec.symbol)||markPrices.get(rec.symbol);if(px)performanceOnPrice(rec.symbol,px,now,'heartbeat fallback');
   }
+  for(const rec of shadowPerformance){if(rec.status!=='ACTIVE')continue;const px=realtimeBestPrice(rec.symbol)||markPrices.get(rec.symbol);if(px)shadowOnPrice(rec.symbol,px,now,'shadow heartbeat fallback');}
 }
 function performancePercentile(values,p=.95){const a=values.map(Number).filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;return a[Math.min(a.length-1,Math.max(0,Math.floor((a.length-1)*p)))]}
 function performanceCalibration(input){
@@ -1710,7 +1774,7 @@ function performanceAggregate(input=signalPerformance,includeBreakdowns=true){
   const base={sample:all.length,active:all.length-resolved.length,resolved:resolved.length,wins,losses,timeouts:resolved.filter(x=>x.result==='TIMEOUT').length,hitRate:resolved.length?Number((wins/resolved.length*100).toFixed(1)):null,decisiveHitRate:binary.length?Number((binary.filter(x=>x.result==='WIN').length/binary.length*100).toFixed(1)):null,profitFactor:lossSum>0?Number((profits/lossSum).toFixed(2)):(profits>0?99:null),expectancyR:resolved.length?Number(avg(resolved,x=>x.realizedR).toFixed(3)):null,avgGrossReturnPct:resolved.length?Number(avg(resolved,x=>x.grossReturnPct).toFixed(3)):null,avgNetReturnPct:resolved.length?Number(avg(resolved,x=>x.netReturnPct).toFixed(3)):null,avgMfePct:all.length?Number(avg(all,x=>x.mfePct).toFixed(3)):null,avgMaePct:all.length?Number(avg(all,x=>x.maePct).toFixed(3)):null,cumulativeGrossReturnPct:resolved.length?Number(resolved.reduce((a,x)=>a+Number(x.grossReturnPct||0),0).toFixed(4)):0,cumulativePer1000Notional:resolved.length?Number(resolved.reduce((a,x)=>a+1000*Number(x.netReturnPct||0)/100,0).toFixed(2)):0,receivedAcks:recv.length,deliveryAckRate:all.length?Number((recv.length/all.length*100).toFixed(1)):null,avgDeliveryLatencyMs:recv.length?Math.round(avg(recv,x=>x.deliveryLatencyMs)):null,p95DeliveryLatencyMs:recv.length?Math.round(performancePercentile(recv.map(x=>x.deliveryLatencyMs),.95)):null,clicked:clicks.length,clickRate:recv.length?Number((clicks.length/recv.length*100).toFixed(1)):null,avgClickLatencyMs:clicks.length?Math.round(avg(clicks,x=>x.clickLatencyMs)):null,avgSignalToPushMs:signalLag.length?Math.round(signalLag.reduce((a,b)=>a+b,0)/signalLag.length):null,p95SignalToPushMs:signalLag.length?Math.round(performancePercentile(signalLag,.95)):null,avgPushServiceMs:pushMs.length?Math.round(pushMs.reduce((a,b)=>a+b,0)/pushMs.length):null,p95PushServiceMs:pushMs.length?Math.round(performancePercentile(pushMs,.95)):null,calibration:performanceCalibration(all)};
   if(!includeBreakdowns)return base;return {...base,byTier:performanceGroup(all,x=>x.tier),byDirection:performanceGroup(all,x=>x.direction),byRegime:performanceGroup(all,x=>x.marketRegime),byStrategy:performanceGroup(all,x=>x.strategyLabel||x.strategyId||'未分類'),bySymbol:performanceGroup(all,x=>x.symbol).slice(0,20)};
 }
-function performanceResponse(){return {ok:true,generatedAt:new Date().toISOString(),version:'V10.0',preciseSampleStarts:'V10.0 deployment',defaultCostBps:PERF_ROUND_TRIP_COST_BPS,maxHorizonMinutes:Math.round(PERF_MAX_HORIZON_MS/60000),summary:performanceAggregate(),records:signalPerformance.filter(x=>x.version==='V10.0').slice(0,500),recent:signalPerformance.filter(x=>x.version==='V10.0').slice(0,100),methodology:'只統計真正成功送出的進場型通知；以通知當下即時成交/Mark作可執行參考進場，WebSocket逐筆追蹤目標/停損首觸、MFE/MAE與5～240分鐘報酬。Service Worker 會回報手機收到推播與點擊時間；WS失聯則以 Mark/5分K保守備援。統計是通知策略的實測表現，不冒充使用者帳戶真實成交損益。'};}
+function performanceResponse(){return {ok:true,generatedAt:new Date().toISOString(),version:'V10.2.2',preciseSampleStarts:'V10.0 deployment',defaultCostBps:PERF_ROUND_TRIP_COST_BPS,maxHorizonMinutes:Math.round(PERF_MAX_HORIZON_MS/60000),summary:performanceAggregate(),shadowSummary:shadowPerformanceAggregate(),stateLearning:{minSample:STATE_LEARNING_MIN_SAMPLE,maxBonus:STATE_LEARNING_MAX_BONUS,shadowMinScore:SHADOW_MIN_SCORE,patterns:stateLearningTable(30)},records:signalPerformance.filter(x=>x.version==='V10.0').slice(0,500),recent:signalPerformance.filter(x=>x.version==='V10.0').slice(0,100),shadowRecent:shadowPerformance.filter(x=>x.version==='V10.2.2').slice(0,100),methodology:'通知帳本只統計真正成功送出的進場型通知；另有影子績效，策略 ready＋安全但未達通知門檻也會在後台模擬追蹤 1R / SL / MFE / MAE / 240分鐘結果。狀態學習只使用已結算影子樣本，20筆前不加權，20–49筆最多±2、50–99筆最多±4、100筆以上最多±6；加權只能影響通知品質分數，ADL高風險、結構失效、追價、價差、資料不足等硬性風險不可被加分蓋過。'};}
 
 async function refreshMarkPrices(force = false) {
   if (markPriceBusy) return false;
@@ -4215,7 +4279,7 @@ function testEntryStrategy(t, statusLabel='') {
 }
 function testSignalTier(t,{reentry=false}={}) {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||0),low=Number(cal.conservativeLow||0);
-  const score=Number(reentry?t.reentryScore:(t.monitorScore??t.qualityScore??0)),rank=Number(t.rank||99),ev=t.monitorEvidence||t.lastCheck||{};
+  const rawScore=Number(reentry?t.reentryScore:(t.monitorScore??t.qualityScore??0)),learning=reentry?{adjustment:0,active:false,stats:{sample:0}}:stateLearningAdjustment(t),score=clamp(Math.round(rawScore+Number(learning.adjustment||0)),0,100),rank=Number(t.rank||99),ev=t.monitorEvidence||t.lastCheck||{};
   const spread=finiteMetric(ev.spreadBps),chaseAtr=finiteMetric(ev.chaseAtr),adlRisk=String(ev.adlRisk||'unknown').toLowerCase(),fundingCrowded=ev.fundingCrowded===true;
   const adverse=!!(ev.adverse15||ev.adverse30||ev.adverse1h||ev.adverseMarket);
   const noSpreadRisk=!Number.isFinite(spread)||spread<=TEST_SIGNAL_MAX_SPREAD_BPS;
@@ -4262,10 +4326,10 @@ function testSignalTier(t,{reentry=false}={}) {
   if(rank>9)normalMissing.push('市場熱度排名>9');
   if(regime==='CHOP'&&score<84)normalMissing.push('震盪行情品質<84');
   if(regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol))normalMissing.push('清算行情山寨只允許最高級確認');
-  if(!hardSafe)return {tier:'BLOCKED',rate,low,score,rank,blockers,highMissing,normalMissing};
-  if(highMissing.length===0)return {tier:'HIGH',rate,low,score,rank,blockers,highMissing,normalMissing};
-  if(normalMissing.length===0)return {tier:'NORMAL',rate,low,score,rank,blockers,highMissing,normalMissing};
-  return {tier:'VALID',rate,low,score,rank,blockers,highMissing,normalMissing};
+  if(!hardSafe)return {tier:'BLOCKED',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
+  if(highMissing.length===0)return {tier:'HIGH',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
+  if(normalMissing.length===0)return {tier:'NORMAL',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
+  return {tier:'VALID',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
 }
 function testPushCopy(t,statusLabel='') {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||t.confirmedWinRate||0),zone=testCurrentEntryZone(t);
@@ -4295,7 +4359,7 @@ async function sendTestLifecyclePush(t, code, explicitTitle, explicitBody, optio
   // 被使用者通知模式過濾＝事件已處理；若本來符合推播但傳送失敗，保留下一輪重試機會。
   if(delivery.sent>0||delivery.eligible===0)t.lifecycleNotifications[code]=new Date().toISOString();
   t.lastPushAttemptAt=new Date().toISOString();t.lastPushTier=tier;t.lastPushDelivery={...delivery,pushServiceMs};
-  if(delivery.sent>0)performanceRecordForNotification(t,code,tier,delivery,{...options,noticeId,noticeSentAt,noticeSnapshot,noticeEntryPrice,pushAcceptedAt,pushServiceMs});
+  if(delivery.sent>0){shadowMarkNotified(t,noticeId,tier);performanceRecordForNotification(t,code,tier,delivery,{...options,noticeId,noticeSentAt,noticeSnapshot,noticeEntryPrice,pushAcceptedAt,pushServiceMs});}
   return {processed:delivery.sent>0||delivery.eligible===0,tier,pushServiceMs,...delivery};
 }
 function testMonitorEvidence({dir,last,prev,t5,t15,t30,t1h,rsiNow,rsiPrev,macdNow,macdPrev,deriv,market,breakoutLevel,micro}) {
@@ -4739,15 +4803,25 @@ async function analyzeTestTracker(t, market) {
   t.currentPrice=last.close;t.qualityScore=score;t.status=t.observationProgress>=58?'TOUCHING':'WAIT_PULLBACK';t.statusLabel=testSignalStatusLabel(t.status);testSetState(t,'WATCHING','觀察中',new Date().toISOString());t.updatedAt=new Date().toISOString();
   t.lastCheck={at:t.updatedAt,strategyId:playbook.id,strategyLabel:playbook.label,observationProgress:t.observationProgress,dynamicStrength:t.monitorScore,strategyCandidates:playbook.candidates,reclaim,candleOk,wicker,sweep,momentum,macdImprove,volumeRatio:Number(t5.volumeRatio.toFixed(2)),volumeRatio15:Number(t15.volumeRatio.toFixed(2)),rsi5:Number(rsiNow.toFixed(1)),rsi15:Number.isFinite(Number(t15.rsi14))?Number(Number(t15.rsi14).toFixed(1)):null,macd5:Number.isFinite(Number(t5.macdHist))?Number(Number(t5.macdHist).toFixed(6)):null,macd15:Number.isFinite(Number(t15.macdHist))?Number(Number(t15.macdHist).toFixed(6)):null,adx5:Number.isFinite(Number(t5.adx14))?Number(Number(t5.adx14).toFixed(1)):null,adx15:Number.isFinite(Number(t15.adx14))?Number(Number(t15.adx14).toFixed(1)):null,atrPct5:Number.isFinite(Number(t5.atrPct))?Number(Number(t5.atrPct).toFixed(3)):null,oiChangePct:oiVal!=null?Number(oiVal.toFixed(2)):null,oi5mChangePct:finiteMetric(deriv?.oi5mChangePct),oi15mChangePct:finiteMetric(deriv?.oi15mChangePct),oi1hChangePct:finiteMetric(deriv?.oi1hChangePct),takerRatio:takerVal!=null?Number(takerVal.toFixed(2)):null,topPositionRatio:topVal!=null?Number(topVal.toFixed(2)):null,topAccountRatio:finiteMetric(deriv?.topAccountRatio)!=null?Number(Number(deriv.topAccountRatio).toFixed(2)):null,globalLongShortRatio:finiteMetric(deriv?.globalLongShortRatio)!=null?Number(Number(deriv.globalLongShortRatio).toFixed(2)):null,depthImbalance:depth!=null?Number(depth.toFixed(3)):null,spreadBps:spreadVal!=null?Number(spreadVal.toFixed(2)):null,bidNotional:finiteMetric(micro?.bidNotional),askNotional:finiteMetric(micro?.askNotional),chaseAtr:Number(strategyChase.toFixed(2)),adlRisk,fundingPct:fundingPct!=null?Number(fundingPct.toFixed(4)):null,basisPct:finiteMetric(riskCtx?.basisPct),annualizedBasisPct:finiteMetric(riskCtx?.annualizedBasisPct),nextFundingTime:finiteMetric(riskCtx?.nextFundingTime),fundingCrowded,t30Trend:t30?.trend??0,h1Trend:t1h?.trend??0,marketAlign,reasons:reasons.slice(0,8)};
   const globalSafety=spreadOk&&adlRisk!=='high'&&!fundingCrowded&&Number(t.dataHealth?.coveragePct||0)>=72&&Number(t.dataHealth?.confidencePct||0)>=65;
-  const confirm=playbook.ready===true&&globalSafety&&score>=TEST_SIGNAL_CONFIRM_SCORE;
+  const learningProbe=stateLearningAdjustment(t),learnedQualityScore=clamp(Math.round(score+Number(learningProbe.adjustment||0)),0,100);
+  t.learningAdjustment=Number(learningProbe.adjustment||0);t.learningState=learningProbe;t.learnedQualityScore=learnedQualityScore;
+  const shadowEligible=playbook.ready===true&&globalSafety&&score>=SHADOW_MIN_SCORE;
+  t.shadowLastByStrategy=t.shadowLastByStrategy&&typeof t.shadowLastByStrategy==='object'?t.shadowLastByStrategy:{};
+  const shadowLastMs=new Date(t.shadowLastByStrategy[playbook.id]||0).getTime(),shadowCooldownPassed=!Number.isFinite(shadowLastMs)||shadowLastMs<=0||Date.now()-shadowLastMs>=SHADOW_REARM_MS;
+  if(!playbook.ready){t.shadowReadyLatch=null;t.shadowRecordId=null;}
+  if(shadowEligible&&t.shadowReadyLatch!==playbook.id&&shadowCooldownPassed){
+    const shadowEntry=last.close,shadowInvalid=finiteMetric(playbook.invalidation)??finiteMetric(setup.invalidation),shadowRawRisk=Math.abs(shadowEntry-shadowInvalid),shadowMinRisk=setup.atr5*.55,shadowMaxRisk=setup.atr5*1.85,shadowRisk=clamp(shadowRawRisk,shadowMinRisk,shadowMaxRisk),shadowStop=shadowEntry-dir*shadowRisk,shadowTarget=shadowEntry+dir*shadowRisk,preTier=testSignalTier(t,{reentry:false});
+    const shadowRec=shadowRecordCandidate(t,{entry:shadowEntry,stop:shadowStop,target:shadowTarget,tier:preTier.tier,rawScore:preTier.rawScore,adjustedScore:preTier.score});if(shadowRec)t.shadowLastByStrategy[playbook.id]=shadowRec.shadowAt;
+  }
+  const confirm=playbook.ready===true&&globalSafety&&learnedQualityScore>=TEST_SIGNAL_CONFIRM_SCORE;
   if(confirm){
     const entry=last.close,strategyInvalid=finiteMetric(playbook.invalidation)??finiteMetric(setup.invalidation),rawRisk=Math.abs(entry-strategyInvalid),minRisk=setup.atr5*.55,maxRisk=setup.atr5*1.85,risk=clamp(rawRisk,minRisk,maxRisk),stop=entry-dir*risk;
     const before=rows5.slice(-22,-2),breakoutLevel=dir>0?Math.max(...before.map(x=>x.high)):Math.min(...before.map(x=>x.low)),now=new Date().toISOString();
     t.status='CONFIRMED';t.statusLabel='進場確認';t.observationProgress=100;t.strategyAtConfirm={...playbook,progress:100,ready:true};t.confirmedAt=now;t.rankAtConfirm=Number(t.rank||0)||null;t.confirmationPrice=entry;t.stop=stop;t.target1R=entry+dir*risk;t.target15R=entry+dir*risk*1.5;t.riskPct=Number((risk/entry*100).toFixed(2));t.breakoutLevel=finiteMetric(playbook.breakoutLevel)??breakoutLevel;t.structureProtection=stop;
-    testSetState(t,score>=84?'STRONG':'CONFIRMED',score>=84?'強勢':'成立',now);t.monitorScore=score;t.lastMonitorBarTime=last.openTime;t.updatedAt=now;
+    testSetState(t,learnedQualityScore>=84?'STRONG':'CONFIRMED',learnedQualityScore>=84?'強勢':'成立',now);t.lastMonitorBarTime=last.openTime;t.updatedAt=now;
     const calibrated=testCalibratedWinRate(t,{dynamic:false});t.confirmedWinRate=calibrated.rate;t.winRateMetaAtConfirm=calibrated;
-    const tier=testSignalTier(t,{reentry:false});t.confirmNotificationTier=tier.tier;
-    if(!t.notificationSentAt){const delivery=await sendTestLifecyclePush(t,'CONFIRMED','', '',{tier:t.confirmNotificationTier,statusLabel:score>=84?'強勢':'成立'});if(delivery?.processed)t.notificationSentAt=new Date().toISOString()}
+    const tier=testSignalTier(t,{reentry:false});t.confirmNotificationTier=tier.tier;t.learningAdjustment=Number(tier.learningAdjustment||0);t.learningState=tier.learning||null;t.notificationScore=Number(tier.score||0);
+    if(!t.notificationSentAt){const delivery=await sendTestLifecyclePush(t,'CONFIRMED','', '',{tier:t.confirmNotificationTier,statusLabel:learnedQualityScore>=84?'強勢':'成立'});if(Number(delivery?.sent||0)>0)t.notificationSentAt=new Date().toISOString()}
   }
   return t;
 }
@@ -4833,7 +4907,7 @@ function publicTestTracker(t) {
   return {
     key:t.key,symbol:t.symbol,direction:t.direction,label:t.direction==='LONG'?'做多':'做空',rank:t.rank,rankAtConfirm:t.rankAtConfirm??null,rankHeat:Number(rankHeat.toFixed(0)),priorityScore:Number(priorityScore.toFixed(1)),status:t.status,statusLabel:testTrackerStatusLabel(t),
     monitorState:t.monitorState||'WATCHING',monitorLabel:testMonitorStateLabel(t.monitorState,t.status),monitorClass:testMonitorStateClass(t.monitorState,t.status),monitorScore:t.monitorScore??null,
-    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,score:tier.score,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,observationProgress:Number(t.observationProgress||0),strategyProfile:t.strategyProfile||null,strategyAtConfirm:t.strategyAtConfirm||null,
+    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,rawScore:tier.rawScore,score:tier.score,learningAdjustment:tier.learningAdjustment||0,learning:tier.learning||null,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,observationProgress:Number(t.observationProgress||0),strategyProfile:t.strategyProfile||null,strategyAtConfirm:t.strategyAtConfirm||null,
     calibratedWinRate:currentRate,confirmedWinRate:confirmedRate,currentWinRate:currentRate,winRateDelta:confirmedRate!=null&&currentRate!=null?Number((currentRate-confirmedRate).toFixed(1)):null,winRateMeta:dynamic?calibrated:(t.winRateMetaAtConfirm||calibrated),
     freshness,marketRegime:t.marketRegime||t.lastCheck?.marketRegime||null,realtime:realtimeSnapshot(t.symbol),lastEvaluatedAt:t.lastEvaluatedAt??null,lastEvaluatedBarAt:t.lastEvaluatedBarAt??null,lastEvaluationError:t.lastEvaluationError??null,lastEvaluationErrorAt:t.lastEvaluationErrorAt??null,priceUpdatedAt:markPriceUpdatedAt??null,
     eventAt,stateChangedAt:t.stateChangedAt??null,finishedAt:t.finishedAt??null,invalidatedAt:t.invalidatedAt??null,invalidReason:t.invalidReason??null,reactivateUntil:t.reactivateUntil??null,reactivatedAt:t.reactivatedAt??null,droppedAt:t.droppedAt??null,targetReachedAt:t.targetReachedAt??null,reentryStage:t.reentryStage??null,reentryStageAt:t.reentryStageAt??null,reentryZoneLow:t.reentryZoneLow??null,reentryZoneHigh:t.reentryZoneHigh??null,reentryZoneMid:t.reentryZoneMid??null,reentryInvalidation:t.reentryInvalidation??null,reentryConfirmAt:t.reentryConfirmAt??null,reentryEntryPrice:t.reentryEntryPrice??null,reentryStop:t.reentryStop??null,reentryTarget1R:t.reentryTarget1R??null,reentryScore:t.reentryScore??null,reentryReasons:t.reentryReasons||[],reentryResult:t.reentryResult??null,reentryResultAt:t.reentryResultAt??null,
@@ -5020,6 +5094,12 @@ app.get('/api/performance.csv', (_req,res)=>{
   const rows=signalPerformance.filter(x=>x?.version==='V10.0'),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');
   res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=signal-performance-v10-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
 });
+app.get('/api/shadow-performance.csv', (_req,res)=>{
+  const cols=['shadowAt','symbol','direction','strategyLabel','marketRegime','stateLabel','tierAtEntry','finalTier','notified','rawScore','learningAdjustmentAtEntry','adjustedScore','entryPrice','stop','target','status','result','resultAt','mfePct','maePct','realizedR','grossReturnPct','netReturnPct'];
+  const escCsv=v=>{if(v==null)return'';const x=String(v);return /[",\n\r]/.test(x)?`"${x.replace(/"/g,'""')}"`:x};
+  const rows=shadowPerformance.filter(x=>x?.version==='V10.2.2'),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');
+  res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=shadow-performance-v1022-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
+});
 app.post('/api/notification-received',(req,res)=>{const id=String(req.body?.id||'');if(!id)return res.status(400).json({ok:false});const found=performanceApplyNotificationAck('received',id,req.body?.at);res.json({ok:true,found});});
 app.post('/api/notification-click',(req,res)=>{const id=String(req.body?.id||'');if(!id)return res.status(400).json({ok:false});const found=performanceApplyNotificationAck('clicked',id,req.body?.at);res.json({ok:true,found});});
 app.get('/api/realtime', (_req,res)=>res.json({ok:true,generatedAt:new Date().toISOString(),...realtimeHealthSnapshot()}));
@@ -5030,10 +5110,11 @@ app.get('/api/self-test', async (req,res)=>{
   try{const tech=technicalSnapshot(Array.from({length:90},(_,i)=>({open:100+i*.08,high:100.3+i*.08,low:99.7+i*.08,close:100.1+i*.08,volume:1000+i,openTime:i*300000,closeTime:(i+1)*300000-1})));checks.push({name:'technical-indicators',ok:Number.isFinite(tech.rsi14)&&Number.isFinite(tech.atr14)&&Number.isFinite(tech.adx14)})}catch(e){checks.push({name:'technical-indicators',ok:false,error:String(e?.message||e)})}
   try{const u1=realtimeSocketUrl('public',['BTCUSDT']),u2=realtimeSocketUrl('market',['BTCUSDT']);checks.push({name:'websocket-url',ok:u1.includes('/public/stream?streams=')&&u1.includes('btcusdt@depth20@100ms')&&u2.includes('/market/stream?streams=')&&u2.includes('btcusdt@aggTrade')})}catch(e){checks.push({name:'websocket-url',ok:false,error:String(e?.message||e)})}
   try{const perf=performanceAggregate([{version:'V10.0',status:'RESOLVED',result:'WIN',realizedR:1,grossReturnPct:1,netReturnPct:.88,mfePct:1.2,maePct:.2,tier:'HIGH',direction:'LONG',marketRegime:'TREND_UP',symbol:'BTCUSDT',calibratedWinRate:65,signalToPushMs:2800,pushServiceMs:120,deliveryLatencyMs:430}],false);checks.push({name:'performance-ledger',ok:perf.sample===1&&perf.wins===1&&perf.hitRate===100})}catch(e){checks.push({name:'performance-ledger',ok:false,error:String(e?.message||e)})}
+  try{const adj=stateLearningAdjustmentFromStats({sample:100,hitRate:68,expectancyR:.25,profitFactor:1.8});checks.push({name:'state-learning-bounds',ok:adj>0&&adj<=STATE_LEARNING_MAX_BONUS,value:adj})}catch(e){checks.push({name:'state-learning-bounds',ok:false,error:String(e?.message||e)})}
   const liveRows=[];
   if(live){for(const symbol of ['BTCUSDT','ETHUSDT']){const started=Date.now();try{const [c,m,d,r,x]=await Promise.all([testFetchCandles(symbol,'5m',120),testFetchMicrostructure(symbol),testFetchDerivatives(symbol),testFetchRiskContext(symbol),testFetchCrossExchange(symbol).catch(()=>null)]);const source=testCandleSourceCache.get(`${symbol}:5m:120`);const ok=Array.isArray(c)&&c.length>=60&&m?._health?.depth===true&&(d?._health?.oi===true||d?._health?.taker===true)&&r?._health?.mark===true;const row={name:`live-${symbol}`,ok,elapsedMs:Date.now()-started,sources:{candles:source?.source||source||null,depth:m?._source?.depth||null,oi:d?._source?.oi||null,taker:d?._source?.taker||null,mark:r?._source?.mark||null,funding:r?._source?.funding||null,crossAvailable:x?.available??null}};checks.push(row);liveRows.push(row)}catch(e){const row={name:`live-${symbol}`,ok:false,elapsedMs:Date.now()-started,error:String(e?.message||e)};checks.push(row);liveRows.push(row)}}}
   const realtime=realtimeHealthSnapshot();
-  res.json({ok:checks.every(x=>x.ok),version:BUILD_VERSION,live,generatedAt:new Date().toISOString(),checks,liveRows,realtime,performance:{records:signalPerformance.filter(x=>x.version==='V10.0').length}});
+  res.json({ok:checks.every(x=>x.ok),version:BUILD_VERSION,live,generatedAt:new Date().toISOString(),checks,liveRows,realtime,performance:{records:signalPerformance.filter(x=>x.version==='V10.0').length,shadowRecords:shadowPerformance.filter(x=>x.version==='V10.2.2').length}});
 });
 
 app.get('/api/test-signals', async (req, res) => {
@@ -5456,12 +5537,13 @@ app.get('/healthz', (_req, res) => {
     mode: BUILD_VERSION,
     realtime: realtimeHealthSnapshot(),
     performanceRecords: signalPerformance.filter(x=>x.version==='V10.0').length,
+    shadowPerformanceRecords: shadowPerformance.filter(x=>x.version==='V10.2.2').length,
   });
 });
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
-    console.log(`Position Alert V10.1.4 SOLO MAX UI/STRENGTH HOTFIX started on ${PORT}`);
+    console.log(`Position Alert V10.2.2 SOLO MAX STATE LEARNING started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
     statsTimer = setTimeout(statsLoop, 8000);
@@ -5485,7 +5567,9 @@ process.on('SIGTERM', () => {
   if (testBarTimer) clearTimeout(testBarTimer);
   if (performanceTimer) clearInterval(performanceTimer);
   if (performanceSaveTimer) clearTimeout(performanceSaveTimer);
+  if (shadowPerformanceSaveTimer) clearTimeout(shadowPerformanceSaveTimer);
   saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance.slice(0,1200));
+  saveJson(SHADOW_PERFORMANCE_FILE,shadowPerformance.slice(0,SHADOW_MAX_RECORDS));
   stopRealtime();
   process.exit(0);
 });
@@ -5518,6 +5602,10 @@ export {
   testMonitorEvidence,
   performanceAggregate,
   performanceCalibration,
+  shadowStats,
+  stateLearningAdjustmentFromStats,
+  stateLearningAdjustment,
+  shadowPerformanceAggregate,
   realtimeSocketUrl,
   realtimeSnapshot,
   realtimeHealthSnapshot,
