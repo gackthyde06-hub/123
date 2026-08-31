@@ -1,0 +1,12 @@
+SYSTEM GROWTH v1.2.2 — Mobile Comfort Pass
+
+重點：
+- 手機字體再放大，正文約 13.5–14px，標題 16–21px，關鍵數值 24–52px。
+- 技能樹手機固定單欄，避免兩欄造成擁擠與小字。
+- 候選、模型日誌、研究手冊、情報檔案全部增加行距與卡片留白。
+- 提高灰字對比，長時間閱讀更舒服。
+- 增加按鈕/可展開區高度，減少誤觸。
+- 不修改 V10.2.7 交易、通知、Shadow Learning、State Learning 或 C Mode 邏輯。
+- cache key 更新為 sg122。
+
+上傳：解壓後將 package.json、prepare-ui.mjs、system-growth.js、system-growth.css 放到 GitHub 123 根目錄覆蓋。
