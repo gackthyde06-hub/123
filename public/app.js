@@ -48,7 +48,10 @@ function loadTestEntryPlans(){return loadObject(TEST_ENTRY_PLAN_PREF,{})}
 function saveTestEntryPlan(key,value){try{const all=loadTestEntryPlans();all[key]=value;localStorage.setItem(TEST_ENTRY_PLAN_PREF,JSON.stringify(all))}catch{}}
 function loadDismissedTestJudgements(){return loadObject(TEST_JUDGE_DISMISS_PREF,{})}
 function saveDismissedTestJudgements(v){try{localStorage.setItem(TEST_JUDGE_DISMISS_PREF,JSON.stringify(v||{}))}catch{}}
-function testJudgeEventMs(x){const raw=x?.eventAt||x?.stateChangedAt||x?.finishedAt||x?.notificationSentAt||x?.confirmedAt||x?.updatedAt;const ms=raw?Date.parse(raw):0;return Number.isFinite(ms)?ms:0}
+function testMonitorNoticeAt(x){return x?.lastEntryNotificationAt||x?.notificationSentAt||null}
+function testMonitorNoticeMs(x){const raw=testMonitorNoticeAt(x);const ms=raw?Date.parse(raw):0;return Number.isFinite(ms)?ms:0}
+function testMonitorNoticeTier(x){return String(x?.lastEntryNotificationTier||x?.confirmNotificationTier||x?.lastPushTier||'').toUpperCase()}
+function testJudgeEventMs(x){const notice=testMonitorNoticeMs(x);if(notice>0)return notice;const raw=x?.eventAt||x?.stateChangedAt||x?.finishedAt||x?.confirmedAt||x?.updatedAt;const ms=raw?Date.parse(raw):0;return Number.isFinite(ms)?ms:0}
 function isTestJudgementDismissed(x){if(!x?.key)return false;const v=Number(loadDismissedTestJudgements()[x.key]||0);return v>0&&testJudgeEventMs(x)<=v}
 function clearTestJudgementDismiss(key){if(!key)return;const all=loadDismissedTestJudgements();if(Object.prototype.hasOwnProperty.call(all,key)){delete all[key];saveDismissedTestJudgements(all)}}
 function dismissTestJudgement(key){if(!key)return;const x=testSignalByKey(key),all=loadDismissedTestJudgements();all[key]=Math.max(Date.now(),testJudgeEventMs(x));saveDismissedTestJudgements(all);testMonitorOpenKeys.delete(key);if(testFocusSymbol&&`${testFocusSymbol}:${testFocusDirection==='SHORT'?'SHORT':'LONG'}`===key){testFocusSymbol=null;testFocusDirection='LONG';try{history.replaceState(null,'',location.pathname)}catch{}}renderTestFocus()}
@@ -365,7 +368,7 @@ async function refresh(){
 
     lastStatus=s;
     const ok=s.healthy>0;
-    $('status').textContent=ok?`監控 ${s.healthy}/${s.total}`:'連線異常';
+    $('status').textContent=ok?`交易員 ${s.healthy}/${s.total}`:'連線異常';
     renderMaster();
     renderRadarCount(s);
     renderRateGuard(s);
@@ -566,6 +569,9 @@ function testInvalidReasonText(x){
 }
 function testTierLabel(x){return({HIGH:'高勝率',NORMAL:'普通',VALID:'有效',BLOCKED:'暫停'})[String(x?.notificationTier||'VALID').toUpperCase()]||'有效'}
 function testTierClass(x){return String(x?.notificationTier||'VALID').toLowerCase()}
+function testMonitorTierLabel(x){return({HIGH:'高勝率通知',NORMAL:'普通通知'})[testMonitorNoticeTier(x)]||'已通知'}
+function testMonitorTierClass(x){return testMonitorNoticeTier(x)==='HIGH'?'high':'normal'}
+function testMonitorExpiryText(x){const at=testMonitorNoticeMs(x),ttl=Number(testSignalsState?.monitor?.ttlMs||4*60*60*1000),explicit=x?.monitorExpiresAt?Date.parse(x.monitorExpiresAt):0,expires=Number.isFinite(explicit)&&explicit>0?explicit:at+ttl,left=Math.max(0,expires-Date.now());if(left<=0)return'已過期';const min=Math.ceil(left/60000);return min>=60?`約 ${Math.ceil(min/60)} 小時後到期`:`約 ${min} 分後到期`}
 function testNotifyGateText(x){const tier=String(x?.notificationTier||'VALID').toUpperCase(),g=x?.notificationGate||{},adj=Number(g.learningAdjustment||0),learn=adj?`｜狀態學習 ${adj>0?'+':''}${adj}`:'';if(tier==='HIGH')return`高勝率通知條件通過${learn}`;if(tier==='NORMAL')return`普通通知條件通過${learn}`;if(tier==='BLOCKED')return`暫停：${(g.blockers||[]).slice(0,3).join('、')||'風險條件未通過'}${learn}`;return`未達普通：${(g.normalMissing||[]).slice(0,3).join('、')||'等待更多同向條件'}${learn}`}
 function cacheRemainText(ms){const n=Number(ms);if(!Number.isFinite(n)||n<=0)return'即將更新';const m=Math.ceil(n/60000);if(m>=60)return`${Math.floor(m/60)}小時${m%60?`${m%60}分`:''}`;return`${m}分`}
 function testIsReachedWaiting(x){return !!x?.targetReachedAt&&!['TOUCHING','READY'].includes(String(x?.reentryStage||''))}
@@ -624,21 +630,24 @@ function updateTestPlanner(box){
 }
 function bindTestPlanners(root=document){root.querySelectorAll?.('[data-test-planner]').forEach(box=>{updateTestPlanner(box);box.querySelectorAll('[data-plan-field]').forEach(inp=>inp.addEventListener('input',()=>updateTestPlanner(box)));box.querySelectorAll('[data-plan-use]').forEach(btn=>btn.addEventListener('click',()=>{const x=testSignalByKey(box.dataset.testPlanner),inp=box.querySelector('[data-plan-field="entry"]');if(!x||!inp)return;const kind=btn.dataset.planUse;let v=null;if(kind==='current')v=Number(x.currentPrice);else if(kind==='notify')v=testNotifyPoint(x);else v=testSuggestedPoint(x);if(Number.isFinite(v)&&v>0){inp.value=v;updateTestPlanner(box)}}))})}
 
+function testMonitorExpired(x){
+  const at=testMonitorNoticeMs(x);if(!(at>0))return true;
+  const ttl=Number(testSignalsState?.monitor?.ttlMs||4*60*60*1000),explicit=x?.monitorExpiresAt?Date.parse(x.monitorExpiresAt):0,expires=Number.isFinite(explicit)&&explicit>0?explicit:at+ttl;
+  return Date.now()>=expires;
+}
 function testIsMonitorQualified(x){
-  const tier=String(x?.notificationTier||'').toUpperCase();
-  return Boolean(x?.notificationSentAt)&&['HIGH','NORMAL'].includes(tier);
+  const tier=testMonitorNoticeTier(x);
+  return testMonitorNoticeMs(x)>0&&['HIGH','NORMAL'].includes(tier)&&!testMonitorExpired(x);
 }
 function testMonitorCandidates(){
   if(!testSignalsState)return[];
   const rows=testSignalsState.rows||[],picked=new Map();
-  rows.forEach(x=>{if(testIsMonitorQualified(x)&&['CONFIRMED','WIN','LOSS','TIMEOUT','INVALID'].includes(x.status)&&!testIsReachedWaiting(x)&&!isTestJudgementDismissed(x))picked.set(x.key,x)});
-  if(testFocusSymbol){const x=rows.find(r=>r.symbol===testFocusSymbol&&(!testFocusDirection||r.direction===testFocusDirection))||rows.find(r=>r.symbol===testFocusSymbol);if(x&&testIsMonitorQualified(x)&&!testIsReachedWaiting(x)){clearTestJudgementDismiss(x.key);picked.set(x.key,x)}}
-  return [...picked.values()].sort((a,b)=>{const fa=testFreshnessState(a)==='STALE'?1:0,fb=testFreshnessState(b)==='STALE'?1:0;if(fa!==fb)return fa-fb;return Number(b.priorityScore||0)-Number(a.priorityScore||0)||testEffectiveWinRate(b)-testEffectiveWinRate(a)||(a.rank||99)-(b.rank||99)});
+  // 只要曾經真正送出 HIGH / NORMAL，就保留在獨立系統監控佇列；目前變 BLOCKED、失效、達標都不會自己消失。
+  rows.forEach(x=>{if(testIsMonitorQualified(x)&&!isTestJudgementDismissed(x))picked.set(x.key,x)});
+  if(testFocusSymbol){const x=rows.find(r=>r.symbol===testFocusSymbol&&(!testFocusDirection||r.direction===testFocusDirection))||rows.find(r=>r.symbol===testFocusSymbol);if(x&&testIsMonitorQualified(x)){clearTestJudgementDismiss(x.key);picked.set(x.key,x)}}
+  return [...picked.values()].sort((a,b)=>testMonitorNoticeMs(b)-testMonitorNoticeMs(a)||Number(b.priorityScore||0)-Number(a.priorityScore||0));
 }
-function testReachedCandidates(){
-  if(!testSignalsState)return[];
-  return (testSignalsState.rows||[]).filter(x=>testIsMonitorQualified(x)&&x.targetReachedAt&&testIsReachedWaiting(x)).sort((a,b)=>new Date(b.targetReachedAt||0)-new Date(a.targetReachedAt||0));
-}
+function testReachedCandidates(){return[]}
 function testTrendWord(v){return Number(v)>0?'偏多':Number(v)<0?'偏空':'中性'}
 function testBoolWord(v,good='支持',bad='不支持'){return v===true?good:v===false?bad:'—'}
 function renderTestCrossDetail(x){
@@ -698,8 +707,8 @@ function renderMonitorJudgeCard(x,i,focusKey,reLiveText){
     <summary>
       <div class="judgeLead">
         <div class="judgeTitleRow"><span class="testMonitorIndex">${i+1}.</span>${tvAnchor(x.symbol,'testMonitorSymbol tvNameLink')}<span class="testMonitorRankTag">${rankNow?`排名 ${rankNow}`:'排名 —'}</span>${freshTag}</div>
-        <div class="judgeBadgeRow">${testTrendTag(x)}<span class="testMonitorDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testTierClass(x)}">${esc(testTierLabel(x))}</span><span class="testMonitorState">${stateLabel}</span>${invalidWindow?`<span class="testMonitorRecover">${esc(invalidWindow)}</span>`:''}</div>
-        <div class="judgeTimeRow"><span>成立 ${signalTime}</span><b>更新 ${evalTime}</b></div>
+        <div class="judgeBadgeRow">${testTrendTag(x)}<span class="testMonitorDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testMonitorTierClass(x)}">${esc(testMonitorTierLabel(x))}</span><span class="testMonitorState">${stateLabel}</span>${invalidWindow?`<span class="testMonitorRecover">${esc(invalidWindow)}</span>`:''}</div>
+        <div class="judgeTimeRow"><span>通知 ${localTime(testMonitorNoticeAt(x))||signalTime} · ${esc(testMonitorExpiryText(x))}</span><b>更新 ${evalTime}</b></div>
       </div>
       <div class="judgePriceStrip"><div><span>通知點位</span><b>${hasNum(notifyPoint)?price(notifyPoint):'—'}</b></div><div><span>當下點位</span><b>${hasNum(currentPoint)?price(currentPoint):'—'}</b><small>${stale?'現價仍更新':'即時價'}</small></div><div><span>建議進場</span><b>${hasNum(suggestedMid)?price(suggestedMid):stale?'暫停':'—'}</b><small>${stale?'等判讀恢復':esc(preferred)}</small></div></div>
       <div class="testMonitorSummaryScore"><b>${winText}</b><span>${stale?'資料過期':'目前勝率'}</span><small>成立 ${confirmedRate}${delta?` · ${delta}`:''}</small></div>
@@ -743,20 +752,28 @@ function renderReachedPool(rows){
   const items=rows.map(x=>{const stale=testIsStale(x),win=testEffectiveWinRate(x),re=x.reentryStage==='WAIT_PULLBACK'?'等二次回踩':x.reentryStage==='WIN'?'二進達標':x.reentryStage==='FAILED'?'二進失效':'達標',zone=hasNum(x.reentryZoneLow)&&hasNum(x.reentryZoneHigh)?`${price(x.reentryZoneLow)}～${price(x.reentryZoneHigh)}`:'尚未形成';return `<div class="reachedRow ${stale?'dataStale':''}"><div><b>${tvAnchor(x.symbol,'tvNameLink reachedSymbol')}</b><span>排名 ${Number(x.rank||0)||'—'} · 達標 ${localTime(x.targetReachedAt)} · 更新 ${testLastEvalTime(x)} · ${re}</span></div><div><strong>${stale?'—':win>=0?win.toFixed(1)+'%':'—'}</strong><small>${stale?'資料過期':'二踩 '+zone}</small></div></div>`}).join('');
   return `<details class="reachedPool" data-persist-detail="monitorReachedPool" ${detailOpenAttr('monitorReachedPool')}><summary><span>達標池</span><b>${rows.length}</b><small>預設收起 · 出現二次回踩/二次確認會自動回到上方並通知</small></summary><div class="reachedList">${items}</div></details>`;
 }
+function monitorHistoryResultLabel(x){if(x?.status==='ACTIVE')return'追蹤中';if(x?.result==='WIN')return'1R達標';if(x?.result==='LOSS')return'失效';if(x?.result==='TIMEOUT')return'逾時';return x?.status||'已記錄'}
+function monitorHistoryResultClass(x){return x?.result==='WIN'?'win':x?.result==='LOSS'?'loss':x?.status==='ACTIVE'?'active':'timeout'}
+function renderMonitorHistory(rows){
+  const list=(rows||[]).slice(0,40);if(!list.length)return'';
+  const items=list.map(x=>`<div class="monitorHistoryRow"><div class="monitorHistoryMain"><div>${tvAnchor(x.symbol,'tvNameLink monitorHistorySymbol')}<span class="testMonitorDir ${x.direction==='SHORT'?'short':'long'}">${x.direction==='SHORT'?'做空':'做多'}</span><span class="testTierTag ${String(x.tier||'NORMAL').toLowerCase()}">${esc(x.tier==='HIGH'?'高勝率':'普通')}</span></div><span>${perfDateTime(x.notificationAt)} · ${esc(x.strategyLabel||'未分類')}${x.phase==='REENTRY'?' · 二次進場':''}</span></div><div class="monitorHistoryResult ${monitorHistoryResultClass(x)}"><b>${esc(monitorHistoryResultLabel(x))}</b><span>${hasNum(x.entryPrice)?price(x.entryPrice):'—'} → ${x.status==='ACTIVE'?'追蹤中':hasNum(x.result==='WIN'?x.target:x.stop)?price(x.result==='WIN'?x.target:x.stop):'—'}</span></div></div>`).join('');
+  return `<details class="monitorHistoryPool" data-persist-detail="monitorNoticeHistory" ${detailOpenAttr('monitorNoticeHistory')}><summary><span>通知歷史</span><b>${list.length}</b><small>真正送達過的進場通知 · 不與交易員雷達共用格子</small></summary><div class="monitorHistoryList">${items}</div></details>`;
+}
 function renderTestFocus(){
   const panel=$('testFocusPanel');if(!panel)return;
-  if(!testSignalsState){if(testFocusSymbol){panel.classList.add('show');panel.innerHTML='<div class="testMonitorTitle">已通知監控</div><div class="testMonitorSub">載入訊號中…</div>'}else{panel.classList.remove('show');panel.innerHTML=''}return}
-  let rows=testMonitorCandidates(),reached=testReachedCandidates();
+  if(!testSignalsState){if(testFocusSymbol){panel.classList.add('show');panel.innerHTML='<div class="testMonitorTitle">系統訊號監控</div><div class="testMonitorSub">載入訊號中…</div>'}else{panel.classList.remove('show');panel.innerHTML=''}return}
+  let rows=testMonitorCandidates();const history=testSignalsState?.monitorHistory||[];
   const reLive=testSignalsState?.liveStats?.reentry||{},reLiveText=hasNum(reLive.hitRate)?`${Number(reLive.hitRate).toFixed(1)}% / ${Number(reLive.sample||0)}`:`— / ${Number(reLive.sample||0)}`;
-  if(!rows.length&&!reached.length){panel.classList.remove('show');panel.innerHTML='';return}
+  if(!rows.length&&!history.length){panel.classList.remove('show');panel.innerHTML='';return}
   const focusKey=testFocusSymbol?`${testFocusSymbol}:${testFocusDirection==='SHORT'?'SHORT':'LONG'}`:'';
   if(focusKey){const ix=rows.findIndex(x=>x.key===focusKey);if(ix>0){const [f]=rows.splice(ix,1);rows.unshift(f)}}
   if(rows.length===1&&!testMonitorOpenKeys.size)testMonitorOpenKeys.add(rows[0].key);if(focusKey)testMonitorOpenKeys.add(focusKey);
-  const top=rows.slice(0,3),more=rows.slice(3),topCards=top.map((x,i)=>renderMonitorJudgeCard(x,i,focusKey,reLiveText)).join(''),moreCards=more.map((x,i)=>renderMonitorJudgeCard(x,i+3,focusKey,reLiveText)).join('');
-  const moreHtml=more.length?`<details class="moreMonitorPool" data-persist-detail="monitorMorePool" ${detailOpenAttr('monitorMorePool')}><summary>更多監控 <b>+${more.length}</b></summary><div class="testMonitorList more">${moreCards}</div></details>`:'';
+  const visible=rows.slice(0,6),more=rows.slice(6),cards=visible.map((x,i)=>renderMonitorJudgeCard(x,i,focusKey,reLiveText)).join(''),moreCards=more.map((x,i)=>renderMonitorJudgeCard(x,i+6,focusKey,reLiveText)).join('');
+  const moreHtml=more.length?`<details class="moreMonitorPool" data-persist-detail="monitorMorePool" ${detailOpenAttr('monitorMorePool')}><summary>更多系統訊號 <b>+${more.length}</b></summary><div class="testMonitorList more">${moreCards}</div></details>`:'';
+  const ttlMin=Number(testSignalsState?.monitor?.ttlMinutes||240),ttlText=ttlMin>=60?`${Math.round(ttlMin/60)} 小時`:`${ttlMin} 分鐘`;
   panel.classList.add('show');
-  panel.innerHTML=`<div class="testMonitorHeader"><div class="testMonitorHeadLeft"><div class="testMonitorTitle">已通知監控</div><div class="testMonitorSub">只顯示已成功通知的普通／高勝率機會 · 前 3 筆＝勝率＋品質優先 · WebSocket 現價約 1 秒 · 深度約 100ms</div></div><div class="testMonitorControls"><button type="button" data-test-expand-all>全部展開</button><button type="button" data-test-collapse-all>全部縮小</button></div></div><div class="testMonitorList">${topCards}</div>${moreHtml}${renderReachedPool(reached)}`;
-  bindTestJudgementDetails();
+  panel.innerHTML=`<div class="testMonitorHeader"><div class="testMonitorHeadLeft"><div class="testMonitorTitle">系統訊號監控 <small>${rows.length?`${rows.length} 筆`:'目前 0 筆'}</small></div><div class="testMonitorSub">真正送達的普通／高勝率通知使用獨立佇列，不占用下方交易員雷達。通知後即使轉弱、失效或達標，期限內不會因重新評分消失；以手動 × 移除為主，${ttlText}後才自動過期。</div></div><div class="testMonitorControls"><button type="button" data-test-expand-all>全部展開</button><button type="button" data-test-collapse-all>全部縮小</button></div></div>${rows.length?`<div class="testMonitorList">${cards}</div>${moreHtml}`:'<div class="testMonitorEmpty">目前沒有仍在期限內的系統通知。</div>'}${renderMonitorHistory(history)}`;
+  bindTestJudgementDetails();bindPersistentDetails(panel);
 }
 function goTestSignalToMonitor(symbol,direction){const dir=direction==='SHORT'?'SHORT':'LONG',x=(testSignalsState?.rows||[]).find(r=>r.symbol===symbol&&r.direction===dir);if(!testIsMonitorQualified(x))return;testFocusSymbol=symbol;testFocusDirection=dir;clearTestJudgementDismiss(`${symbol}:${testFocusDirection}`);testMonitorOpenKeys.add(`${symbol}:${testFocusDirection}`);try{history.replaceState(null,'',`${location.pathname}?page=monitor&testSignal=${encodeURIComponent(symbol)}&dir=${testFocusDirection}`)}catch{}setPage('monitor');renderTestFocus();window.scrollTo({top:0,behavior:'smooth'})}
 
@@ -800,7 +817,7 @@ function perfBreakHtml(rows){if(!rows?.length)return'<div class="perfEmpty">樣�
 function perfMs(v){if(!hasNum(v))return'—';const n=Number(v);return n<1000?`${Math.round(n)} ms`:`${(n/1000).toFixed(n<10000?2:1)} 秒`}
 function perfCalibrationHtml(cal){if(!cal?.sample)return'<div class="perfEmpty">至少需要已結算通知後才開始校準</div>';const rows=(cal.bins||[]).map(x=>`<div class="perfCalRow"><b>${esc(x.key)}</b><span>${Number(x.sample||0)}筆</span><span>預測 ${Number(x.predicted||0).toFixed(1)}%</span><span class="${Number(x.gapPct||0)>=0?'goodText':'badText'}">實際 ${Number(x.actual||0).toFixed(1)}%</span></div>`).join('');return `<div class="perfOpsGrid"><div><span>校準樣本</span><b>${Number(cal.sample||0)}</b></div><div><span>預測平均</span><b>${hasNum(cal.meanPredicted)?Number(cal.meanPredicted).toFixed(1)+'%':'—'}</b></div><div><span>實際達標</span><b>${hasNum(cal.actualHitRate)?Number(cal.actualHitRate).toFixed(1)+'%':'—'}</b></div><div><span>校準誤差</span><b>${hasNum(cal.calibrationMaePct)?Number(cal.calibrationMaePct).toFixed(1)+'pt':'—'}</b></div><div><span>Brier</span><b>${hasNum(cal.brierScore)?Number(cal.brierScore).toFixed(4):'—'}</b></div><div><span>實際−預測</span><b>${hasNum(cal.gapPct)?`${Number(cal.gapPct)>0?'+':''}${Number(cal.gapPct).toFixed(1)}pt`:'—'}</b></div></div>${rows?`<div class="perfCalRows">${rows}</div>`:''}`}
 
-function perfShadowSummaryHtml(s){if(!s)return'<div class="perfEmpty">影子樣本開始累積後顯示</div>';return `<div class="perfOpsGrid"><div><span>影子樣本</span><b>${Number(s.sample||0)}</b></div><div><span>已結算</span><b>${Number(s.resolved||0)}</b></div><div><span>1R達標率</span><b>${hasNum(s.hitRate)?Number(s.hitRate).toFixed(1)+'%':'—'}</b></div><div><span>影子 PF</span><b>${hasNum(s.profitFactor)?Number(s.profitFactor).toFixed(2):'—'}</b></div><div><span>被擋樣本</span><b>${Number(s.blockedSample||0)}</b></div><div><span>被擋但達1R</span><b>${hasNum(s.blockedHitRate)?Number(s.blockedHitRate).toFixed(1)+'%':'—'}</b></div></div>`}
+function perfShadowSummaryHtml(s){if(!s)return'<div class="perfEmpty">影子樣本開始累積後顯示</div>';return `<div class="perfOpsGrid"><div><span>影子樣本</span><b>${Number(s.sample||0)}</b></div><div><span>已結算</span><b>${Number(s.resolved||0)}</b></div><div><span>1R達標率</span><b>${hasNum(s.hitRate)?Number(s.hitRate).toFixed(1)+'%':'—'}</b></div><div><span>影子 PF</span><b>${hasNum(s.profitFactor)?Number(s.profitFactor).toFixed(2):'—'}</b></div><div><span>可學習結算</span><b>${Number(s.learningEligibleResolved||0)}</b></div><div><span>去重有效樣本</span><b>${Number(s.learningEffectiveResolved||0)}</b><small>${Number(s.learningDedupMinutes||45)}分去相關</small></div><div><span>被擋樣本</span><b>${Number(s.blockedSample||0)}</b></div><div><span>被擋但達1R</span><b>${hasNum(s.blockedHitRate)?Number(s.blockedHitRate).toFixed(1)+'%':'—'}</b></div></div>`}
 function perfLearningHtml(l){const rows=l?.patterns||[];if(!rows.length)return`<div class="perfEmpty">影子樣本累積中；至少 ${Number(l?.minSample||20)} 筆同模式後才開始自動加減分</div>`;return rows.slice(0,14).map(x=>{const a=Number(x.adjustment||0),f=x.features||{},dir=f.direction==='LONG'?'多':'空',reg=({TREND_UP:'強多',TREND_DOWN:'強空',CHOP:'震盪',HIGH_VOL:'高波動',LIQUIDATION:'清算'})[f.regime]||f.regime||'—';return `<div class="perfLearnRow"><div><b>${esc(f.strategyLabel||'未分類')} · ${esc(reg)} · ${dir}</b><small>OI ${esc(f.oi||'—')} · Taker ${esc(f.taker||'—')} · Depth ${esc(f.depth||'—')}</small></div><span>${Number(x.sample||0)}筆</span><span>${hasNum(x.hitRate)?Number(x.hitRate).toFixed(1)+'%':'—'}</span><span>PF ${hasNum(x.profitFactor)?Number(x.profitFactor).toFixed(2):'—'}</span><strong class="${a>0?'goodText':a<0?'badText':''}">${a>0?'+':''}${a}</strong></div>`}).join('')}
 function renderPerformance(d){
   if(!d?.ok)return;performanceState=d;performanceFetchedAt=Date.now();const sum=d.summary||{},records=d.records||d.recent||[],cfg=loadPerfSim(),sim=perfSimStats(records,cfg,sum),pnlClass=sim.total>0?'good':sim.total<0?'bad':'';
