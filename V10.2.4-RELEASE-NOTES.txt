@@ -1,0 +1,37 @@
+V10.2.4 MONITOR QUEUE + SHADOW AUDIT
+
+1. Independent system notification monitor
+- Genuine successfully delivered HIGH / NORMAL entry notifications now enter an independent system-monitor queue.
+- This queue does NOT consume or overlap the three trader-radar cards.
+- A notified signal is force-included in the API response during its monitor TTL even if it falls out of the observation top-24 list.
+
+2. Notification cards no longer disappear after reclassification
+- Monitor qualification now uses the tier and timestamp of the ACTUAL delivered entry notification, not the signal's current recalculated tier.
+- A card therefore remains visible if the signal later becomes BLOCKED, INVALID, WIN or LOSS.
+- Default monitor TTL is 240 minutes (same as the performance tracking horizon; configurable with SYSTEM_MONITOR_TTL_MS, 1-12 hours).
+- During the TTL, manual X dismissal is the primary removal method. Expired cards are removed automatically.
+- After manual dismissal, later state changes do not reopen the same old notification. Only a genuinely new entry notification can create a new monitor event.
+
+3. Expandable notification history
+- Monitor page now contains an expandable 通知歷史 section sourced from the precise notification-performance ledger.
+- It shows prior real entry notifications, direction, tier, strategy, entry time and current/result state.
+- Historical notifications remain separate from the live trader radar.
+
+4. Trader radar / system monitor terminology separated
+- The old 雷達 heading is now 交易員雷達.
+- The top health label is 交易員 3/3 instead of 監控 3/3, reducing ambiguity with system-signal monitoring.
+
+5. Shadow-learning sample independence hardened
+- Only one ACTIVE shadow record is allowed at a time for the same symbol + direction + strategy.
+- Shadow re-arm default increased to 30 minutes.
+- State-learning weight calculation de-correlates repeated samples from the same symbol/state within 45 minutes.
+- Raw shadow records are still retained for research/audit; only the effective de-correlated sample set drives learning weights.
+- This prevents one trending episode or repeated scan from dominating future notification scores.
+
+6. Shadow CSV audit fields expanded
+- New export columns: learningEligible, shadowProgress, blockReasons, stateKeyCore, stateKeyBroad.
+- Performance UI now distinguishes raw shadow samples from learning-eligible / de-correlated effective samples.
+
+7. Notification thresholds were NOT loosened in this release.
+- The supplied 2026-08-31 shadow sample is still too small for a defensible threshold change.
+- V10.2.4 improves monitor persistence and statistical independence first.

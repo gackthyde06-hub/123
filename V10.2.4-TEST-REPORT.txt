@@ -1,0 +1,33 @@
+V10.2.4 TEST REPORT
+
+PASS: node --check server.js
+PASS: node --check public/app.js
+PASS: node --check public/sw.js
+PASS: BUILD_VERSION is V10.2.4
+PASS: package version is 10.2.4
+PASS: actual-entry notification identity fields exist
+PASS: monitor TTL / historical-notification qualification exists
+PASS: genuinely notified signals are force-included beyond observation top-24 during TTL
+PASS: monitor history API and UI exist
+PASS: manual-dismiss event identity prioritizes actual entry-notification timestamp
+PASS: trader radar and system notification monitor are separated in UI wording
+PASS: one-active-shadow-per symbol/direction/strategy guard exists
+PASS: shadow re-arm default is 30 minutes
+PASS: state-learning de-correlation default is 45 minutes
+PASS: shadow CSV contains new audit columns
+PASS: duplicate HTML id check: 0 duplicates (125 unique IDs)
+PASS: app cache-bust is v=1024
+PASS: no TEST_PUBLIC_KEY / TEST_PRIVATE_KEY in server.js
+PASS: release packages do not include vapid.json
+
+LATEST USER-SUPPLIED DATA AUDIT (2026-08-31)
+- Precise notification ledger: 1 actual NORMAL entry notification, SOMIUSDT LONG; resolved LOSS, realized -1R.
+- Shadow CSV: 52 raw samples; 37 resolved / 15 active; 17 wins / 20 losses among resolved (45.9% 1R hit, PF 0.85 using +/-1R outcomes).
+- Resolved BLOCKED: 28 samples, 15 wins / 13 losses (53.6%, PF 1.15).
+- Resolved VALID: 9 samples, 2 wins / 7 losses (22.2%, PF 0.29).
+- Audit found correlated duplicate active samples, especially UAIUSDT LONG / 順勢回踩 (9 simultaneous active records). V10.2.4 adds active-episode protection and learning de-correlation to prevent this from distorting weights.
+- Sample is too small and correlated to justify loosening HIGH/NORMAL thresholds.
+
+NOT RUN / REQUIRES DEPLOYMENT
+- npm unit test suite was not re-run because project dependencies are not available in this container and dependency installation timed out. No claim is made that the unit suite passed.
+- Railway live healthcheck, Binance live feeds, Web Push delivery and iPhone behavior require deployment verification.
