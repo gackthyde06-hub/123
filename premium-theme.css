@@ -198,3 +198,127 @@ button:active{transform:none!important}
   .pageTab{font-size:12px!important}
   .testMonitorSummaryScore b{font-size:20px!important}
 }
+
+
+/* PREMIUM INTEGRATION v1.7.0 — softer FFXIV-inspired HUD / hotbar language
+   Reference direction: FFXIV HUD layout / hotbar customization from the Lodestone UI Guide,
+   using a cleaner command-panel feel, softer frames, rounded translucent panels, and calmer status bars. */
+:root{
+  --ui-ffxiv-panel:rgba(13,18,24,.92);
+  --ui-ffxiv-panel-2:rgba(11,15,20,.96);
+  --ui-ffxiv-line:rgba(173,188,208,.14);
+  --ui-ffxiv-bevel:rgba(245,248,255,.045);
+  --ui-ffxiv-gold:rgba(216,176,98,.42);
+  --ui-ffxiv-blue:rgba(143,174,223,.20);
+}
+body{
+  background:
+    radial-gradient(circle at 12% -8%,rgba(214,177,104,.07),transparent 28%),
+    radial-gradient(circle at 96% 10%,rgba(126,159,210,.06),transparent 24%),
+    linear-gradient(180deg,#080a0d 0%,#0b0f14 52%,#080a0c 100%)!important;
+}
+.brandTitle{letter-spacing:.02em!important;text-shadow:0 0 14px rgba(216,176,98,.08)!important}
+.pageTabs{
+  border-top:1px solid rgba(255,255,255,.035)!important;
+  border-bottom:1px solid rgba(255,255,255,.05)!important;
+  background:linear-gradient(180deg,rgba(10,13,17,.98),rgba(9,12,16,.92))!important;
+  box-shadow:0 10px 22px rgba(0,0,0,.10)!important;
+}
+.pageTab{
+  border-radius:14px!important;
+  min-height:52px!important;
+  color:#9ca7b7!important;
+}
+.pageTab::before{
+  border-radius:14px!important;
+  border-color:transparent!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0))!important;
+}
+.pageTab::after{
+  left:24%!important;right:24%!important;bottom:6px!important;height:1.5px!important;
+  background:transparent!important;box-shadow:none!important
+}
+.pageTab.active{
+  color:#f0ddba!important;
+  background:
+    linear-gradient(180deg,rgba(22,27,33,.96),rgba(14,18,23,.94))!important;
+}
+.pageTab.active::before{
+  border-color:rgba(214,177,104,.18)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03), inset 0 0 0 1px rgba(142,169,214,.06)!important;
+}
+.pageTab.active::after{
+  background:linear-gradient(90deg,transparent,rgba(214,177,104,.85),rgba(165,191,233,.9),transparent)!important;
+}
+
+.latest,.consensusPanel,.tradeCalc,.bottomMaster,.traderCard,.flowHero,.marketRow,.recCard,.todayHero,.biasCard,.biasListPanel,.matrixCell,.matrixCoin,.rankCard,.testFocusPanel,.testMonitorItem,.testCard,.testSummaryCell,.judgeCoreCell,.judgeStrategy,.judgeMore,.testPlannerFold,.testCardMore,.moreMonitorPool,.reachedPool,.autoLevels,.levelCell,.calcCell,.testMetric,.testLevels{
+  border:1px solid var(--ui-ffxiv-line)!important;
+  border-radius:22px!important;
+  background:
+    linear-gradient(180deg,var(--ui-ffxiv-panel),var(--ui-ffxiv-panel-2))!important;
+  box-shadow:
+    inset 0 1px 0 var(--ui-ffxiv-bevel),
+    inset 0 0 0 1px rgba(255,255,255,.012),
+    0 10px 24px rgba(0,0,0,.12)!important;
+}
+.latest::before,.consensusPanel::before,.tradeCalc::before,.bottomMaster::before,.traderCard::before,.flowHero::before,.marketRow::before,.recCard::before,.todayHero::before,.biasCard::before,.biasListPanel::before,.matrixCell::before,.matrixCoin::before,.rankCard::before,.testFocusPanel::before,.testMonitorItem::before,.testCard::before,.testSummaryCell::before,.judgeCoreCell::before,.judgeStrategy::before,.judgeMore::before,.testPlannerFold::before,.testCardMore::before,.moreMonitorPool::before,.reachedPool::before,.autoLevels::before,.levelCell::before,.calcCell::before,.testMetric::before,.testLevels::before{
+  left:18px!important;right:18px!important;height:1px!important;
+  background:linear-gradient(90deg,transparent,rgba(172,189,214,.18),rgba(216,176,98,.16),transparent)!important;
+}
+.latest::after,.consensusPanel::after,.tradeCalc::after,.bottomMaster::after,.traderCard::after,.flowHero::after,.marketRow::after,.recCard::after,.todayHero::after,.biasCard::after,.biasListPanel::after,.matrixCell::after,.matrixCoin::after,.rankCard::after,.testFocusPanel::after,.testMonitorItem::after,.testCard::after,.testSummaryCell::after,.judgeCoreCell::after,.judgeStrategy::after,.judgeMore::after,.testPlannerFold::after,.testCardMore::after,.moreMonitorPool::after,.reachedPool::after,.autoLevels::after,.levelCell::after,.calcCell::after,.testMetric::after,.testLevels::after{
+  border-radius:inherit!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.01)!important;
+}
+
+.todayHero,.recCard,.flowHero,.testFocusPanel{
+  background:
+    radial-gradient(circle at 84% 14%,rgba(121,153,206,.085),transparent 31%),
+    linear-gradient(180deg,rgba(19,24,31,.97),rgba(11,15,20,.98))!important;
+}
+.testFocusPanel{border-radius:24px!important}
+.testMonitorItem{
+  border-radius:20px!important;
+  background:linear-gradient(180deg,rgba(18,23,29,.98),rgba(12,16,21,.98))!important;
+}
+.testMonitorItem.focused{
+  border-color:rgba(216,176,98,.26)!important;
+  box-shadow:inset 3px 0 0 rgba(216,176,98,.22),0 14px 28px rgba(0,0,0,.14)!important;
+}
+
+.testMonitorControls button,.testActions button,.testFocusActions button,.tradeCalc>summary,.moreMonitorPool>summary,.reachedPool>summary,
+.tvMini,.intakeBtn,.actionBtn,.openBtn,.calcBtn{
+  border-radius:14px!important;
+  border:1px solid rgba(170,188,215,.18)!important;
+  background:linear-gradient(180deg,rgba(24,30,37,.98),rgba(15,20,25,.98))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 4px 10px rgba(0,0,0,.08)!important;
+}
+.testMonitorControls button:hover,.testActions button:hover,.testFocusActions button:hover,.tvMini:hover,.intakeBtn:hover,.actionBtn:hover,.openBtn:hover,.calcBtn:hover{
+  border-color:rgba(216,176,98,.30)!important;
+  color:#fff0cc!important;
+}
+
+.dirBadge,.levelBadge,.statusBadge,.confidenceBadge,.customTag,.signalBadge,.qualBadge,.dataBadge,.testDir,.testTrendTag,.testTierTag,.testMonitorDir,.testMonitorRankTag,.testMonitorRecover,.testMonitorState,.testMonitorEventTime{
+  border-radius:999px!important;
+  padding:5px 9px!important;
+  border:1px solid rgba(161,181,207,.18)!important;
+  background:linear-gradient(180deg,rgba(22,27,33,.94),rgba(14,18,23,.96))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important;
+}
+.testMonitorDir.long,.dirBadge.long{border-color:rgba(214,123,123,.26)!important;background:linear-gradient(180deg,rgba(38,20,22,.96),rgba(24,14,15,.98))!important}
+.testMonitorDir.short,.dirBadge.short{border-color:rgba(107,181,138,.26)!important;background:linear-gradient(180deg,rgba(17,33,25,.96),rgba(13,21,17,.98))!important}
+.statusBadge.high,.signalBadge.high,.qualBadge.high{border-color:rgba(216,176,98,.34)!important;background:linear-gradient(180deg,rgba(37,31,20,.97),rgba(23,19,13,.99))!important;color:#efd084!important}
+
+.testMonitorSummaryScore b,.testSummaryCell b,.todayScore,.flowConfidence,.rankWin b,.recScore b{
+  text-shadow:none!important;
+}
+.sectionTitle,.testMonitorTitle,.todayHeroTitle,.flowHeroTitle,.recSymbol,.rankSymbol,.testMonitorSymbol{
+  text-shadow:0 0 10px rgba(255,255,255,.02)!important;
+}
+
+@media(max-width:520px){
+  .pageTabs{padding-top:8px!important;padding-bottom:10px!important}
+  .pageTab{min-height:50px!important}
+  .latest,.consensusPanel,.tradeCalc,.bottomMaster,.traderCard,.flowHero,.marketRow,.recCard,.todayHero,.biasCard,.biasListPanel,.matrixCell,.matrixCoin,.rankCard,.testFocusPanel,.testMonitorItem,.testCard,.testSummaryCell,.judgeCoreCell,.judgeStrategy,.judgeMore,.testPlannerFold,.testCardMore,.moreMonitorPool,.reachedPool,.autoLevels,.levelCell,.calcCell,.testMetric,.testLevels{border-radius:20px!important}
+  .testFocusPanel{border-radius:22px!important}
+  .testMonitorItem{border-radius:18px!important}
+}
