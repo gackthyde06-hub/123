@@ -9,9 +9,7 @@
     "vapid": "web-push generate-vapid-keys",
     "test": "UNIT_TEST=1 node test_v100.mjs"
   },
-  "engines": {
-    "node": ">=22"
-  },
+  "engines": {"node": ">=22"},
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
