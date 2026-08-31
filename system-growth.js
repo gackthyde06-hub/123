@@ -1,9 +1,10 @@
 (()=>{
   'use strict';
-  const VERSION='1.2.2';
+  const VERSION='1.3.0';
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
+  const PROGRESS_KEY='sg-progress-v13';
   const VISIT_KEY='sg-visits-v1';
   const EXPLORE_PREFIX='sg-explore-v1-';
   const rootDoc=document;
@@ -23,8 +24,8 @@
   function getDayBase(){return storageGet(SNAP_PREFIX+todayKey(),null)}
   function setDayBase(v){try{if(!localStorage.getItem(SNAP_PREFIX+todayKey()))localStorage.setItem(SNAP_PREFIX+todayKey(),JSON.stringify(v))}catch{}}
   function getExplore(){return storageGet(EXPLORE_PREFIX+todayKey(),{lesson:false,candidate:false,journal:false})||{lesson:false,candidate:false,journal:false}}
-  function markExplore(key){const ex=getExplore();if(ex[key])return;ex[key]=true;storageSet(EXPLORE_PREFIX+todayKey(),ex);showToast(`今日探索 +1 · ${key==='lesson'?'看懂一個概念':key==='candidate'?'讀完一個候選':'翻過模型日誌'}`);updateExploreUi()}
-  function updateExploreUi(){const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length,box=rootDoc.querySelector('[data-sg-explore]');if(!box)return;const count=box.querySelector('[data-sg-explore-count]'),note=box.querySelector('[data-sg-explore-note]');if(count)count.textContent=`${done} / 3`;if(note)note.textContent=done===3?'今天的研究脈絡已讀完。':'不用找單，花幾分鐘把系統看懂。';box.querySelectorAll('[data-sg-jump]').forEach(btn=>{const k=btn.dataset.sgJump,ok=!!ex[k];btn.classList.toggle('done',ok);const i=btn.querySelector('i');if(i)i.textContent=ok?'✓':({lesson:'01',candidate:'02',journal:'03'}[k]||'•')})}
+  function markExplore(key){const ex=getExplore();if(ex[key])return;ex[key]=true;storageSet(EXPLORE_PREFIX+todayKey(),ex);showToast(`章節進度 +1 · ${key==='lesson'?'解析':key==='candidate'?'候選':'日誌'}`);updateExploreUi()}
+  function updateExploreUi(){const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length,box=rootDoc.querySelector('[data-sg-explore]');if(!box)return;const count=box.querySelector('[data-sg-explore-count]'),note=box.querySelector('[data-sg-explore-note]');if(count)count.textContent=`${done} / 3`;if(note)note.textContent=done===3?'COMPLETE':'RESEARCH PATH';box.querySelectorAll('[data-sg-jump]').forEach(btn=>{const k=btn.dataset.sgJump,ok=!!ex[k];btn.classList.toggle('done',ok);const i=btn.querySelector('i');if(i)i.textContent=ok?'◆':({lesson:'Ⅰ',candidate:'Ⅱ',journal:'Ⅲ'}[k]||'◇')})}
   function updateVisits(){
     const today=todayKey(),arr=storageGet(VISIT_KEY,[])||[],set=new Set(arr.filter(Boolean));set.add(today);
     const sorted=[...set].sort().slice(-30);storageSet(VISIT_KEY,sorted);return sorted;
@@ -53,11 +54,11 @@
     return {xp,effective,eligible,blocked,notified,patterns:patterns.length};
   }
   function stageFromEffective(n){
-    n=Number(n||0);if(n<20)return {name:'探索期',from:0,to:20,desc:'先累積乾淨樣本，不急著相信任何漂亮結果。'};
-    if(n<50)return {name:'校準期',from:20,to:50,desc:'開始看強弱分層，但仍以擴充樣本為主。'};
-    if(n<100)return {name:'驗證期',from:50,to:100,desc:'檢查規律能不能在新行情裡繼續成立。'};
-    if(n<300)return {name:'穩定期',from:100,to:300,desc:'開始重視跨市場狀態的穩定與回撤。'};
-    return {name:'深化期',from:300,to:600,desc:'樣本夠大後，才值得談細分專精與模型重構。'};
+    n=Number(n||0);if(n<20)return {index:0,name:'探索期',from:0,to:20,desc:'先累積乾淨樣本，不急著相信任何漂亮結果。'};
+    if(n<50)return {index:1,name:'校準期',from:20,to:50,desc:'開始看強弱分層，但仍以擴充樣本為主。'};
+    if(n<100)return {index:2,name:'驗證期',from:50,to:100,desc:'檢查規律能不能在新行情裡繼續成立。'};
+    if(n<300)return {index:3,name:'穩定期',from:100,to:300,desc:'開始重視跨市場狀態的穩定與回撤。'};
+    return {index:4,name:'深化期',from:300,to:600,desc:'樣本夠大後，才值得談細分專精與模型重構。'};
   }
   function getMetrics(){
     const perf=state.perf||{},sh=perf.shadowSummary||{},sum=perf.summary||{},patterns=perf.stateLearning?.patterns||[],rows=state.signals?.rows||[];
@@ -111,7 +112,7 @@
   }
 
   function skillCard(icon,name,desc,count,meta=''){
-    const s=skillLevel(count);return `<article class="sg-skill"><div class="sg-skill-rank">${esc(s.rank)}</div><div class="sg-skill-head"><span class="sg-skill-icon">${icon}</span><div><b>${esc(name)}</b><small>Lv.${s.lv}</small></div></div><p>${esc(desc)}</p><div class="sg-skill-bar"><i style="width:${s.ratio}%"></i></div><div class="sg-skill-foot"><span>${num(s.current)} / ${num(s.next)}</span><em>${esc(meta||'研究經驗')}</em></div><div class="sg-skill-next">下一階：再 ${num(Math.max(0,s.next-s.current))} 筆</div></article>`;
+    const s=skillLevel(count);return `<article class="sg-skill"><div class="sg-skill-rank">${esc(s.rank)}</div><div class="sg-skill-head"><span class="sg-skill-icon">${icon}</span><div><b>${esc(name)}</b><small>Lv.${s.lv}</small></div></div><p>${esc(desc)}</p><div class="sg-skill-bar"><i style="width:${s.ratio}%"></i></div><div class="sg-skill-foot"><span>${num(s.current)} / ${num(s.next)}</span><em>${esc(meta||'研究經驗')}</em></div><div class="sg-skill-next">NEXT · ${num(Math.max(0,s.next-s.current))}</div></article>`;
   }
   function achievement(label,desc,done,current,target,hidden=false){
     const ratio=target?clamp(Number(current||0)/target*100):(done?100:0);return `<div class="sg-ach ${done?'unlocked':'locked'}"><div class="sg-ach-medal">${done?'◆':hidden?'?':'◇'}</div><div class="sg-ach-copy"><b>${hidden&&!done?'隱藏成就':esc(label)}</b><span>${hidden&&!done?'條件達成時才會揭露':esc(desc)}</span><div class="sg-ach-progress"><i style="width:${ratio}%"></i></div><small>${done?'已解鎖':`${num(current)} / ${num(target)}`}</small></div></div>`;
@@ -125,8 +126,8 @@
     const out=[];if(Number(x.observationProgress||0)>=60)out.push('策略完成度已進入中後段');if(Number(x.dataHealth?.coverage||x.notificationGate?.coverage||0)>=80)out.push('資料覆蓋度足夠');if(x.marketRegime)out.push(`市場狀態：${x.marketRegime}`);if(x.strategyAtConfirm?.label||x.strategyProfile?.label)out.push(`主策略：${x.strategyAtConfirm?.label||x.strategyProfile?.label}`);return out.slice(0,4)
   }
   function candidateHtml(rows){
-    const list=candidateRows(rows);if(!list.length)return'<div class="sg-empty">目前沒有值得深挖的候選，系統繼續巡邏。</div>';
-    return list.map((x,i)=>{const tier=String(x.notificationTier||'VALID').toUpperCase(),progress=Math.round(clamp(x.observationProgress||x.strategyProfile?.progress||0)),miss=(x.notificationGate?.normalMissing||x.notificationGate?.blockers||[]).slice(0,4),strategy=x.strategyAtConfirm?.label||x.strategyProfile?.label||x.lastCheck?.strategyLabel||'多策略觀察',done=reasonsDone(x),rate=has(x.calibratedWinRate)?`${Number(x.calibratedWinRate).toFixed(1)}%`:'—',score=has(x.notificationGate?.score)?Number(x.notificationGate.score).toFixed(0):'—';return `<details class="sg-candidate-card" data-sg-candidate ${i===0?'data-featured="1"':''}><summary><div class="sg-candidate-main"><b>${esc(x.symbol)}</b><span class="${x.direction==='SHORT'?'short':'long'}">${x.direction==='SHORT'?'做空':'做多'}</span><em class="${tier.toLowerCase()}">${esc(tier)}</em></div><div class="sg-candidate-bar"><i style="width:${progress}%"></i></div><div class="sg-candidate-meta"><span>${progress}% · ${esc(strategy)}</span><small>${miss.length?esc(miss.slice(0,2).join('、')):'等待更多同向條件'}</small></div><i class="sg-chevron">⌄</i></summary><div class="sg-candidate-detail"><div class="sg-detail-grid"><div><span>校準值</span><b>${rate}</b><small>不是保證勝率</small></div><div><span>通知分數</span><b>${score}</b><small>含當下閘門</small></div><div><span>市場狀態</span><b>${esc(x.marketRegime||'未分類')}</b><small>${esc(x.freshness?.state||'')}</small></div></div><div class="sg-why"><div><span>已經具備</span>${done.length?`<ul>${done.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>條件仍在前段，先看它發展。</p>'}</div><div><span>還在等</span>${miss.length?`<ul>${miss.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>沒有明顯缺口，等待系統最終放行。</p>'}</div></div><div class="sg-teach-note"><b>怎麼看？</b> 先看「缺什麼」而不是看進度條多高。真正的目標是理解為什麼它還沒被允許出手。</div></div></details>`}).join('')
+    const list=candidateRows(rows);if(!list.length)return'<div class="sg-empty">目前無觀察候選</div>';
+    return list.map((x,i)=>{const tier=String(x.notificationTier||'VALID').toUpperCase(),progress=Math.round(clamp(x.observationProgress||x.strategyProfile?.progress||0)),miss=(x.notificationGate?.normalMissing||x.notificationGate?.blockers||[]).slice(0,4),strategy=x.strategyAtConfirm?.label||x.strategyProfile?.label||x.lastCheck?.strategyLabel||'多策略觀察',done=reasonsDone(x),rate=has(x.calibratedWinRate)?`${Number(x.calibratedWinRate).toFixed(1)}%`:'—',score=has(x.notificationGate?.score)?Number(x.notificationGate.score).toFixed(0):'—';return `<details class="sg-candidate-card" data-sg-candidate ${i===0?'data-featured="1"':''}><summary><div class="sg-candidate-main"><b>${esc(x.symbol)}</b><span class="${x.direction==='SHORT'?'short':'long'}">${x.direction==='SHORT'?'做空':'做多'}</span><em class="${tier.toLowerCase()}">${esc(tier)}</em></div><div class="sg-candidate-bar"><i style="width:${progress}%"></i></div><div class="sg-candidate-meta"><span>${progress}% · ${esc(strategy)}</span><small>${miss.length?esc(miss.slice(0,2).join('、')):'條件完整度持續更新'}</small></div><i class="sg-chevron">⌄</i></summary><div class="sg-candidate-detail"><div class="sg-detail-grid"><div><span>校準</span><b>${rate}</b></div><div><span>評分</span><b>${score}</b></div><div><span>Regime</span><b>${esc(x.marketRegime||'未分類')}</b><small>${esc(x.freshness?.state||'')}</small></div></div><div class="sg-why"><div><span>已成立</span>${done.length?`<ul>${done.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>尚在前段</p>'}</div><div><span>待確認</span>${miss.length?`<ul>${miss.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>暫無明顯缺口</p>'}</div></div></div></details>`}).join('')
   }
 
   function lessonFor(m){
@@ -137,10 +138,19 @@
     if(m.xp.blocked>=30)return {tag:'3 分鐘',title:'BLOCKED 為什麼不是垃圾資料？',lead:`系統已累積 ${m.xp.blocked} 個被擋研究樣本。這些是最重要的反證組之一。`,points:['如果 BLOCKED 後續普遍差，代表過濾器真的有價值。','如果 BLOCKED 常常大勝，就表示規則可能擋太多。','好模型不只研究「做了什麼」，也研究「沒做什麼」。'],focus:'打開模型日誌，看最常阻擋你的條件。'};
     return {tag:'3 分鐘',title:'怎麼知道「找到規律」不是過度擬合？',lead:`目前已有 ${m.patterns.length} 個啟動中的狀態模式。模式越多，不代表越強；要看新資料是否繼續支持。`,points:['先在舊資料找到模式，再用後續新樣本驗證。','不同 Regime 都能活下來，比單一行情神準更重要。','規則越細，越需要更多樣本才能相信。'],focus:'現在先看最強與最弱模式是否持續分化。'};
   }
-  function lessonHtml(m){const l=lessonFor(m);return `<details class="sg-lesson" data-sg-lesson><summary><div><span>${esc(l.tag)} · 今日一課</span><b>${esc(l.title)}</b><small>${esc(l.lead)}</small></div><i>讀懂 →</i></summary><div class="sg-lesson-body"><div class="sg-lesson-current"><span>你現在的數據</span><b>${esc(l.focus)}</b></div><ol>${l.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ol><p>看懂這一塊就夠了，不需要一次把所有統計學完。</p></div></details>`}
+  function lessonHtml(m){const l=lessonFor(m);return `<details class="sg-lesson" data-sg-lesson><summary><div><span>${esc(l.tag)} · 今日解析</span><b>${esc(l.title)}</b><small>${esc(l.lead)}</small></div><i>展開</i></summary><div class="sg-lesson-body"><div class="sg-lesson-current"><span>當前焦點</span><b>${esc(l.focus)}</b></div><ol>${l.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div></details>`}
 
   function explorationHtml(){
-    const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length;return `<section class="sg-explore" data-sg-explore><div class="sg-explore-head"><div><span>今日探索</span><b data-sg-explore-count>${done} / 3</b></div><small data-sg-explore-note>${done===3?'今天的研究脈絡已讀完。':'不用找單，花幾分鐘把系統看懂。'}</small></div><div class="sg-explore-grid"><button type="button" data-sg-jump="lesson" class="${ex.lesson?'done':''}"><i>${ex.lesson?'✓':'01'}</i><span>看懂今日一課</span></button><button type="button" data-sg-jump="candidate" class="${ex.candidate?'done':''}"><i>${ex.candidate?'✓':'02'}</i><span>拆一個候選</span></button><button type="button" data-sg-jump="journal" class="${ex.journal?'done':''}"><i>${ex.journal?'✓':'03'}</i><span>翻模型日誌</span></button></div></section>`;
+    const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length;return `<section class="sg-explore" data-sg-explore><div class="sg-explore-head"><div><span>今日章節</span><b data-sg-explore-count>${done} / 3</b></div><small data-sg-explore-note>${done===3?'COMPLETE':'RESEARCH PATH'}</small></div><div class="sg-explore-grid sg-questline"><button type="button" data-sg-jump="lesson" class="${ex.lesson?'done':''}"><i>${ex.lesson?'◆':'Ⅰ'}</i><span>解析</span></button><button type="button" data-sg-jump="candidate" class="${ex.candidate?'done':''}"><i>${ex.candidate?'◆':'Ⅱ'}</i><span>候選</span></button><button type="button" data-sg-jump="journal" class="${ex.journal?'done':''}"><i>${ex.journal?'◆':'Ⅲ'}</i><span>日誌</span></button></div></section>`;
+  }
+
+  function celebrateProgress(m,skillCounts){
+    const snap={level:m.level.level,stage:m.stage.index,skills:skillCounts.map(v=>skillLevel(v).lv)};
+    const prev=storageGet(PROGRESS_KEY,null);storageSet(PROGRESS_KEY,snap);if(!prev)return;
+    if(snap.level>Number(prev.level||0)){showToast(`SYSTEM 升階 · Lv.${snap.level}`);return}
+    if(snap.stage>Number(prev.stage||0)){showToast(`研究階段解鎖 · ${m.stage.name}`);return}
+    const names=['回踩獵手','破局之眼','影子研究','狀態學習','流動性雷達','危機預警'];
+    for(let i=0;i<snap.skills.length;i++)if(snap.skills[i]>Number(prev.skills?.[i]||0)){showToast(`${names[i]} · Lv.${snap.skills[i]}`);return}
   }
 
   function render(){
@@ -151,36 +161,37 @@
     const personalitySub=m.best?`偏好：${esc(m.best.features?.strategyLabel||'多策略')} / ${esc(({TREND_UP:'強多',TREND_DOWN:'強空',CHOP:'震盪',HIGH_VOL:'高波動',LIQUIDATION:'清算'})[m.best.features?.regime]||m.best.features?.regime||'跨狀態')}`:'尚在建立偏好';
     const badge=rootDoc.getElementById('sgBrandLevel');if(badge)badge.textContent=`Lv.${level.level}`;
     panel.innerHTML=`
-      <div class="sg-panel-topline"><span>成長核心 · V${VERSION}</span><div><b>${m.stage.name}</b><em>${formatAge(state.perf.generatedAt||state.signals?.generatedAt)}</em></div></div>
+      <div class="sg-panel-topline"><span><i class="sg-mini-sigil">◇</i> 成長核心 · V${VERSION}</span><div><b>${m.stage.name}</b><em>${formatAge(state.perf.generatedAt||state.signals?.generatedAt)}</em></div></div>
       <div class="sg-hero">
         <section class="sg-core-card">
-          <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日看過 ${visits} 日</em></div>
+          <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日 ${visits}D</em></div><div class="sg-core-seal" aria-hidden="true"><i></i><b>◇</b><span></span></div>
           <div class="sg-level-row"><div><small>SYSTEM</small><strong>Lv.${level.level}</strong></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
           <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
           <div class="sg-stage"><div><span>研究階段 · ${esc(m.stage.name)}</span><b>${m.xp.effective} / ${m.stage.to} 去相關樣本</b></div><div class="sg-stage-bar"><i style="width:${stagePct}%"></i></div><p>${esc(m.stage.desc)}</p>${stagePath(m)}</div>
           <div class="sg-today-growth"><div><span>今日有效樣本</span><b>+${de}</b></div><div><span>今日淘汰研究</span><b>+${db}</b></div><div><span>今日通知樣本</span><b>+${dn}</b></div></div>
         </section>
-        <section class="sg-radar-card"><div class="sg-card-title"><b>六維屬性</b><span>研究成熟度 · 非勝率</span></div>${radarSvg(m.attrs)}<div class="sg-radar-hint">屬性高，不代表下一單會贏；代表這一類資料累積得比較完整、區分能力較成熟。</div></section>
+        <section class="sg-radar-card"><div class="sg-card-title"><b>六維屬性</b><span>研究成熟度 · 非勝率</span></div>${radarSvg(m.attrs)}<div class="sg-radar-hint">成熟度 · 非勝率</div></section>
       </div>
       <div class="sg-quick"><div><span>影子樣本</span><b>${num(sh.sample||0)}</b><small>已結算 ${num(sh.resolved||0)}</small></div><div><span>去相關有效</span><b>${num(sh.learningEffectiveResolved||0)}</b><small>${num(sh.learningDedupMinutes||45)} 分去相關</small></div><div><span>影子命中</span><b>${pct(sh.hitRate,1)}</b><small>PF ${pf(sh.profitFactor)}</small></div><div><span>真正通知</span><b>${num(sum.sample||0)}</b><small>${m.tierCounts.HIGH} HIGH · ${m.tierCounts.NORMAL} NORMAL</small></div></div>
       ${explorationHtml()}
       <section id="sgLessonSection">${lessonHtml(m)}</section>
-      <section class="sg-live" id="sgCandidateSection"><div class="sg-section-head"><div><b>正在發生</b><span>點開一筆，把「為什麼還不能出手」看懂</span></div><span>${rows.length} 個觀察狀態</span></div>${candidateHtml(rows)}</section>
+      <section class="sg-live" id="sgCandidateSection"><div class="sg-section-head"><div><b>正在發生</b><span>LIVE RESEARCH</span></div><span>${rows.length} 個觀察狀態</span></div>${candidateHtml(rows)}</section>
       <div class="sg-accordions">
-        <details class="sg-accordion" open><summary><div><b>技能樹</b><span>像 RPG 一樣成長，但每一級都由真實樣本解鎖</span></div><em>六條研究路徑</em></summary><div class="sg-detail-body"><div class="sg-skills sg-skill-tree">
-          ${skillCard('◎','回踩獵手','研究順勢回踩在不同市場狀態的真實表現',skillReturn,'回踩模式樣本')}${skillCard('◇','破局之眼','追蹤突破與回測類策略是否真的能提高命中',skillBreak,'突破模式樣本')}${skillCard('⬡','影子研究','沒通知也繼續追蹤，建立不帶選擇偏誤的研究池',m.xp.effective,'去相關有效樣本')}${skillCard('◉','狀態學習','比較策略 × Regime × 資金 × 深度，強弱模式自動調權',stateResearch,'模式有效樣本')}${skillCard('⌁','流動性雷達','把深度、價差與流動性條件納入勝敗對照',depthResearch,'Depth 模式樣本')}${skillCard('△','危機預警','記錄被風險閘門擋下的候選，驗證「不做」是否正確',m.xp.blocked,'被擋樣本')}
+        <details class="sg-accordion" open><summary><div><b>技能樹</b><span>RESEARCH SKILLS</span></div><em>6 PATHS</em></summary><div class="sg-detail-body"><div class="sg-skills sg-skill-tree">
+          ${skillCard('◎','回踩獵手','順勢回踩 · Regime 表現',skillReturn,'回踩模式樣本')}${skillCard('◇','破局之眼','突破 / 回測 · 事件命中',skillBreak,'突破模式樣本')}${skillCard('⬡','影子研究','未通知樣本 · 去偏誤研究',m.xp.effective,'去相關有效樣本')}${skillCard('◉','狀態學習','策略 × Regime × 資金 × 深度',stateResearch,'模式有效樣本')}${skillCard('⌁','流動性雷達','Depth / Spread / 流動性',depthResearch,'Depth 模式樣本')}${skillCard('△','危機預警','風險閘門 · 反證樣本',m.xp.blocked,'被擋樣本')}
         </div></div></details>
-        <details class="sg-accordion" id="sgJournal"><summary><div><b>模型日誌</b><span>不是報喜：強的、弱的、擋掉的全部給你看</span></div><em>${patterns.length} 個已啟動模式</em></summary><div class="sg-detail-body"><div class="sg-journal-grid"><div class="good"><span>目前最強模式</span><b>${esc(patternText(m.best))}</b></div><div class="bad"><span>目前最弱模式</span><b>${esc(patternText(m.worst))}</b></div></div><div class="sg-journal-note"><span>目前最常阻擋</span><div>${m.blockerTop.length?m.blockerTop.map(([k,v])=>`<i>${esc(k)} <b>${v}</b></i>`).join(''):'<i>暫無集中風險</i>'}</div></div><div class="sg-journal-note"><span>今日選擇</span><b>${m.tierCounts.HIGH+m.tierCounts.NORMAL>0?`有 ${m.tierCounts.HIGH+m.tierCounts.NORMAL} 個通知級候選；只處理系統真正放行的機會。`:'等待。沒有足夠好的機會，本身就是一個結果。'}</b></div></div></details>
-        <details class="sg-accordion"><summary><div><b>研究足跡</b><span>每次回來都能看到這台機器真的有沒有長大</span></div><em>近 7 日</em></summary><div class="sg-detail-body"><div class="sg-history-card">${historySvg(history)}</div></div></details>
-        <details class="sg-accordion"><summary><div><b>成就與里程碑</b><span>只獎勵研究、過濾、等待，不獎勵交易次數</span></div><em>${m.xp.effective>=20?'進階研究已開':'下一個：20 去相關樣本'}</em></summary><div class="sg-detail-body"><div class="sg-ach-grid">${achievement('研究啟動','完成第一個去相關有效樣本',m.xp.effective>=1,m.xp.effective,1)}${achievement('乾淨樣本','累積 20 個可真正影響學習的去相關樣本',m.xp.effective>=20,m.xp.effective,20)}${achievement('鐵面守門員','累積研究 50 個被風險閘門擋下的候選',m.xp.blocked>=50,m.xp.blocked,50)}${achievement('狀態覺醒','第一個同狀態模式達到學習門檻並開始調權',patterns.length>=1,patterns.length,1)}${achievement('模型驗收 I','累積 50 個去相關有效樣本',m.xp.effective>=50,m.xp.effective,50)}${achievement('真正校準','累積 20 個真正送達通知並完成追蹤的樣本',m.xp.notified>=20,m.xp.notified,20)}${achievement('穩定專精','單一模式至少 50 筆、PF ≥ 1.30',patterns.some(x=>Number(x.sample||0)>=50&&Number(x.profitFactor||0)>=1.3),Math.max(0,...patterns.map(x=>Number(x.sample||0))),50,true)}</div></div></details>
-        <details class="sg-accordion"><summary><div><b>研究手冊</b><span>無聊就讀一點；每個名詞都直接對照你現在的數據</span></div><em>4 個核心概念</em></summary><div class="sg-detail-body"><div class="sg-manual"><details><summary>45 分去相關，到底在防什麼？</summary><p>同一波行情可能連續生出很多很像的訊號。如果全部當成獨立成功，勝率會被灌水。現在系統把太接近的樣本降成同一群，讓「21 個去相關有效」比「90 個影子樣本」更接近真正可用的研究量。</p></details><details><summary>PF 為什麼比勝率更重要？</summary><p>PF = 總獲利 ÷ 總虧損。勝率高但每次小賺大賠，PF 還是會差；勝率普通但贏的幅度夠大，PF 仍可能大於 1。</p></details><details><summary>MFE / MAE 是什麼？</summary><p>MFE 看進場後最多曾經往有利方向走多遠；MAE 看最多曾經逆你多少。它們能幫你判斷 TP 是否太遠、SL 是否太近，而不是只看最後輸贏。</p></details><details><summary>狀態學習是在學什麼？</summary><p>不是學「哪顆幣一定漲」，而是在比較策略、方向、市場 Regime、OI、Taker、Depth 等條件組合，哪些長期表現比較好，再有限度調整未來分數。</p></details></div></div></details>
-        <details class="sg-accordion"><summary><div><b>情報檔案</b><span>真的無聊再點；只有你按下去才做 AI 網搜</span></div><em>2 小時快取</em></summary><div class="sg-detail-body"><div class="sg-intel-note">AI 情報使用既有標的分析端點；可能產生 OpenAI API 費用。系統不會自動亂搜，只有你按「查最新情報」才執行。</div><div id="sgIntelList" class="sg-intel-list">${intelListHtml(rows)}</div></div></details>
-        <details class="sg-accordion"><summary><div><b>成長規則</b><span>所有系統 XP 與六維都來自真實研究資料</span></div><em>查看公式</em></summary><div class="sg-detail-body"><div class="sg-rules"><div><b>+35 XP</b><span>每個去相關有效樣本</span></div><div><b>+8 XP</b><span>每個可學習已結算樣本</span></div><div><b>+2 XP</b><span>每個被擋候選的研究紀錄</span></div><div><b>+50 XP</b><span>每個真正通知樣本</span></div><div><b>+120 XP</b><span>每個達門檻、真正啟動的狀態模式</span></div></div><p class="sg-rule-note">「今日探索」只是幫你建立閱讀路徑，不會增加系統 XP，也不會影響 V10.2.7 判斷。這樣避免為了刷遊戲數字而污染研究。</p></div></details>
-      </div><div class="sg-footer"><b>觀察 · 理解 · 驗證 · 等待</b><br>真正的優勢不是看得更多，而是越看越知道什麼時候不用做。</div>`;
+        <details class="sg-accordion" id="sgJournal"><summary><div><b>模型日誌</b><span>MODEL LOG</span></div><em>${patterns.length} ACTIVE</em></summary><div class="sg-detail-body"><div class="sg-journal-grid"><div class="good"><span>目前最強模式</span><b>${esc(patternText(m.best))}</b></div><div class="bad"><span>目前最弱模式</span><b>${esc(patternText(m.worst))}</b></div></div><div class="sg-journal-note"><span>目前最常阻擋</span><div>${m.blockerTop.length?m.blockerTop.map(([k,v])=>`<i>${esc(k)} <b>${v}</b></i>`).join(''):'<i>暫無集中風險</i>'}</div></div><div class="sg-journal-note"><span>今日狀態</span><b>${m.tierCounts.HIGH+m.tierCounts.NORMAL>0?`READY · ${m.tierCounts.HIGH+m.tierCounts.NORMAL} 通知級`:'WAIT'}</b></div></div></details>
+        <details class="sg-accordion"><summary><div><b>研究足跡</b><span>HISTORY</span></div><em>7D</em></summary><div class="sg-detail-body"><div class="sg-history-card">${historySvg(history)}</div></div></details>
+        <details class="sg-accordion"><summary><div><b>成就與里程碑</b><span>MILESTONES</span></div><em>${m.xp.effective>=20?'進階已開':'20 SAMPLE'}</em></summary><div class="sg-detail-body"><div class="sg-ach-grid">${achievement('研究啟動','完成第一個去相關有效樣本',m.xp.effective>=1,m.xp.effective,1)}${achievement('乾淨樣本','累積 20 個可真正影響學習的去相關樣本',m.xp.effective>=20,m.xp.effective,20)}${achievement('鐵面守門員','累積研究 50 個被風險閘門擋下的候選',m.xp.blocked>=50,m.xp.blocked,50)}${achievement('狀態覺醒','第一個同狀態模式達到學習門檻並開始調權',patterns.length>=1,patterns.length,1)}${achievement('模型驗收 I','累積 50 個去相關有效樣本',m.xp.effective>=50,m.xp.effective,50)}${achievement('真正校準','累積 20 個真正送達通知並完成追蹤的樣本',m.xp.notified>=20,m.xp.notified,20)}${achievement('穩定專精','單一模式至少 50 筆、PF ≥ 1.30',patterns.some(x=>Number(x.sample||0)>=50&&Number(x.profitFactor||0)>=1.3),Math.max(0,...patterns.map(x=>Number(x.sample||0))),50,true)}</div></div></details>
+        <details class="sg-accordion"><summary><div><b>資料庫</b><span>CODEX</span></div><em>4 FILES</em></summary><div class="sg-detail-body"><div class="sg-manual"><details><summary>45 分去相關，到底在防什麼？</summary><p>同一波行情可能連續生出很多很像的訊號。如果全部當成獨立成功，勝率會被灌水。現在系統把太接近的樣本降成同一群，讓「21 個去相關有效」比「90 個影子樣本」更接近真正可用的研究量。</p></details><details><summary>PF 為什麼比勝率更重要？</summary><p>PF = 總獲利 ÷ 總虧損。勝率高但每次小賺大賠，PF 還是會差；勝率普通但贏的幅度夠大，PF 仍可能大於 1。</p></details><details><summary>MFE / MAE 是什麼？</summary><p>MFE 看進場後最多曾經往有利方向走多遠；MAE 看最多曾經逆你多少。它們能幫你判斷 TP 是否太遠、SL 是否太近，而不是只看最後輸贏。</p></details><details><summary>狀態學習是在學什麼？</summary><p>不是學「哪顆幣一定漲」，而是在比較策略、方向、市場 Regime、OI、Taker、Depth 等條件組合，哪些長期表現比較好，再有限度調整未來分數。</p></details></div></div></details>
+        <details class="sg-accordion"><summary><div><b>情報檔案</b><span>INTEL</span></div><em>AI · 2H</em></summary><div class="sg-detail-body"><div class="sg-intel-note">按下才查 · 可能產生 API 費用 · 2 小時快取</div><div id="sgIntelList" class="sg-intel-list">${intelListHtml(rows)}</div></div></details>
+        <details class="sg-accordion"><summary><div><b>成長規則</b><span>FORMULA</span></div><em>XP</em></summary><div class="sg-detail-body"><div class="sg-rules"><div><b>+35 XP</b><span>每個去相關有效樣本</span></div><div><b>+8 XP</b><span>每個可學習已結算樣本</span></div><div><b>+2 XP</b><span>每個被擋候選的研究紀錄</span></div><div><b>+50 XP</b><span>每個真正通知樣本</span></div><div><b>+120 XP</b><span>每個達門檻、真正啟動的狀態模式</span></div></div><p class="sg-rule-note">章節進度只記錄瀏覽，不計入模型 XP。</p></div></details>
+      </div><div class="sg-footer"><i>◇</i><b>觀察 · 驗證 · 成長</b><i>◇</i></div>`;
     bindPanelEvents(panel);
+    celebrateProgress(m,[skillReturn,skillBreak,m.xp.effective,stateResearch,depthResearch,m.xp.blocked]);
   }
 
-  function intelListHtml(rows){const list=candidateRows(rows).slice(0,3);if(!list.length)return'<div class="sg-empty">目前沒有候選情報檔案。</div>';return list.map(x=>`<article class="sg-intel" data-sg-intel="${esc(x.symbol)}:${esc(x.direction)}"><div class="sg-intel-head"><div><b>${esc(x.symbol)}</b><span>${x.direction==='SHORT'?'做空':'做多'} · ${esc(x.strategyAtConfirm?.label||x.strategyProfile?.label||'多策略')}</span></div><button type="button" class="sg-intel-btn" data-sg-intel-btn data-symbol="${esc(x.symbol)}" data-direction="${esc(x.direction)}">查最新情報</button></div><div class="sg-intel-body" data-sg-intel-body>尚未查詢。你可以先繼續等。</div></article>`).join('')}
+  function intelListHtml(rows){const list=candidateRows(rows).slice(0,3);if(!list.length)return'<div class="sg-empty">目前沒有候選情報檔案。</div>';return list.map(x=>`<article class="sg-intel" data-sg-intel="${esc(x.symbol)}:${esc(x.direction)}"><div class="sg-intel-head"><div><b>${esc(x.symbol)}</b><span>${x.direction==='SHORT'?'做空':'做多'} · ${esc(x.strategyAtConfirm?.label||x.strategyProfile?.label||'多策略')}</span></div><button type="button" class="sg-intel-btn" data-sg-intel-btn data-symbol="${esc(x.symbol)}" data-direction="${esc(x.direction)}">查最新情報</button></div><div class="sg-intel-body" data-sg-intel-body>尚未查詢</div></article>`).join('')}
   function bindPanelEvents(panel){
     panel.querySelectorAll('[data-sg-intel-btn]').forEach(btn=>btn.addEventListener('click',()=>loadIntel(btn)));
     panel.querySelector('[data-sg-lesson]')?.addEventListener('toggle',e=>{if(e.currentTarget.open)markExplore('lesson')});
@@ -195,12 +206,27 @@
   async function loadIntel(btn){
     const symbol=btn.dataset.symbol||'',direction=btn.dataset.direction||'LONG',key=`${symbol}:${direction}`,box=btn.closest('.sg-intel')?.querySelector('[data-sg-intel-body]');if(!box)return;
     const cached=state.intel.get(key);if(cached&&Date.now()-cached.at<2*60*60*1000){box.innerHTML=intelBody(cached.data,true);return}
-    btn.disabled=true;btn.textContent='搜尋中…';box.innerHTML='<div class="sg-intel-loading">AI 正在搜尋最新消息並與市場資料交叉比對…</div>';
-    try{const r=await fetch(`/api/symbol-analysis?symbol=${encodeURIComponent(symbol)}&direction=${encodeURIComponent(direction)}`,{cache:'no-store'}),d=await r.json();if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);state.intel.set(key,{at:Date.now(),data:d});box.innerHTML=intelBody(d,false)}catch(e){box.innerHTML=`<div class="sg-intel-loading">情報暫時不可用：${esc(e?.message||'未知錯誤')}</div>`}finally{btn.disabled=false;btn.textContent='查最新情報'}
+    btn.disabled=true;btn.textContent='搜尋中…';box.innerHTML='<div class="sg-intel-loading">同步最新情報…</div>';
+    try{const r=await fetch(`/api/symbol-analysis?symbol=${encodeURIComponent(symbol)}&direction=${encodeURIComponent(direction)}`,{cache:'no-store'}),d=await r.json();if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);state.intel.set(key,{at:Date.now(),data:d});box.innerHTML=intelBody(d,false)}catch(e){box.innerHTML=`<div class="sg-intel-loading">情報離線 · ${esc(e?.message||'未知錯誤')}</div>`}finally{btn.disabled=false;btn.textContent='查最新情報'}
   }
   function intelBody(d,cached){
     const good=(d.bullish||[]).slice(0,3),bad=(d.bearish||[]).slice(0,3),watch=(d.watch||[]).slice(0,3),news=(d.news||[]).slice(0,3);
     return `<div class="sg-intel-summary"><span>${esc(d.bias||'中性')} · ${esc(d.strength||'—')}</span><b>${esc(d.summary||d.action||'暫無摘要')}</b><small>${cached?'使用 2 小時內快取':'剛剛更新'} · ${esc(d.mode||'市場資料')}</small></div><div class="sg-intel-cols"><div><span>利多</span>${good.length?`<ul>${good.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p>未見明確額外利多</p>'}</div><div><span>利空</span>${bad.length?`<ul>${bad.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p>未見明確額外利空</p>'}</div></div>${watch.length?`<div class="sg-intel-watch"><span>接下來看</span><ul>${watch.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}${news.length?`<div class="sg-intel-news"><span>今日消息</span>${news.map(x=>`<p><i>${esc(x.tone||'中性')}</i>${esc(x.text||'')}</p>`).join('')}</div>`:''}`
+  }
+
+  function updateScrollRail(){
+    const rail=rootDoc.getElementById('sgScrollRail');if(!rail)return;
+    const y=window.scrollY||rootDoc.documentElement.scrollTop||0,max=Math.max(0,rootDoc.documentElement.scrollHeight-window.innerHeight);
+    rail.classList.toggle('visible',state.open&&max>window.innerHeight*.7);
+    rail.querySelector('[data-sg-scroll="top"]')?.classList.toggle('dim',y<220);
+    rail.querySelector('[data-sg-scroll="bottom"]')?.classList.toggle('dim',max-y<220);
+  }
+  function mountScrollRail(){
+    if(rootDoc.getElementById('sgScrollRail'))return;
+    const rail=rootDoc.createElement('div');rail.id='sgScrollRail';rail.className='sg-scroll-rail';rail.innerHTML='<button type="button" data-sg-scroll="top" aria-label="回到最上方">⌃</button><span></span><button type="button" data-sg-scroll="bottom" aria-label="前往最下方">⌄</button>';
+    rail.addEventListener('click',e=>{const btn=e.target.closest('[data-sg-scroll]');if(!btn)return;const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;window.scrollTo({top:btn.dataset.sgScroll==='top'?0:rootDoc.documentElement.scrollHeight,behavior:reduce?'auto':'smooth'})});
+    rootDoc.body.appendChild(rail);
+    let ticking=false;window.addEventListener('scroll',()=>{if(ticking)return;ticking=true;requestAnimationFrame(()=>{updateScrollRail();ticking=false})},{passive:true});window.addEventListener('resize',updateScrollRail,{passive:true});
   }
 
   function showToast(text){const t=rootDoc.getElementById('sgToast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -212,7 +238,7 @@
   function setStatus(text){const el=rootDoc.getElementById('sgLoading');if(el)el.textContent=text||''}
   function setOpen(open){
     state.open=!!open;const panel=rootDoc.getElementById('sgPanel'),btn=rootDoc.getElementById('sgBrandToggle');if(!panel||!btn)return;panel.hidden=!state.open;panel.classList.toggle('open',state.open);btn.classList.toggle('active',state.open);btn.setAttribute('aria-expanded',String(state.open));try{localStorage.setItem(OPEN_KEY,state.open?'1':'0')}catch{}
-    if(state.open){updateVisits();void loadData(false);startTimer()}else stopTimer()
+    if(state.open){updateVisits();void loadData(false);startTimer()}else stopTimer();updateScrollRail()
   }
   function startTimer(){stopTimer();state.timer=setInterval(()=>{if(state.open)void loadData(true)},60_000)}
   function stopTimer(){if(state.timer){clearInterval(state.timer);state.timer=null}}
@@ -220,7 +246,7 @@
     if(rootDoc.getElementById('sgPanel'))return;const brand=rootDoc.querySelector('.brandTitle'),top=rootDoc.querySelector('.top');if(!brand||!top){setTimeout(init,180);return}
     brand.classList.add('sg-brand');const btn=rootDoc.createElement('button');btn.type='button';btn.id='sgBrandToggle';btn.className='sg-brand-toggle';btn.setAttribute('aria-expanded','false');btn.innerHTML=`<span>系統養成</span><em id="sgBrandLevel">Lv.—</em>`;brand.appendChild(btn);
     const loading=rootDoc.createElement('div');loading.id='sgLoading';loading.className='sg-loading';loading.setAttribute('aria-live','polite');const panel=rootDoc.createElement('section');panel.id='sgPanel';panel.className='sg-panel';panel.hidden=true;panel.setAttribute('aria-label','系統養成');panel.innerHTML='<div class="sg-skeleton">讀取養成資料中…</div>';
-    const toast=rootDoc.createElement('div');toast.id='sgToast';toast.className='sg-toast';toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');rootDoc.body.appendChild(toast);
+    const toast=rootDoc.createElement('div');toast.id='sgToast';toast.className='sg-toast';toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');rootDoc.body.appendChild(toast);mountScrollRail();
     top.insertAdjacentElement('afterend',loading);loading.insertAdjacentElement('afterend',panel);btn.addEventListener('click',()=>setOpen(!state.open));let initial=false;try{const v=localStorage.getItem(OPEN_KEY);initial=v===null?true:v==='1'}catch{initial=true}setOpen(initial);
   }
   if(rootDoc.readyState==='loading')rootDoc.addEventListener('DOMContentLoaded',init,{once:true});else init();
