@@ -1,0 +1,24 @@
+V10.2.3 SHADOW LEARNING FIX
+
+1. Shadow performance starts earlier
+- Candidate shadow tracking no longer requires playbook.ready=true.
+- Default shadow thresholds: progress >= 80%, quality >= 65, coverage >= 65%, confidence >= 58%, spread valid.
+- This lets the system measure setups that were close but blocked before notification.
+
+2. Safe learning separation
+- Shadow samples that fail full safety gates can still be kept for filter audit.
+- They are marked learningEligible=false and are excluded from state-learning weight adjustments.
+- ADL high / crowded funding / weak safety cannot become a positive learned shortcut.
+
+3. Observation summary corrected
+- Observation and near-notification counters now count unique symbols consistently.
+- Labels changed to 觀察標的 / 接近通知.
+
+4. Real notification win-rate corrected
+- The observation summary no longer uses legacy testSignalHistory as notification win rate.
+- It now reads only the precise performance ledger that is created after an actual successful notification delivery.
+- With 0 notification samples, 實測勝率 correctly displays —.
+
+5. Existing notification thresholds were NOT loosened.
+- HIGH / NORMAL notification safety logic remains strict.
+- This release improves measurement first, so future tuning can be data-driven.

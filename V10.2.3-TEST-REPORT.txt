@@ -1,0 +1,13 @@
+V10.2.3 TEST REPORT
+
+PASS: node --check server.js
+PASS: node --check public/app.js
+PASS: node --check public/sw.js
+PASS: static shadow threshold / learning eligibility checks
+PASS: precise-notification-win-rate source check
+PASS: unique symbol counter checks
+PASS: duplicate HTML id check (0 duplicates)
+PASS: no bundled TEST_PUBLIC_KEY / TEST_PRIVATE_KEY in server.js
+
+NOTE: npm unit test could not be re-run in this container because dependencies were not locally available; npm install timed out. No claim is made that the unit suite passed for this build.
+NOTE: Railway live healthcheck, Binance live feeds and iPhone push require deployment verification.

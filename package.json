@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v1022-solo-max-state-learning",
-  "version": "10.2.2",
+  "name": "position-alert-v1023-solo-max-shadow-learning-fix",
+  "version": "10.2.3",
   "private": true,
   "type": "module",
   "scripts": {
