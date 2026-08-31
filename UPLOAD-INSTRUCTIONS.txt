@@ -1,1 +1,12 @@
-將 package.json、prepare-ui.mjs、system-growth.js、system-growth.css 與說明檔覆蓋到專案根目錄，commit / push 後重新部署。
+SYSTEM GROWTH + PREMIUM UI v1.5.0
+
+將以下檔案覆蓋到 GitHub 專案根目錄：
+- package.json
+- prepare-ui.mjs
+- system-growth.js
+- system-growth.css
+- premium-theme.js
+- premium-theme.css
+
+commit / push 後讓 Railway 重新部署即可。
+不需要改 server.js，也不要動 Railway volume。

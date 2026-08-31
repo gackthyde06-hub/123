@@ -1,0 +1,25 @@
+V1.5.0 — HIGH-END INTEGRATION
+
+目標：高級感、統一世界觀、手機閱讀舒服。
+
+整合方向
+- 養成：保留目前 FF-inspired 藍金、成長/技能介面。
+- 監控：改成鋼藍戰術 HUD，同字體家族，但比養成收斂。
+- 今日：暖金。
+- 績效：銀藍。
+- 流向：冷藍。
+- 建議：金藍。
+- 觀察：暗紫藍。
+- 整站重要標題統一使用目前養成頁的 serif 風格；大量數字仍用乾淨 sans + tabular numbers。
+
+穩定性
+- 養成資料 60 秒輪詢時，只有資料真的改變才重新 render。
+- render 時保留目前 scrollY，降低偶發跳動。
+- 動態列表加 overflow-anchor:none，減少手機 Safari 自動捲動補償造成的抖動。
+- 不使用 backdrop blur / 重型濾鏡。
+
+部署
+- 不改核心交易邏輯。
+- 不改 server.js。
+- 不動 Railway volume。
+- prepare-ui 會主動移除舊的 system-growth / premium-theme cache tag，再注入 sg150，避免一直吃舊 CSS。

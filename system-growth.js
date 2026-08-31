@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='1.4.0';
+  const VERSION='1.5.0';
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
@@ -16,7 +16,7 @@
   const pf=v=>has(v)?Number(v).toFixed(2):'—';
   const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayKey=()=>dateKey();
-  const state={open:false,loading:false,perf:null,signals:null,lastLoadedAt:0,intel:new Map(),timer:null,toastTimer:null};
+  const state={open:false,loading:false,perf:null,signals:null,lastLoadedAt:0,intel:new Map(),timer:null,toastTimer:null,renderKey:''};
 
   function safeParse(raw,fallback=null){try{return JSON.parse(raw)}catch{return fallback}}
   function storageGet(key,fallback=null){try{return safeParse(localStorage.getItem(key),fallback)}catch{return fallback}}
@@ -96,6 +96,13 @@
   function strategyPatternCount(patterns,word){return (patterns||[]).filter(x=>String(x?.features?.strategyLabel||'').includes(word)).reduce((a,x)=>a+Number(x.sample||0),0)}
   function patternText(x){if(!x)return'尚未形成可學習模式';const f=x.features||{},dir=f.direction==='SHORT'?'空':'多',reg=({TREND_UP:'強多',TREND_DOWN:'強空',CHOP:'震盪',HIGH_VOL:'高波動',LIQUIDATION:'清算'})[f.regime]||f.regime||'未分類';return `${f.strategyLabel||'未分類'} · ${reg} · ${dir} · ${Number(x.sample||0)}筆 · 命中 ${has(x.hitRate)?Number(x.hitRate).toFixed(1)+'%':'—'} · PF ${pf(x.profitFactor)} · 權重 ${Number(x.adjustment||0)>0?'+':''}${Number(x.adjustment||0)}`}
   function formatAge(ts){if(!ts)return'—';const s=Math.max(0,Math.floor((Date.now()-new Date(ts).getTime())/1000));if(s<60)return`${s}秒前`;if(s<3600)return`${Math.floor(s/60)}分前`;return`${Math.floor(s/3600)}小時前`}
+
+  function renderKeyFor(perf,signals){
+    try{
+      const rows=(signals?.rows||[]).map(x=>({s:x.symbol,d:x.direction,t:x.notificationTier,p:x.observationProgress??x.strategyProfile?.progress,st:x.status,wr:x.calibratedWinRate,r:x.marketRegime,sl:x.strategyAtConfirm?.label||x.strategyProfile?.label||x.lastCheck?.strategyLabel,g:{s:x.notificationGate?.score,n:x.notificationGate?.normalMissing,b:x.notificationGate?.blockers}}));
+      return JSON.stringify({sh:perf?.shadowSummary||{},sum:perf?.summary||{},patterns:perf?.stateLearning?.patterns||[],rows});
+    }catch{return String(Date.now())}
+  }
 
   function stagePath(m){
     const stages=[['探索',20],['校準',50],['驗證',100],['穩定',300]],n=m.xp.effective;
@@ -233,7 +240,17 @@
   async function getJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(`${path} ${r.status}`);return r.json()}
   async function loadData(force=false){
     if(state.loading)return;if(!force&&state.perf&&Date.now()-state.lastLoadedAt<30_000){render();return}state.loading=true;setStatus('同步研究資料…');
-    try{const [perf,signals]=await Promise.all([getJson('/api/performance'),getJson('/api/test-signals').catch(()=>null)]);state.perf=perf;state.signals=signals;state.lastLoadedAt=Date.now();render();setStatus('')}catch(e){setStatus(`養成資料暫時不可用 · ${e?.message||'未知錯誤'}`)}finally{state.loading=false}
+    try{
+      const [perf,signals]=await Promise.all([getJson('/api/performance'),getJson('/api/test-signals').catch(()=>null)]);
+      const key=renderKeyFor(perf,signals);
+      state.perf=perf;state.signals=signals;state.lastLoadedAt=Date.now();
+      if(key!==state.renderKey){
+        const y=window.scrollY||0;
+        state.renderKey=key;render();
+        requestAnimationFrame(()=>{if(Math.abs((window.scrollY||0)-y)>2)window.scrollTo({top:y,behavior:'auto'})});
+      }
+      setStatus('');
+    }catch(e){setStatus(`養成資料暫時不可用 · ${e?.message||'未知錯誤'}`)}finally{state.loading=false}
   }
   function setStatus(text){const el=rootDoc.getElementById('sgLoading');if(el)el.textContent=text||''}
   function setOpen(open){

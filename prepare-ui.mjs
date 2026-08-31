@@ -5,21 +5,34 @@ import { fileURLToPath } from 'node:url';
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
-const assets=[
-  ['system-growth.css',path.join(publicDir,'system-growth.css')],
-  ['system-growth.js',path.join(publicDir,'system-growth.js')],
-];
-for(const [sourceName,target] of assets){
-  const source=path.join(__dirname,sourceName);
-  if(!fs.existsSync(source))throw new Error(`[ui] missing ${sourceName}`);
+const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js'];
+
+for(const name of files){
+  const source=path.join(__dirname,name);
+  const target=path.join(publicDir,name);
+  if(!fs.existsSync(source))throw new Error(`[ui] missing ${name}`);
   fs.copyFileSync(source,target);
 }
-const cssTag='<link rel="stylesheet" href="/system-growth.css?v=sg140">';
-const jsTag='<script defer src="/system-growth.js?v=sg140"></script>';
+
 let html=fs.readFileSync(htmlPath,'utf8');
-const cssRe=/<link[^>]+href=["'][^"']*system-growth\.css[^"']*["'][^>]*>/i;
-const jsRe=/<script[^>]+src=["'][^"']*system-growth\.js[^"']*["'][^>]*><\/script>/i;
-if(cssRe.test(html))html=html.replace(cssRe,cssTag);else html=html.replace('</head>',`${cssTag}\n</head>`);
-if(jsRe.test(html))html=html.replace(jsRe,jsTag);else html=html.replace('</body>',`${jsTag}\n</body>`);
+const removers=[
+  /<link[^>]+href=["']\/system-growth\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
+  /<link[^>]+href=["']\/premium-theme\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
+  /<script[^>]+src=["']\/system-growth\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
+  /<script[^>]+src=["']\/premium-theme\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
+];
+for(const re of removers)html=html.replace(re,'');
+
+const cssTags=[
+  '<link rel="stylesheet" href="/system-growth.css?v=sg150">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg150">',
+].join('\n');
+const jsTags=[
+  '<script defer src="/system-growth.js?v=sg150"></script>',
+  '<script defer src="/premium-theme.js?v=sg150"></script>',
+].join('\n');
+
+html=html.replace('</head>',`${cssTags}\n</head>`);
+html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log('[ui] system growth v1.3.0 ready');
+console.log('[ui] premium integration v1.5.0 ready');

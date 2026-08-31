@@ -1,0 +1,130 @@
+/* PREMIUM INTEGRATION v1.5.0 — high-end unified UI layer
+   Same world, different screen identity. Mobile-first, no blur-heavy effects. */
+:root{
+  --ui-bg:#080a0c;
+  --ui-surface:#0d1115;
+  --ui-surface-2:#10151a;
+  --ui-line:rgba(137,154,181,.20);
+  --ui-line-strong:rgba(180,144,82,.42);
+  --ui-gold:#dfb45f;
+  --ui-gold-2:#f1cf89;
+  --ui-blue:#86a7e7;
+  --ui-blue-2:#b7ccf4;
+  --ui-silver:#c7d0dc;
+  --ui-muted:#8d96a2;
+  --ui-text:#f1eee8;
+  --ui-red:#f27e7e;
+  --ui-green:#73d9a1;
+  --ui-violet:#9a8fd2;
+  --ui-shadow:0 16px 42px rgba(0,0,0,.18);
+}
+html,body{overflow-x:hidden!important;background:#080a0c!important}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang TC","Noto Sans TC",sans-serif!important;color:var(--ui-text)!important;background:
+  radial-gradient(circle at 13% -8%,rgba(223,180,95,.09),transparent 27%),
+  radial-gradient(circle at 94% 8%,rgba(134,167,231,.055),transparent 24%),
+  linear-gradient(180deg,#080a0c 0%,#0a0d10 48%,#080a0c 100%)!important}
+button,input,select,textarea{font-family:inherit}
+.wrap{max-width:760px!important;padding-left:16px!important;padding-right:16px!important}
+
+/* Global typography: serif only for hierarchy, clean sans for data. */
+.brandTitle,.sectionTitle,.panelTitle b,.todayHeroTitle,.flowHeroTitle,.traderName,.recSymbol,.rankSymbol,.testMonitorTitle,.testMonitorSymbol,.testSymbol,.biasListTitle,.marketSym,.pageIntro strong{
+  font-family:Georgia,"Noto Serif TC","Songti TC","Times New Roman",serif!important;
+  letter-spacing:.02em
+}
+.metricValue,.price,.pnlPct,.calcCell b,.levelCell b,.rankWin b,.recScore b,.todayScore,.flowConfidence,.testMonitorSummaryScore b,.testSummaryCell b,.testMetric b,.testLevel b,.biasChange,.biasFlow,.marketMetric b,.consensusScore,.sg-quick b,.sg-xp-row b{
+  font-variant-numeric:tabular-nums lining-nums
+}
+.brandTitle{font-size:34px!important;line-height:1!important;color:var(--ui-gold-2)!important;text-shadow:0 0 22px rgba(223,180,95,.12)}
+.brandSub{font-size:13px!important;color:#8e98a5!important;line-height:1.5!important}
+.syncMain{font-size:13px!important;color:#c6ced8!important}.syncSub{font-size:11px!important;color:#7f8995!important}
+.dot.ok{background:var(--ui-gold)!important;box-shadow:0 0 12px rgba(223,180,95,.28)!important}
+
+/* Tabs = command bar. Same family, subtle page identity. */
+.pageTabs{position:sticky!important;top:calc(env(safe-area-inset-top,0px) + 4px)!important;z-index:30!important;gap:4px!important;margin:0 -2px 18px!important;padding:8px 2px 9px!important;background:rgba(8,10,12,.96)!important;border-bottom:1px solid rgba(135,151,175,.14)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.pageTab{position:relative!important;min-height:48px!important;padding:12px 4px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#8f98a4!important;font-size:13px!important;font-weight:850!important;letter-spacing:.04em!important;transition:color .15s ease!important}
+.pageTab::after{content:"";position:absolute;left:26%;right:26%;bottom:2px;height:2px;border-radius:999px;background:transparent;box-shadow:none}
+.pageTab.active{color:var(--ui-gold-2)!important;box-shadow:none!important}
+.pageTab.active::after{background:linear-gradient(90deg,transparent,var(--ui-gold),var(--ui-blue),transparent);box-shadow:0 0 12px rgba(134,167,231,.18)}
+.pageTab:active{color:#fff0c8!important}
+
+/* Shared card language. */
+.latest,.consensusPanel,.tradeCalc,.bottomMaster,.traderCard,.flowHero,.marketRow,.recCard,.todayHero,.biasCard,.biasListPanel,.matrixCell,.matrixCoin,.rankCard,.testFocusPanel,.testMonitorItem,.testCard,.testSummaryCell,.judgeCoreCell,.judgeStrategy,.judgeMore,.testPlannerFold,.testCardMore,.moreMonitorPool,.reachedPool,.autoLevels,.levelCell,.calcCell,.testMetric,.testLevels{
+  border-color:var(--ui-line)!important;
+  background:linear-gradient(180deg,rgba(16,21,26,.97),rgba(10,13,16,.99))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025),var(--ui-shadow)!important
+}
+.latest,.consensusPanel,.tradeCalc,.bottomMaster,.traderCard,.flowHero,.recCard,.todayHero,.biasListPanel,.rankCard,.testFocusPanel,.testMonitorItem,.testCard,.moreMonitorPool,.reachedPool{border-radius:18px!important}
+.traderCard,.flowHero,.todayHero,.recCard,.testFocusPanel{position:relative;overflow:hidden}
+.traderCard::before,.flowHero::before,.todayHero::before,.recCard::before,.testFocusPanel::before{content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(134,167,231,.28),rgba(223,180,95,.22),transparent)}
+
+/* Page-specific accents: same universe, different screen. */
+html[data-ui-page="today"]{--page-accent:#dfb45f;--page-accent-2:#f1cf89}
+html[data-ui-page="performance"]{--page-accent:#aebbd0;--page-accent-2:#d9e2ef}
+html[data-ui-page="flow"]{--page-accent:#7fa4e6;--page-accent-2:#b4cbf5}
+html[data-ui-page="ideas"]{--page-accent:#d5a955;--page-accent-2:#f0cb7a}
+html[data-ui-page="monitor"]{--page-accent:#7795c7;--page-accent-2:#b1c4e6}
+html[data-ui-page="observe"]{--page-accent:#8f86bd;--page-accent-2:#c2b9e5}
+.sectionTitle,.panelTitle b,.testToolbarTitle,.matrixTitle b{color:var(--page-accent-2,var(--ui-gold-2))!important}
+.sectionBar{margin-top:17px!important;margin-bottom:11px!important}.sectionTitle{font-size:19px!important;line-height:1.2!important}.radarCount{font-size:11px!important;color:#8d98a5!important}
+.pageIntro{font-size:11.5px!important;line-height:1.65!important;color:#8f99a5!important;margin-bottom:12px!important}
+
+/* Today's screen: warmer, editorial. */
+.todayHero{padding:18px!important;border-color:rgba(190,151,82,.38)!important;background:radial-gradient(circle at 86% 12%,rgba(223,180,95,.07),transparent 30%),linear-gradient(180deg,#14130f,#0b0f13)!important}
+.todayHeroTitle{font-size:29px!important}.todayHeroMeta{font-size:12.5px!important;line-height:1.6!important;color:#9da4ad!important}.todayScore{font-size:26px!important;color:#f0c879!important}.todayScore small{font-size:9.5px!important;color:#808994!important}
+.todayBiasGrid{gap:8px!important}.biasCard{padding:11px 6px!important;border-radius:14px!important}.biasCard.active{border-color:rgba(223,180,95,.45)!important;background:linear-gradient(180deg,#17130d,#0d1115)!important}.biasCard .label{font-size:10.5px!important}.biasCard .count{font-size:22px!important}.biasCard .sub{font-size:9px!important;color:#808995!important}
+.biasListPanel{overflow:hidden!important}.biasListHead{padding:12px!important;border-color:rgba(126,142,166,.18)!important}.biasListTitle{font-size:17px!important}.biasListMeta{font-size:9.5px!important;color:#87919e!important}.biasRow{padding:11px 12px!important;border-color:rgba(117,132,153,.14)!important}.biasName{font-size:16px!important}.biasExtra{font-size:10px!important;color:#858f9b!important}
+.briefBullets li{font-size:14px!important;line-height:1.7!important;color:#d8dee7!important}.briefAction{font-size:14px!important;color:#f0cf8a!important;border-color:rgba(190,151,82,.22)!important}
+
+/* Performance / generic statistics: restrained silver-blue. */
+.metricLabel,.metricSub{color:#8f99a6!important}.metricValue{color:#edf1f5!important}.pos{border-color:rgba(125,141,165,.18)!important}.pos .sym{font-family:Georgia,"Noto Serif TC",serif!important;color:#f1eee8!important}
+
+/* Flow: colder tactical screen. */
+.flowHero{padding:17px!important;border-color:rgba(117,147,196,.34)!important;background:radial-gradient(circle at 85% 15%,rgba(111,151,215,.07),transparent 34%),linear-gradient(180deg,#101722,#0b0f13)!important}.flowHeroTitle{font-size:25px!important}.flowHeroMeta{font-size:11.5px!important;color:#8f9bae!important}.flowConfidence{color:#c8d8f3!important}.flowStats{gap:8px!important}.flowStat{padding:11px!important;border-radius:12px!important;border-color:rgba(117,139,170,.18)!important;background:#0d1217!important}.flowStat span{font-size:9.5px!important;color:#8793a3!important}.flowStat b{font-size:14px!important}.marketList{gap:9px!important}.marketRow{padding:12px!important;border-radius:14px!important}.marketSym{font-size:17px!important}.marketSub{font-size:9.5px!important;color:#87919d!important}.marketMetric span{font-size:9px!important;color:#87919d!important}.marketMetric b{font-size:13px!important}
+
+/* Ideas / recommendations: gold but less decorative than growth. */
+.recGrid{gap:11px!important}.recCard{padding:15px!important;border-color:rgba(176,139,74,.3)!important;background:radial-gradient(circle at 92% 12%,rgba(223,180,95,.045),transparent 30%),linear-gradient(180deg,#12130f,#0b0f13)!important}.recSymbol{font-size:19px!important}.recTag{font-size:11px!important;padding:6px 9px!important;border-radius:9px!important}.recScore{font-size:10px!important;color:#929ca8!important}.recScore b{font-size:18px!important;color:#efc978!important}.recReason{font-size:11px!important;line-height:1.6!important;color:#9ba3ad!important}.tvMini{border-color:rgba(223,180,95,.38)!important;background:#15120c!important;color:#efc979!important;border-radius:9px!important;height:32px!important;padding:0 9px!important}.rankCard{padding:13px!important;grid-template-columns:30px minmax(0,1fr) auto!important}.rankNo{font-size:14px!important;color:#8f99a4!important}.rankSymbol{font-size:18px!important;color:#f3efe8!important}.rankReason{font-size:11px!important;line-height:1.55!important;color:#a3abb5!important}.rankMini{font-size:9.5px!important;color:#7f8995!important}.rankWin b{font-size:19px!important;color:#efc978!important}.rankWin span,.rankWin small{font-size:9px!important;color:#838d99!important}
+
+/* Monitor = tactical battle HUD. Steel-blue first, gold only for passed/high-value states. */
+.testToolbar{margin-bottom:13px!important}.testToolbarTitle{font-size:17px!important;color:#c7d7ef!important}.testToolbarSub{font-size:10.5px!important;line-height:1.6!important;color:#8e99a8!important}.testNotify{font-size:10.5px!important;color:#9ba5b2!important}.testSummary{gap:8px!important;margin-bottom:12px!important}.testSummaryCell{padding:11px 7px!important;border-radius:13px!important;background:linear-gradient(180deg,#10161d,#0c1116)!important}.testSummaryCell span{font-size:9.5px!important;color:#8693a4!important}.testSummaryCell b{font-size:17px!important;color:#c7d8f3!important}
+.testFocusPanel{padding:15px!important;border-color:rgba(113,143,190,.34)!important;background:radial-gradient(circle at 88% 12%,rgba(119,149,199,.07),transparent 30%),linear-gradient(180deg,#101722,#0c1014)!important}.testMonitorTitle{font-size:21px!important;color:#d5e1f3!important}.testMonitorSub{font-size:11.5px!important;line-height:1.6!important;color:#8d98a6!important}.testMonitorControls button,.testActions button,.testFocusActions button{border-color:rgba(117,137,166,.28)!important;background:linear-gradient(180deg,#11171d,#0e1318)!important;color:#cbd5e1!important;border-radius:11px!important;box-shadow:none!important}.testMonitorControls button:active,.testActions button:active,.testFocusActions button:active{border-color:rgba(223,180,95,.5)!important;color:#ffe2a6!important}
+.testMonitorList{gap:11px!important}.testMonitorItem{border-radius:16px!important;background:linear-gradient(180deg,#10151a,#0b0f13)!important}.testMonitorItem.focused{border-color:rgba(223,180,95,.42)!important;box-shadow:inset 2px 0 0 rgba(223,180,95,.42),0 12px 30px rgba(0,0,0,.13)!important}.testMonitorItem summary{padding:14px!important}.testMonitorSymbol{font-size:19px!important;color:#f2efe9!important}.testMonitorRankTag,.testMonitorState,.testMonitorEventTime,.testMonitorRecover,.testTierTag,.testTrendTag,.testMonitorDir{font-size:10px!important;padding:4px 8px!important}.testMonitorSummaryScore b{font-size:20px!important;color:#c9d8f1!important}.testMonitorSummaryScore span,.testMonitorSummaryScore small{font-size:9px!important;color:#85909d!important}.testMonitorBody{padding:0 14px 14px!important;border-color:rgba(115,131,153,.18)!important}
+.judgeCoreGrid{gap:10px!important}.judgeCoreCell{padding:11px!important;border-radius:12px!important;background:linear-gradient(180deg,#10161b,#0d1217)!important}.judgeCoreCell span{font-size:10px!important;color:#8995a5!important}.judgeCoreCell b{font-size:14px!important;color:#edf1f5!important}.judgeCoreCell.important{border-color:rgba(223,180,95,.35)!important;background:linear-gradient(180deg,#17140e,#0f1317)!important}.judgeCoreCell.important b{color:#f0cc82!important}.judgeStrategy{border-color:rgba(223,180,95,.32)!important;background:linear-gradient(180deg,#16130d,#0f1317)!important}.judgeStrategy span{font-size:10px!important;color:#d1ad65!important}.judgeStrategy b{font-size:13px!important;line-height:1.6!important;color:#e6e9ed!important}.judgeWarning{border-color:rgba(218,106,106,.36)!important;background:#1b1113!important;color:#f08a86!important}
+.testCard{padding:13px!important;border-radius:16px!important}.testCard.confirmed{border-color:rgba(223,180,95,.42)!important;background:linear-gradient(180deg,#15130e,#0b0f13)!important}.testCard.win{border-color:rgba(96,192,137,.36)!important}.testCard.loss,.testCard.invalid{border-color:rgba(209,98,98,.36)!important}.testSymbol{font-size:18px!important;color:#f1eee8!important}.testState b{font-size:13px!important;color:#e7ca8f!important}.testQualityFill{background:linear-gradient(90deg,#7795c7,#d9ad57,#efc977)!important}.testQualityText{font-size:10px!important;color:#909ba8!important}.testQualityText b{font-size:14px!important;color:#e9c477!important}.testMetric{padding:9px 6px!important;border-radius:10px!important;background:#0f1419!important}.testMetric span{font-size:8.5px!important;color:#85919f!important}.testMetric b{font-size:13px!important;color:#dbe2ea!important}.testLevels{padding:10px!important;border-radius:12px!important;background:#0d1217!important}.testLevel span{font-size:8.5px!important;color:#818e9d!important}.testLevel b{font-size:12px!important;color:#d8e0e8!important}.testReason{font-size:9.5px!important;border-color:rgba(112,128,151,.22)!important;background:#10151a!important;color:#a7b0ba!important}
+.moreMonitorPool>summary,.reachedPool>summary{font-size:12.5px!important;color:#c1cedf!important}
+
+/* Inputs/calculator stay functional and precise. */
+.tradeCalc{overflow:hidden!important}.tradeCalc>summary{min-height:54px!important;padding:13px 14px!important;color:#ead3a0!important;font-size:14px!important}.tradeCalcHint{font-size:10px!important;color:#8994a1!important}.tradeCalcBody{border-color:rgba(116,132,154,.16)!important}.calcField label{font-size:10px!important;color:#8a95a3!important}.calcField input,.calcField select{height:46px!important;border-radius:11px!important;border-color:rgba(116,132,154,.26)!important;background:#0c1115!important;color:#f0ede8!important;box-shadow:inset 0 1px rgba(255,255,255,.02)!important}.calcField input:focus,.calcField select:focus{border-color:rgba(223,180,95,.58)!important;box-shadow:0 0 0 2px rgba(223,180,95,.06)!important}.autoRefresh{border-color:rgba(223,180,95,.32)!important;background:#15120d!important;color:#e5bd70!important}.autoHead b{font-size:11px!important;color:#e8c47b!important}.autoHead span{font-size:8.5px!important;color:#83909e!important}.levelCell span,.calcCell span{font-size:9.5px!important;color:#85919f!important}.levelCell b,.calcCell b{font-size:13px!important;color:#dde3ea!important}.calcMsg,.calcNote{font-size:10px!important;line-height:1.55!important;color:#7f8994!important}
+
+/* Buttons and badges: no toy-like gradients, no bounce transforms. */
+button{transition:border-color .14s ease,color .14s ease,background-color .14s ease!important}
+button:active{transform:none!important}
+.dirBadge,.levelBadge,.statusBadge,.confidenceBadge,.customTag,.signalBadge,.qualBadge,.dataBadge,.testDir,.testTrendTag,.testTierTag,.testMonitorDir,.testMonitorRankTag,.testMonitorRecover{border-radius:8px!important;letter-spacing:.02em}
+.longText,.dirBadge.long,.statusBadge.long,.testDir.long,.testMonitorDir.long{color:var(--ui-red)!important}.shortText,.dirBadge.short,.testDir.short,.testMonitorDir.short{color:var(--ui-green)!important}.goldText{color:var(--ui-gold-2)!important}
+
+/* Stability: dynamic refreshes should not visually shove the page. */
+#sgPanel,.page,.testMonitorList,.testGrid,.traderCard,.recGrid,.rankCard,.biasListRows{overflow-anchor:none}
+#sgPanel .sg-panel.open{animation:none!important}
+.testQualityFill,.todayKnob,.sg-xp i,.sg-stage-bar i,.sg-candidate-bar i,.sg-skill-bar i{transition:width .28s ease!important}
+
+@media(max-width:520px){
+  .wrap{padding-left:12px!important;padding-right:12px!important;padding-bottom:calc(58px + env(safe-area-inset-bottom))!important}
+  .top{gap:10px!important;margin-bottom:16px!important}.brandTitle{font-size:31px!important}.brandSub{font-size:12px!important}.syncMain{font-size:12px!important}.syncSub{font-size:10px!important}
+  .pageTabs{margin-left:-4px!important;margin-right:-4px!important;gap:1px!important;padding-left:2px!important;padding-right:2px!important}.pageTab{font-size:12.5px!important;padding-left:2px!important;padding-right:2px!important;min-height:50px!important}.pageTab::after{left:22%!important;right:22%!important}
+  .sectionTitle{font-size:19px!important}.pageIntro{font-size:12.5px!important;line-height:1.7!important}
+  .todayHero,.flowHero,.recCard,.traderCard,.testFocusPanel{padding:16px!important;border-radius:20px!important}.todayHeroTitle{font-size:28px!important}.todayHeroMeta,.flowHeroMeta{font-size:13px!important}.todayScore,.flowConfidence{font-size:25px!important}
+  .todayBiasGrid{gap:6px!important}.biasCard{padding:10px 3px!important}.biasCard .label{font-size:10px!important}.biasCard .count{font-size:20px!important}.biasCard .sub{font-size:8.5px!important}
+  .biasRow{padding:11px 9px!important}.biasName{font-size:16px!important}.biasExtra{font-size:9.5px!important}.biasChange{font-size:14px!important}.biasFlow{font-size:10px!important}
+  .flowHeroTitle{font-size:24px!important}.flowStats{grid-template-columns:1fr 1fr!important}.flowStat span{font-size:10px!important}.flowStat b{font-size:14px!important}.marketRow{padding:12px 10px!important}.marketSym{font-size:17px!important}.marketSub{font-size:9.5px!important}.marketMetric span{font-size:9px!important}.marketMetric b{font-size:13px!important}
+  .recSymbol{font-size:19px!important}.recReason{font-size:12px!important;line-height:1.65!important}.recScore{font-size:10.5px!important}.recScore b{font-size:18px!important}.rankCard{padding:12px 10px!important}.rankSymbol{font-size:18px!important}.rankReason{font-size:11px!important}.rankWin b{font-size:18px!important}
+  .testToolbarTitle{font-size:18px!important}.testToolbarSub{font-size:11.5px!important}.testSummary{gap:6px!important}.testSummaryCell{padding:10px 4px!important}.testSummaryCell span{font-size:9px!important}.testSummaryCell b{font-size:16px!important}
+  .testMonitorTitle{font-size:20px!important}.testMonitorSub{font-size:12px!important}.testMonitorControls{gap:6px!important}.testMonitorControls button{height:38px!important;padding:0 9px!important;font-size:10px!important}.testMonitorItem summary{padding:14px 12px!important}.testMonitorSymbol{font-size:18px!important}.testMonitorRankTag,.testMonitorState,.testMonitorEventTime,.testMonitorRecover,.testTierTag,.testTrendTag,.testMonitorDir{font-size:10px!important}.testMonitorSummaryScore b{font-size:19px!important}.testMonitorBody{padding:0 12px 13px!important}.judgeCoreCell{padding:11px!important}.judgeCoreCell span{font-size:10px!important}.judgeCoreCell b{font-size:14px!important}.judgeStrategy b{font-size:13px!important}.testReason{font-size:10px!important}.testFocusActions button,.testActions button{height:44px!important;font-size:12px!important}
+  .tradeCalc>summary{font-size:14px!important}.calcField label{font-size:10px!important}.calcField input,.calcField select{height:46px!important}.levelCell b,.calcCell b{font-size:13px!important}
+}
+@media(max-width:390px){
+  .brandTitle{font-size:29px!important}.pageTab{font-size:12px!important}
+  .todayBiasGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important}.biasCard .label{font-size:9.5px!important}.biasCard .count{font-size:19px!important}.biasCard .sub{display:none!important}
+  .marketRow{grid-template-columns:minmax(90px,1.1fr) .9fr .9fr!important;gap:6px!important}.marketSym{font-size:16px!important}
+  .rankCard{grid-template-columns:24px minmax(0,1fr) auto!important;gap:7px!important}.rankWin{min-width:55px!important}
+  .testSummaryCell b{font-size:15px!important}.testMonitorSymbol{font-size:17px!important}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
