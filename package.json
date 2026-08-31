@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v1026-solo-max-actual-trade-ledger",
-  "version": "10.2.6",
+  "name": "position-alert-v1027-solo-max-recoverable-monitor",
+  "version": "10.2.7",
   "private": true,
   "type": "module",
   "scripts": {

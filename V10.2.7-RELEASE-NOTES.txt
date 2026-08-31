@@ -1,0 +1,19 @@
+V10.2.7 SOLO MAX — Recoverable Monitor / Actual Trade Edit / C-mode Auto Clear
+Date: 2026-08-31
+
+本版依使用者確認採 C 模式：
+1. 監控卡以手動 X 移除為主。
+2. 誤按 X 後，通知歷史會顯示「恢復監控」，只要訊號仍在有效監控期限、尚未確認結構崩壞即可恢復。
+3. 結構確認崩壞後自動移出主監控：沿用既有後端 DROPPED 判定。DROPPED 只有在硬結構明確破壞，或連續 TEST_MONITOR_BAD_BARS（預設3根5分K）弱勢且 15m / 30m / 1h / 大盤高週期同步逆向時成立。
+4. 若沒有確認結構崩壞，仍維持最長 4 小時 TTL。
+
+通知歷史：
+- 在狀態（例如「失效」）左側新增「修改」。
+- 可重新打開既有「實際建倉」設定：成本、TP1、TP2、SP1、SP2、保證金、數量、槓桿。
+- 仍在 ACTIVE 且尚未發生 TP/SP first-touch 才允許修改。
+- 修改前的設定會保存在 revisions，最多保留最近20次修訂，避免績效資料被無痕覆寫。
+- 若該通知尚未建立實際建倉，而即時 tracker 仍存在，按「修改」會直接開啟建立實際建倉表單。
+
+資料相容：
+- App build 升級為 V10.2.7。
+- actual-trades 資料 schema 仍使用 V10.2.6 storage/version key，刻意保留 V10.2.6 已累積的實際建倉紀錄，不做破壞式 migration。

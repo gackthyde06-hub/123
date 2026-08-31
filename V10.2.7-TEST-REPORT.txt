@@ -1,0 +1,32 @@
+V10.2.7 TEST REPORT
+Date: 2026-08-31
+
+PASS
+- node --check server.js
+- node --check public/app.js
+- node --check public/sw.js
+- HTML IDs: 146 unique / duplicate IDs: 0
+- Notification history「修改」handler present
+- Notification history「恢復監控」handler present
+- Actual-trade PATCH update endpoint present
+- Actual-trade revisions audit present
+- Client DROPPED auto-clear present
+- Server DROPPED persistence veto present
+- Existing TEST_MONITOR_BAD_BARS structural confirmation retained
+- app.js cache bust = 1027
+- BUILD_VERSION = V10.2.7
+- package version = 10.2.7
+- TEST_PUBLIC_KEY not bundled in server.js
+
+NPM UNIT TEST
+- NOT PASSED / NOT CLAIMED.
+- Current artifact execution environment does not have package dependencies installed.
+- npm test stops at ERR_MODULE_NOT_FOUND: dotenv before test execution.
+- This is an environment/dependency issue, not reported as a passing unit test.
+
+LIVE VALIDATION STILL REQUIRED AFTER DEPLOY
+- Railway healthcheck / process startup with installed dependencies
+- iPhone web-push delivery
+- Manual X -> 通知歷史「恢復監控」-> card returns
+- DROPPED after structural confirmation -> card auto-removes while history remains
+- Existing ACTIVE actual trade -> 「修改」-> PATCH save -> settings persist
