@@ -1,0 +1,34 @@
+V10.2.5 TEST REPORT
+
+Static / syntax checks:
+PASS - BUILD_VERSION V10.2.5
+PASS - package 10.2.5
+PASS - actual notification price snapshot
+PASS - notification preferred zone snapshot
+PASS - notification stop/target snapshot
+PASS - frontend notification price uses snapshot
+PASS - actionable entry gate exists
+PASS - blocked/invalid recommendation pauses
+PASS - monitor has notification zone vs current zone
+PASS - monitor current recommendation label
+PASS - cache bust 1025
+PASS - no duplicate HTML ids
+PASS - no TEST_PUBLIC_KEY in server
+
+Executed:
+PASS - node --check server.js
+PASS - node --check public/app.js
+PASS - node --check public/sw.js
+
+Unit tests:
+NOT RUN - npm/unit test dependencies are not installed in this sandbox. Direct execution failed on missing dotenv, so no unit-test pass is claimed.
+
+Behavior fixed:
+- monitor notification price now uses the actual price captured when push was sent; old trackers fall back to confirmation price.
+- notification-time preferred/full zones are frozen at push time.
+- current suggested entry is shown only while the current setup is still HIGH/NORMAL and not invalid/dropped/weakening/stale.
+- when the signal is paused/blocked/invalid, the monitor shows 暫停 instead of a stale numeric entry.
+- notification-time zone and current zone are displayed separately.
+- calculator 通知價 uses the notification snapshot; 建議價 is unavailable when current setup is not actionable.
+
+HTML ids: 125 unique / 125 total
