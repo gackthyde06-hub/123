@@ -1,13 +1,1 @@
-SYSTEM GROWTH v1.3.0 上傳方式
-
-把以下 4 個檔案上傳到 GitHub repo 123 的最外層根目錄並覆蓋：
-- package.json
-- prepare-ui.mjs
-- system-growth.js
-- system-growth.css
-
-其餘 TXT 是說明文件，可一起上傳也可不傳。
-
-Railway 重新部署後，prepare-ui.mjs 會把新版 UI 資源複製到 public/，並以 sg130 cache key 掛載。
-
-注意：server.js 不需要更動。
+將 package.json、prepare-ui.mjs、system-growth.js、system-growth.css 與說明檔覆蓋到專案根目錄，commit / push 後重新部署。

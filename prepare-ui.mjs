@@ -14,8 +14,8 @@ for(const [sourceName,target] of assets){
   if(!fs.existsSync(source))throw new Error(`[ui] missing ${sourceName}`);
   fs.copyFileSync(source,target);
 }
-const cssTag='<link rel="stylesheet" href="/system-growth.css?v=sg130">';
-const jsTag='<script defer src="/system-growth.js?v=sg130"></script>';
+const cssTag='<link rel="stylesheet" href="/system-growth.css?v=sg140">';
+const jsTag='<script defer src="/system-growth.js?v=sg140"></script>';
 let html=fs.readFileSync(htmlPath,'utf8');
 const cssRe=/<link[^>]+href=["'][^"']*system-growth\.css[^"']*["'][^>]*>/i;
 const jsRe=/<script[^>]+src=["'][^"']*system-growth\.js[^"']*["'][^>]*><\/script>/i;
