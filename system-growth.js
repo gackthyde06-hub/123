@@ -1,10 +1,10 @@
 (()=>{
   'use strict';
-  const VERSION='1.9.0';
+  const VERSION='2.0.0';
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
-  const PROGRESS_KEY='sg-progress-v19';
+  const PROGRESS_KEY='sg-progress-v20';
   const VISIT_KEY='sg-visits-v1';
   const EXPLORE_PREFIX='sg-explore-v1-';
   const rootDoc=document;
@@ -17,6 +17,19 @@
   const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayKey=()=>dateKey();
   const state={open:false,loading:false,perf:null,signals:null,lastLoadedAt:0,intel:new Map(),timer:null,toastTimer:null,renderKey:''};
+
+  const hashString=s=>{s=String(s||'');let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h>>>0};
+  const stageIconByIndex=i=>(['explore','ward','verify','stable','achievement'][Math.max(0,Math.min(4,Number(i)||0))]||'crest');
+  function candidateIconType(x){
+    const strategy=String(x?.strategyAtConfirm?.label||x?.strategyProfile?.label||x?.lastCheck?.strategyLabel||'');
+    const seed=hashString(`${x?.symbol||''}|${strategy}|${x?.direction||''}`);
+    const pools=strategy.includes('回踩')?['return','focus','ward','explore','atlas']
+      :strategy.includes('突破')?['break','pulse','gate','wing','verify']
+      :strategy.includes('深度')?['depth','sample','intel','state','codex']
+      :strategy.includes('影子')?['shadow','dedup','history','risk','state']
+      :(x?.direction==='SHORT'?['risk','state','wing','focus','break']:['state','sample','ward','atlas','explore']);
+    return pools[seed%pools.length]||'state';
+  }
 
   function safeParse(raw,fallback=null){try{return JSON.parse(raw)}catch{return fallback}}
   function storageGet(key,fallback=null){try{return safeParse(localStorage.getItem(key),fallback)}catch{return fallback}}
@@ -105,8 +118,8 @@
   }
 
   function stagePath(m){
-    const stages=[['探索',20],['校準',50],['驗證',100],['穩定',300]],n=m.xp.effective;
-    return `<div class="sg-stage-path">${stages.map(([label,cut],i)=>`<div class="sg-stage-node ${n>=cut?'done':n>=([0,20,50,100][i]||0)?'current':''}"><i>${n>=cut?sigilSvg('node-on'):sigilSvg('node')}</i><span>${label}</span><small>${cut}樣本</small></div>`).join('')}</div>`;
+    const stages=[['探索',20,'explore'],['校準',50,'ward'],['驗證',100,'verify'],['穩定',300,'stable']],n=m.xp.effective;
+    return `<div class="sg-stage-path">${stages.map(([label,cut,icon],i)=>`<div class="sg-stage-node ${n>=cut?'done':n>=([0,20,50,100][i]||0)?'current':''}"><i>${sigilSvg(n>=cut?'node-on':icon,n>=cut?3:(n>=([0,20,50,100][i]||0)?2:1))}</i><span>${label}</span><small>${cut}樣本</small></div>`).join('')}</div>`;
   }
   function recordHistory(m){
     const arr=storageGet(HISTORY_KEY,[])||[],today=todayKey(),entry={date:today,xp:m.xp.xp,effective:m.xp.effective,hit:has(m.sh.hitRate)?Number(m.sh.hitRate):null,pf:has(m.sh.profitFactor)?Number(m.sh.profitFactor):null};
@@ -127,8 +140,14 @@
     const crown=g>=5?`<path class="sg-glyph-crown" d="M9 6l3 2 4-4 4 4 3-2" fill="none"/>`:'';
     const icons={
       crest:`<path d="M16 4 26 10v7c0 5.6-3.6 9.2-10 11-6.4-1.8-10-5.4-10-11v-7Z" fill="none"/><path d="M16 9v14" fill="none"/><path d="M10.5 14.2c1.8-1.8 3.6-2.7 5.5-2.7s3.7.9 5.5 2.7" fill="none"/><path d="M11.5 20c1.4-1.3 2.9-1.9 4.5-1.9 1.7 0 3.2.6 4.5 1.9" fill="none"/>`,
+      ward:`<path d="M16 5 25 10v12l-9 5-9-5V10Z" fill="none"/><path d="M16 8v14" fill="none"/><path d="M11.5 14h9" fill="none"/><path d="M12.5 20c1.2-1.2 2.4-1.8 3.5-1.8s2.3.6 3.5 1.8" fill="none"/>`,
       return:`<circle cx="16" cy="16" r="9.5" fill="none"/><path d="M10 16c0-3.5 2.8-6.3 6.3-6.3 2.2 0 4.2 1.1 5.3 2.9" fill="none"/><path d="M19.8 9.6h3.9v3.9" fill="none"/><path d="M22.6 17.5c-.7 3.2-3.6 5.6-7 5.6-2.3 0-4.4-1.1-5.8-2.8" fill="none"/>`,
       break:`<path d="M16 4 26 16 16 28 6 16Z" fill="none"/><path d="M11 16h10M16 11v10" fill="none"/>`,
+      gate:`<path d="M9 6h14v20H9z" fill="none"/><path d="M13 10h6v12h-6z" fill="none"/><path d="M16 10v12" fill="none"/>`,
+      pulse:`<path d="M6 17h5l2-5 4 10 2-5h7" fill="none"/><circle cx="16" cy="16" r="10" fill="none"/>`,
+      wing:`<path d="M8 22c5-1 8-5.2 8-12-5.1 1.2-8 4.7-8 12Zm16 0c-5-1-8-5.2-8-12 5.1 1.2 8 4.7 8 12Z" fill="none"/><path d="M16 10v14" fill="none"/>`,
+      atlas:`<circle cx="16" cy="16" r="10" fill="none"/><path d="M16 6c2.7 2.5 4 5.9 4 10s-1.3 7.5-4 10M16 6c-2.7 2.5-4 5.9-4 10s1.3 7.5 4 10M6 16h20M8.5 10.5h15M8.5 21.5h15" fill="none"/>`,
+      focus:`<circle cx="16" cy="16" r="10" fill="none"/><path d="M16 8v5M16 19v5M8 16h5M19 16h5" fill="none"/><circle cx="16" cy="16" r="3"/>`,
       shadow:`<path d="M16 5 25 10v12l-9 5-9-5V10Z" fill="none"/><circle cx="16" cy="16" r="3.5"/><path d="M16 8v5" fill="none"/>`,
       state:`<circle cx="16" cy="16" r="9.5" fill="none"/><circle cx="16" cy="16" r="3.5"/><path d="M16 6v4M16 22v4M6 16h4M22 16h4" fill="none"/>`,
       depth:`<path d="M7 11c2.2-2.2 4.8-3.3 7.8-3.3s5.6 1.1 7.8 3.3M9 16c1.8-1.6 3.8-2.4 6-2.4 2.4 0 4.6.8 6.5 2.4M11 21c1.4-1 2.8-1.5 4.3-1.5 1.7 0 3.2.5 4.8 1.5" fill="none"/><circle cx="16" cy="23.2" r="1.9"/>`,
@@ -139,6 +158,8 @@
       notify:`<path d="M10 22h12M12 22v-8a4 4 0 0 1 8 0v8M14 25h4" fill="none"/><path d="M9 22h14" fill="none"/>`,
       explore:`<circle cx="16" cy="16" r="10" fill="none"/><path d="m19 11-2 6-6 2 2-6Z" fill="none"/>`,
       calibrate:`<path d="M6 16h20M16 6v20" fill="none"/><circle cx="16" cy="16" r="6" fill="none"/><circle cx="16" cy="16" r="2"/>`,
+      node:`<circle cx="16" cy="16" r="9.5" fill="none"/><path d="M16 8v16" fill="none"/><path d="M11 12c1.2-1 2.9-1.6 5-1.6s3.8.6 5 1.6" fill="none"/>`,
+      'node-on':`<circle cx="16" cy="16" r="9.5" fill="none"/><path d="M11 16l3.3 3.4L21.8 12" fill="none"/>`,
       verify:`<path d="M7 17l6 6L26 9" fill="none"/><path d="M24 16v9H7V8h11" fill="none"/>`,
       stable:`<path d="M7 23h18M9 20l4-8 4 5 3-9 3 12" fill="none"/>`,
       journal:`<path d="M8 6h14a3 3 0 0 1 3 3v17H11a3 3 0 0 1-3-3Z" fill="none"/><path d="M11 9h11M11 14h9M11 19h7" fill="none"/>`,
@@ -156,13 +177,14 @@
 
 
   function coreEmblem(m){
-    const grade=levelArtGrade(m.level.level),step=iconGradeFromProgress(m.level.ratio);
-    const steps=Array.from({length:4},(_,i)=>`<i class="${i<=m.stage.index?'on':''}">${sigilSvg(i<=m.stage.index?'verify':'calibrate',i<=m.stage.index?Math.min(5,grade+1):1)}</i>`).join('');
-    return `<aside class="sg-core-emblem sg-phase-${m.stage.index} sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg('crest',grade)}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b><span>${esc(m.personality)}</span></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
+    const grade=levelArtGrade(m.level.level),step=iconGradeFromProgress(m.level.ratio),current=stageIconByIndex(m.stage.index);
+    const stageTrack=['explore','ward','verify','stable'];
+    const steps=stageTrack.map((icon,i)=>`<i class="${i<=m.stage.index?'on':''}">${sigilSvg(icon,i<=m.stage.index?Math.min(5,grade+1):1)}</i>`).join('');
+    return `<aside class="sg-core-emblem sg-phase-${m.stage.index} sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg(current,Math.min(5,grade+1))}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b><span>${esc(m.personality)}</span></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
   }
-  function systemLevelCrest(level){
-    const grade=levelArtGrade(level.level),step=iconGradeFromProgress(level.ratio);
-    return `<span class="sg-level-crest-mini sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true">${sigilSvg('crest',grade)}<i>${Array.from({length:5},(_,i)=>`<b class="${i<step?'on':''}"></b>`).join('')}</i></span>`;
+  function systemLevelCrest(level,stageIndex=0){
+    const grade=levelArtGrade(level.level),step=iconGradeFromProgress(level.ratio),icon=stageIconByIndex(stageIndex);
+    return `<span class="sg-level-crest-mini sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true">${sigilSvg(icon,Math.min(5,grade+1))}<i>${Array.from({length:5},(_,i)=>`<b class="${i<step?'on':''}"></b>`).join('')}</i></span>`;
   }
 
 
@@ -184,7 +206,7 @@
   }
   function candidateHtml(rows){
     const list=candidateRows(rows);if(!list.length)return'<div class="sg-empty">目前無觀察候選</div>';
-    return list.map((x,i)=>{const tier=String(x.notificationTier||'VALID').toUpperCase(),progress=Math.round(clamp(x.observationProgress||x.strategyProfile?.progress||0)),miss=(x.notificationGate?.normalMissing||x.notificationGate?.blockers||[]).slice(0,4),strategy=x.strategyAtConfirm?.label||x.strategyProfile?.label||x.lastCheck?.strategyLabel||'多策略觀察',done=reasonsDone(x),rate=has(x.calibratedWinRate)?`${Number(x.calibratedWinRate).toFixed(1)}%`:'—',score=has(x.notificationGate?.score)?Number(x.notificationGate.score).toFixed(0):'—',sgType=String(strategy).includes('回踩')?'return':String(strategy).includes('突破')?'break':String(strategy).includes('深度')?'depth':'state';return `<details class="sg-candidate-card dir-${x.direction==='SHORT'?'short':'long'} tier-${tier.toLowerCase()}" data-sg-candidate ${i===0?'data-featured="1"':''}><summary><div class="sg-candidate-main"><i class="sg-candidate-glyph">${sigilSvg(sgType,iconGradeFromProgress(progress))}</i><b>${esc(x.symbol)}</b><span class="${x.direction==='SHORT'?'short':'long'}">${x.direction==='SHORT'?'做空':'做多'}</span><em class="${tier.toLowerCase()}">${esc(tier)}</em></div><div class="sg-candidate-bar"><i style="width:${progress}%"></i></div><div class="sg-candidate-meta"><span>${progress}% · ${esc(strategy)}</span><small>${miss.length?esc(miss.slice(0,2).join('、')):'條件完整度持續更新'}</small></div><i class="sg-chevron">⌄</i></summary><div class="sg-candidate-detail"><div class="sg-detail-grid"><div><span>校準</span><b>${rate}</b></div><div><span>評分</span><b>${score}</b></div><div><span>Regime</span><b>${esc(x.marketRegime||'未分類')}</b><small>${esc(x.freshness?.state||'')}</small></div></div><div class="sg-why"><div><span>已成立</span>${done.length?`<ul>${done.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>尚在前段</p>'}</div><div><span>待確認</span>${miss.length?`<ul>${miss.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>暫無明顯缺口</p>'}</div></div></div></details>`}).join('')
+    return list.map((x,i)=>{const tier=String(x.notificationTier||'VALID').toUpperCase(),progress=Math.round(clamp(x.observationProgress||x.strategyProfile?.progress||0)),miss=(x.notificationGate?.normalMissing||x.notificationGate?.blockers||[]).slice(0,4),strategy=x.strategyAtConfirm?.label||x.strategyProfile?.label||x.lastCheck?.strategyLabel||'多策略觀察',done=reasonsDone(x),rate=has(x.calibratedWinRate)?`${Number(x.calibratedWinRate).toFixed(1)}%`:'—',score=has(x.notificationGate?.score)?Number(x.notificationGate.score).toFixed(0):'—',sgType=candidateIconType(x);return `<details class="sg-candidate-card dir-${x.direction==='SHORT'?'short':'long'} tier-${tier.toLowerCase()}" data-sg-candidate ${i===0?'data-featured="1"':''}><summary><div class="sg-candidate-main"><i class="sg-candidate-glyph">${sigilSvg(sgType,iconGradeFromProgress(progress))}</i><b>${esc(x.symbol)}</b><span class="${x.direction==='SHORT'?'short':'long'}">${x.direction==='SHORT'?'做空':'做多'}</span><em class="${tier.toLowerCase()}">${esc(tier)}</em></div><div class="sg-candidate-bar"><i style="width:${progress}%"></i></div><div class="sg-candidate-meta"><span>${progress}% · ${esc(strategy)}</span><small>${miss.length?esc(miss.slice(0,2).join('、')):'條件完整度持續更新'}</small></div><i class="sg-chevron">⌄</i></summary><div class="sg-candidate-detail"><div class="sg-detail-grid"><div><span>校準</span><b>${rate}</b></div><div><span>評分</span><b>${score}</b></div><div><span>Regime</span><b>${esc(x.marketRegime||'未分類')}</b><small>${esc(x.freshness?.state||'')}</small></div></div><div class="sg-why"><div><span>已成立</span>${done.length?`<ul>${done.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>尚在前段</p>'}</div><div><span>待確認</span>${miss.length?`<ul>${miss.map(v=>`<li>${esc(v)}</li>`).join('')}</ul>`:'<p>暫無明顯缺口</p>'}</div></div></div></details>`}).join('')
   }
 
   function lessonFor(m){
@@ -224,7 +246,7 @@
           <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日 ${visits}D</em></div>
           <div class="sg-core-intro">
             <div class="sg-core-main">
-              <div class="sg-level-row"><div><small>SYSTEM</small><div class="sg-level-line"><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong>${systemLevelCrest(level)}</div></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
+              <div class="sg-level-row"><div><small>SYSTEM</small><div class="sg-level-line"><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong>${systemLevelCrest(level,m.stage.index)}</div></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
               <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
             </div>
             ${coreEmblem(m)}
