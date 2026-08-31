@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
-const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js'];
+const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg'];
 
 for(const name of files){
   const source=path.join(__dirname,name);
@@ -24,15 +24,15 @@ const removers=[
 for(const re of removers)html=html.replace(re,'');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg190">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg190">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg213">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg213">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg190"></script>',
-  '<script defer src="/premium-theme.js?v=sg190"></script>',
+  '<script defer src="/system-growth.js?v=sg213"></script>',
+  '<script defer src="/premium-theme.js?v=sg213"></script>',
 ].join('\n');
 
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log('[ui] premium integration v1.9.0 ready');
+console.log('[ui] premium integration v2.1.3 ready');

@@ -1,0 +1,7 @@
+SYSTEM GROWTH UI v2.1.2
+
+修正重點：
+- 修正背景沒有顯示：prepare-ui 現在會把 sg-crystal-bg.svg 一起複製到 public
+- 修正快取：CSS / JS 改成 sg212 cache-bust 版本，避免瀏覽器沿用舊檔
+- 背景紋理改用絕對路徑 /sg-crystal-bg.svg?v=sg212
+- 水晶幾何背景存在感稍微提高，但仍維持淡淡高級感
