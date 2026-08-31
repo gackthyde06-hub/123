@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='1.5.0';
+  const VERSION='1.6.0';
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
@@ -166,13 +166,13 @@
     const base=getDayBase()||{xp:m.xp.xp,effective:m.xp.effective,blocked:m.xp.blocked,notified:m.xp.notified},dx=Math.max(0,m.xp.xp-Number(base.xp||0)),de=Math.max(0,m.xp.effective-Number(base.effective||0)),db=Math.max(0,m.xp.blocked-Number(base.blocked||0)),dn=Math.max(0,m.xp.notified-Number(base.notified||0));
     const skillReturn=strategyPatternCount(patterns,'回踩'),skillBreak=strategyPatternCount(patterns,'突破'),depthResearch=Math.max(0,patterns.filter(x=>String(x?.features?.depth||'—')!=='—').reduce((a,x)=>a+Number(x.sample||0),0)),stateResearch=patterns.reduce((a,x)=>a+Number(x.sample||0),0),level=m.level,stagePct=clamp((m.xp.effective-m.stage.from)/Math.max(1,m.stage.to-m.stage.from)*100),history=recordHistory(m),visits=recentVisitCount(7);
     const personalitySub=m.best?`偏好：${esc(m.best.features?.strategyLabel||'多策略')} / ${esc(({TREND_UP:'強多',TREND_DOWN:'強空',CHOP:'震盪',HIGH_VOL:'高波動',LIQUIDATION:'清算'})[m.best.features?.regime]||m.best.features?.regime||'跨狀態')}`:'尚在建立偏好';
-    const badge=rootDoc.getElementById('sgBrandLevel');if(badge)badge.textContent=`Lv.${level.level}`;
+    const badge=rootDoc.getElementById('sgBrandLevel');if(badge)badge.innerHTML=`<span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span>`;
     panel.innerHTML=`
       <div class="sg-panel-topline"><span><i class="sg-mini-sigil">◇</i> 成長核心 · V${VERSION}</span><div><b>${m.stage.name}</b><em>${formatAge(state.perf.generatedAt||state.signals?.generatedAt)}</em></div></div>
       <div class="sg-hero">
         <section class="sg-core-card">
           <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日 ${visits}D</em></div><div class="sg-core-seal" aria-hidden="true"><i></i><b>◇</b><span></span></div>
-          <div class="sg-level-row"><div><small>SYSTEM</small><strong>Lv.${level.level}</strong></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
+          <div class="sg-level-row"><div><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
           <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
           <div class="sg-stage"><div><span>研究階段 · ${esc(m.stage.name)}</span><b>${m.xp.effective} / ${m.stage.to} 去相關樣本</b></div><div class="sg-stage-bar"><i style="width:${stagePct}%"></i></div><p>${esc(m.stage.desc)}</p>${stagePath(m)}</div>
           <div class="sg-today-growth"><div><span>今日有效樣本</span><b>+${de}</b></div><div><span>今日淘汰研究</span><b>+${db}</b></div><div><span>今日通知樣本</span><b>+${dn}</b></div></div>
@@ -261,7 +261,7 @@
   function stopTimer(){if(state.timer){clearInterval(state.timer);state.timer=null}}
   function init(){
     if(rootDoc.getElementById('sgPanel'))return;const brand=rootDoc.querySelector('.brandTitle'),top=rootDoc.querySelector('.top');if(!brand||!top){setTimeout(init,180);return}
-    brand.classList.add('sg-brand');const btn=rootDoc.createElement('button');btn.type='button';btn.id='sgBrandToggle';btn.className='sg-brand-toggle';btn.setAttribute('aria-expanded','false');btn.innerHTML=`<span>系統養成</span><em id="sgBrandLevel">Lv.—</em>`;brand.appendChild(btn);
+    brand.classList.add('sg-brand');const btn=rootDoc.createElement('button');btn.type='button';btn.id='sgBrandToggle';btn.className='sg-brand-toggle';btn.setAttribute('aria-expanded','false');btn.innerHTML=`<span>系統養成</span><em id="sgBrandLevel" class="sg-inline-lv"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">—</span></em>`;brand.appendChild(btn);
     const loading=rootDoc.createElement('div');loading.id='sgLoading';loading.className='sg-loading';loading.setAttribute('aria-live','polite');const panel=rootDoc.createElement('section');panel.id='sgPanel';panel.className='sg-panel';panel.hidden=true;panel.setAttribute('aria-label','系統養成');panel.innerHTML='<div class="sg-skeleton">讀取養成資料中…</div>';
     const toast=rootDoc.createElement('div');toast.id='sgToast';toast.className='sg-toast';toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');rootDoc.body.appendChild(toast);mountScrollRail();
     top.insertAdjacentElement('afterend',loading);loading.insertAdjacentElement('afterend',panel);btn.addEventListener('click',()=>setOpen(!state.open));let initial=false;try{const v=localStorage.getItem(OPEN_KEY);initial=v===null?true:v==='1'}catch{initial=true}setOpen(initial);

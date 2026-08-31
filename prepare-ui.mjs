@@ -24,15 +24,15 @@ const removers=[
 for(const re of removers)html=html.replace(re,'');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg150">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg150">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg160">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg160">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg150"></script>',
-  '<script defer src="/premium-theme.js?v=sg150"></script>',
+  '<script defer src="/system-growth.js?v=sg160"></script>',
+  '<script defer src="/premium-theme.js?v=sg160"></script>',
 ].join('\n');
 
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log('[ui] premium integration v1.5.0 ready');
+console.log('[ui] premium integration v1.6.0 ready');

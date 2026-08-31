@@ -424,3 +424,40 @@ html,body{overflow-x:hidden!important}
   .sg-candidate-main b{font-size:18px!important}
   .sg-scroll-rail{right:max(6px,env(safe-area-inset-right))!important}
 }
+
+
+/* v1.5.1 LV alignment fix */
+.sg-level-badge,.sg-inline-lv{display:inline-flex;align-items:baseline;gap:.06em}
+.sg-level-badge .sg-lv-prefix,.sg-inline-lv .sg-lv-prefix{display:inline-block;line-height:1}
+.sg-level-badge .sg-lv-num,.sg-inline-lv .sg-lv-num{display:inline-block;line-height:.92;position:relative;top:-.04em}
+.sg-level-badge .sg-lv-prefix{font-size:.62em;letter-spacing:.03em;opacity:.98}
+.sg-level-badge .sg-lv-num{font-variant-numeric:lining-nums tabular-nums}
+.sg-inline-lv .sg-lv-prefix{font-size:.9em}
+.sg-inline-lv .sg-lv-num{font-variant-numeric:lining-nums tabular-nums}
+@media (max-width:720px){
+  .sg-level-badge{gap:.05em}
+  .sg-level-badge .sg-lv-num,.sg-inline-lv .sg-lv-num{top:-.035em}
+}
+
+
+/* SYSTEM GROWTH v1.6.0 — premium FF badge refinement */
+.sg-level-badge,.sg-inline-lv{display:inline-flex;align-items:baseline;gap:.08em;padding:.16em .42em .18em;border-radius:999px;border:1px solid rgba(192,154,87,.28);background:linear-gradient(180deg,rgba(24,19,12,.96),rgba(12,16,20,.96));box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 6px 18px rgba(0,0,0,.16)}
+.sg-level-badge::before,.sg-inline-lv::before{content:"";position:absolute}
+.sg-level-badge .sg-lv-prefix,.sg-inline-lv .sg-lv-prefix{color:#c3d1ea;opacity:.92}
+.sg-level-badge .sg-lv-num,.sg-inline-lv .sg-lv-num{color:#f1d191;text-shadow:0 0 14px rgba(226,181,100,.12)}
+.sg-level-row strong.sg-level-badge{font-size:1em!important;line-height:1!important}
+.sg-level-row strong.sg-level-badge .sg-lv-prefix{font-size:.52em;letter-spacing:.05em}
+.sg-level-row strong.sg-level-badge .sg-lv-num{font-size:1em;top:-.045em}
+.sg-brand-toggle .sg-inline-lv{padding:.14em .38em .16em;border-color:rgba(126,146,191,.24);background:linear-gradient(180deg,rgba(16,20,24,.95),rgba(12,15,18,.95))}
+.sg-brand-toggle .sg-inline-lv .sg-lv-prefix{font-size:.86em}.sg-brand-toggle .sg-inline-lv .sg-lv-num{top:-.03em}
+.sg-accordion>summary,.sg-lesson>summary,.sg-manual summary{padding-right:44px!important}
+.sg-accordion>summary::after,.sg-lesson>summary::after,.sg-manual summary::after{right:16px!important}
+.sg-skill,.sg-ach,.sg-detail-grid>div,.sg-journal-grid>div,.sg-rules>div,.sg-manual details,.sg-intel-cols>div,.sg-intel-watch,.sg-intel-news{box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 8px 22px rgba(0,0,0,.12)!important}
+.sg-skill-head b,.sg-candidate-main b,.sg-card-title,.sg-accordion>summary b{letter-spacing:.018em!important}
+.sg-scroll-rail button{backdrop-filter:saturate(120%)!important;-webkit-backdrop-filter:saturate(120%)!important}
+@media(max-width:720px){
+  .sg-level-row strong.sg-level-badge{font-size:1em!important}
+  .sg-level-badge,.sg-inline-lv{padding:.16em .42em .18em}
+  .sg-level-row strong.sg-level-badge .sg-lv-prefix{font-size:.54em}
+  .sg-level-row strong.sg-level-badge .sg-lv-num{top:-.04em}
+}

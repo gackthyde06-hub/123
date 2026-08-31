@@ -128,3 +128,73 @@ button:active{transform:none!important}
   .testSummaryCell b{font-size:15px!important}.testMonitorSymbol{font-size:17px!important}
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+
+/* PREMIUM INTEGRATION v1.6.0 — high-end FF command-panel refinement */
+:root{
+  --ui-premium-frame:rgba(192,154,87,.34);
+  --ui-premium-frame-soft:rgba(132,155,196,.22);
+}
+.top{margin-bottom:18px!important}
+.brandTitle{letter-spacing:.025em!important;text-shadow:0 0 18px rgba(223,180,95,.1),0 0 30px rgba(134,167,231,.05)!important}
+.brandSub{max-width:28ch}
+
+.pageTabs{padding:9px 4px 11px!important;gap:3px!important;background:linear-gradient(180deg,rgba(10,12,15,.98),rgba(9,11,14,.93))!important;border:1px solid rgba(118,135,160,.14)!important;border-left:0!important;border-right:0!important;box-shadow:0 14px 28px rgba(0,0,0,.12)!important}
+.pageTab{overflow:hidden!important;border-radius:12px!important;min-height:50px!important;padding:12px 8px!important}
+.pageTab::before{content:"";position:absolute;inset:0;border:1px solid transparent;border-radius:inherit;pointer-events:none;transition:border-color .15s ease,background-color .15s ease}
+.pageTab::after{left:18%!important;right:18%!important;bottom:5px!important;height:2px!important}
+.pageTab.active{background:linear-gradient(180deg,rgba(19,23,28,.92),rgba(13,16,20,.86))!important;color:#f4ddb0!important}
+.pageTab.active::before{border-color:rgba(192,154,87,.26);box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+.pageTab:not(.active):active{background:rgba(15,18,22,.72)!important}
+
+.latest,.consensusPanel,.tradeCalc,.bottomMaster,.traderCard,.flowHero,.marketRow,.recCard,.todayHero,.biasCard,.biasListPanel,.matrixCell,.matrixCoin,.rankCard,.testFocusPanel,.testMonitorItem,.testCard,.testSummaryCell,.judgeCoreCell,.judgeStrategy,.judgeMore,.testPlannerFold,.testCardMore,.moreMonitorPool,.reachedPool,.autoLevels,.levelCell,.calcCell,.testMetric,.testLevels{position:relative!important;overflow:hidden!important;border-color:rgba(125,143,169,.18)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.026),0 10px 28px rgba(0,0,0,.13)!important}
+.latest::after,.consensusPanel::after,.tradeCalc::after,.bottomMaster::after,.traderCard::after,.flowHero::after,.marketRow::after,.recCard::after,.todayHero::after,.biasCard::after,.biasListPanel::after,.matrixCell::after,.matrixCoin::after,.rankCard::after,.testFocusPanel::after,.testMonitorItem::after,.testCard::after,.testSummaryCell::after,.judgeCoreCell::after,.judgeStrategy::after,.judgeMore::after,.testPlannerFold::after,.testCardMore::after,.moreMonitorPool::after,.reachedPool::after,.autoLevels::after,.levelCell::after,.calcCell::after,.testMetric::after,.testLevels::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.015)}
+.latest::before,.consensusPanel::before,.tradeCalc::before,.bottomMaster::before,.traderCard::before,.flowHero::before,.marketRow::before,.recCard::before,.todayHero::before,.biasCard::before,.biasListPanel::before,.matrixCell::before,.matrixCoin::before,.rankCard::before,.testFocusPanel::before,.testMonitorItem::before,.testCard::before,.testSummaryCell::before,.judgeCoreCell::before,.judgeStrategy::before,.judgeMore::before,.testPlannerFold::before,.testCardMore::before,.moreMonitorPool::before,.reachedPool::before,.autoLevels::before,.levelCell::before,.calcCell::before,.testMetric::before,.testLevels::before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(134,167,231,.22),rgba(223,180,95,.2),transparent);pointer-events:none}
+
+.sectionBar{margin-top:21px!important;margin-bottom:13px!important;align-items:center!important}
+.sectionTitle{font-size:20px!important;letter-spacing:.025em!important;text-shadow:0 0 14px rgba(134,167,231,.05)!important}
+.radarCount,.pageIntro{color:#98a5b4!important}
+.pageIntro{font-size:12px!important}
+
+.testFocusPanel{padding:17px!important;border-color:rgba(122,149,196,.26)!important;background:radial-gradient(circle at 86% 12%,rgba(125,151,196,.09),transparent 32%),linear-gradient(180deg,#111821,#0c1014)!important}
+.testMonitorTitle{font-size:22px!important;letter-spacing:.02em!important}
+.testMonitorSub{font-size:12px!important;max-width:32ch}
+.testMonitorControls button,.testActions button,.testFocusActions button,.tradeCalc>summary,.moreMonitorPool>summary,.reachedPool>summary{position:relative!important;overflow:hidden!important;background:linear-gradient(180deg,#141a20,#0d1217)!important;border:1px solid rgba(115,132,156,.26)!important;color:#d7e0eb!important}
+.testMonitorControls button::before,.testActions button::before,.testFocusActions button::before,.tradeCalc>summary::before,.moreMonitorPool>summary::before,.reachedPool>summary::before{content:"";position:absolute;left:10px;right:10px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(223,180,95,.22),rgba(134,167,231,.18),transparent);pointer-events:none}
+.testMonitorControls button:hover,.testActions button:hover,.testFocusActions button:hover{border-color:rgba(223,180,95,.42)!important;color:#fff0c4!important}
+.testMonitorItem{border-radius:18px!important;background:linear-gradient(180deg,#11161b,#0b0f13)!important}
+.testMonitorItem summary{padding:15px 14px!important}
+.testMonitorItem.focused{border-color:rgba(223,180,95,.36)!important;box-shadow:inset 2px 0 0 rgba(223,180,95,.36),0 14px 32px rgba(0,0,0,.15)!important}
+.testMonitorSymbol{font-size:20px!important;letter-spacing:.015em!important}
+.testMonitorRankTag,.testMonitorState,.testMonitorEventTime,.testMonitorRecover,.testTierTag,.testTrendTag,.testMonitorDir,.dirBadge,.levelBadge,.statusBadge,.confidenceBadge,.customTag,.signalBadge,.qualBadge,.dataBadge,.testDir{background:linear-gradient(180deg,#141920,#0f1318)!important;border:1px solid rgba(117,132,154,.24)!important;color:#c6d1dd!important}
+.testMonitorSummaryScore b{font-size:22px!important}
+.testMonitorSummaryScore span,.testMonitorSummaryScore small{font-size:10px!important}
+.testMonitorBody{padding:0 14px 14px!important}
+.judgeCoreCell,.testMetric,.testLevels{border-radius:13px!important}
+.judgeCoreCell span,.testMetric span,.testLevel span{font-size:10px!important}.judgeCoreCell b,.testMetric b,.testLevel b{font-size:14px!important}
+.judgeStrategy{border-radius:14px!important}
+.testReason{font-size:10px!important;line-height:1.6!important}
+
+.recCard,.rankCard,.todayHero,.flowHero,.biasListPanel,.tradeCalc,.latest,.consensusPanel{border-radius:20px!important}
+.recCard{padding:16px!important}.recSymbol{font-size:20px!important}.recReason{font-size:11.5px!important;line-height:1.7!important}
+.rankCard{padding:13px 12px!important}.rankSymbol{font-size:18px!important}.rankReason{line-height:1.65!important}
+.marketRow{border-radius:16px!important}.marketSym{font-size:17.5px!important}
+.tradeCalc>summary{min-height:56px!important;padding:14px 15px!important}.tradeCalcHint{font-size:10.5px!important}
+.calcField input,.calcField select{height:47px!important;border-radius:12px!important}
+
+@media(max-width:520px){
+  .wrap{padding-left:12px!important;padding-right:12px!important}
+  .pageTabs{top:calc(env(safe-area-inset-top,0px) + 2px)!important;padding-top:8px!important;padding-bottom:10px!important}
+  .pageTab{min-height:51px!important;font-size:12.5px!important;padding:12px 4px!important}
+  .todayHero,.flowHero,.recCard,.traderCard,.testFocusPanel,.biasListPanel,.rankCard,.tradeCalc,.latest,.consensusPanel{border-radius:22px!important}
+  .sectionTitle{font-size:21px!important}
+  .testFocusPanel{padding:16px!important}.testMonitorTitle{font-size:21px!important}.testMonitorSub{font-size:12.5px!important}
+  .testMonitorControls button{height:40px!important;padding:0 10px!important;font-size:10.5px!important}
+  .testMonitorItem{border-radius:18px!important}.testMonitorItem summary{padding:15px 13px!important}.testMonitorSymbol{font-size:19px!important}.testMonitorSummaryScore b{font-size:21px!important}
+  .judgeCoreCell span,.testMetric span,.testLevel span{font-size:10.5px!important}.judgeCoreCell b,.testMetric b,.testLevel b{font-size:15px!important}
+  .recSymbol{font-size:20px!important}.recReason{font-size:12px!important}
+}
+@media(max-width:390px){
+  .pageTab{font-size:12px!important}
+  .testMonitorSummaryScore b{font-size:20px!important}
+}
