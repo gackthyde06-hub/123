@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
+    "start": "node prepare-ui.mjs && node server.js",
+    "dev": "node prepare-ui.mjs && node --watch server.js",
     "vapid": "web-push generate-vapid-keys",
     "test": "UNIT_TEST=1 node test_v100.mjs"
   },

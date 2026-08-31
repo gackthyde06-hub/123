@@ -1,0 +1,28 @@
+V10.2.7 — SYSTEM GROWTH UI
+Date: 2026-09-01
+
+PURPOSE
+- Add a premium gamified growth layer without changing the V10.2.7 trading / notification / learning engine.
+- Make waiting, research and filtering visible and enjoyable; do not reward trade frequency.
+
+UI
+- Adds clickable「/ 系統養成」beside「交易監控」instead of adding a seventh navigation page.
+- Premium black / dark-gold design, responsive desktop + mobile layout.
+- System level + XP, six-axis growth radar, current research activity, skill modules, model journal, achievements, intelligence dossiers and growth rules.
+- All growth values are derived from existing real performance / shadow / state-learning / observation data.
+- Six-axis scores are growth / maturity indices, explicitly NOT predicted win rates.
+
+GROWTH
+- XP is awarded for de-correlated effective research samples, learning-eligible resolved samples, blocked-sample research, genuine notification samples and activated state-learning patterns.
+- No XP is awarded for manual trade count or frequent entries.
+- Skills are backed by actual sample counts and learning patterns.
+
+INTELLIGENCE
+- Intelligence dossier uses the existing /api/symbol-analysis endpoint.
+- AI web search is only requested after the user presses「查最新情報」.
+- Client-side session cache is reused for two hours to avoid unnecessary repeated API usage.
+
+SAFETY / CORE ISOLATION
+- This release does not modify V10.2.7 signal thresholds, state-learning weights, hard gates, notification logic, performance tracking or actual-trade logic.
+- The growth layer is read-only with respect to the core engine.
+- Production injection is handled by prepare-ui.mjs at process startup so the existing public/index.html source can remain unchanged.
