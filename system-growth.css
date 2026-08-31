@@ -852,3 +852,38 @@ html,body{overflow-x:hidden!important}
   .sg-radar{width:min(100%,320px)!important}
   .sg-quick>div{min-height:106px!important;padding:13px!important}.sg-quick b{font-size:23px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.1 — subtle crystal geometry background */
+.sg-panel,.sg-core-card,.sg-radar-card,.sg-live,.sg-quick>div,.sg-explore,.sg-lesson,.sg-accordion,.sg-skill,.sg-core-emblem,.sg-stage{position:relative;overflow:hidden}
+.sg-panel::before{
+  inset:0!important;
+  opacity:.30!important;
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(237,208,145,.08), transparent 28%),
+    radial-gradient(circle at 88% 6%, rgba(141,173,226,.06), transparent 22%),
+    url('./sg-crystal-bg.svg'),
+    linear-gradient(rgba(255,255,255,.008) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.008) 1px, transparent 1px)!important;
+  background-size:auto,auto,cover,30px 30px,30px 30px!important;
+  background-position:center,center,center top,center,center!important;
+  background-repeat:no-repeat,no-repeat,no-repeat,repeat,repeat!important;
+  mask-image:linear-gradient(to bottom, rgba(0,0,0,.96), rgba(0,0,0,.8) 55%, transparent 95%)!important;
+}
+.sg-core-card::before,.sg-radar-card::before,.sg-live::before,.sg-quick>div::before,.sg-explore::before,.sg-lesson::before,.sg-accordion::before,.sg-skill::before,.sg-core-emblem::before,.sg-stage::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(circle at 16% 14%, rgba(219,179,107,.045), transparent 24%),
+    radial-gradient(circle at 84% 18%, rgba(161,188,231,.04), transparent 20%),
+    url('./sg-crystal-bg.svg') center/cover no-repeat;
+  opacity:.14;
+  mix-blend-mode:screen;
+  mask-image:linear-gradient(180deg, rgba(0,0,0,.85), rgba(0,0,0,.65) 70%, transparent 100%);
+}
+.sg-core-card>*,.sg-radar-card>*,.sg-live>*,.sg-quick>div>*,.sg-explore>*,.sg-lesson>*,.sg-accordion>*,.sg-skill>*,.sg-core-emblem>*,.sg-stage>*{position:relative;z-index:1}
+.sg-panel::after{box-shadow:0 0 26px rgba(219,179,107,.06)}
+.sg-personality,.sg-candidate-card,.sg-detail-grid>div,.sg-why>div,.sg-skill,.sg-quick>div,.sg-explore-grid button,.sg-lesson,.sg-accordion{backdrop-filter:blur(1.4px)}
+@media(max-width:520px){
+  .sg-panel::before{background-size:auto,auto,160% auto,30px 30px,30px 30px!important;background-position:center,center,58% top,center,center!important;opacity:.32!important}
+  .sg-core-card::before,.sg-radar-card::before,.sg-live::before,.sg-quick>div::before,.sg-explore::before,.sg-lesson::before,.sg-accordion::before,.sg-skill::before,.sg-core-emblem::before,.sg-stage::before{background-size:auto,auto,170% auto!important;background-position:center,center,56% top!important;opacity:.13!important}
+}
