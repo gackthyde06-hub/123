@@ -757,3 +757,98 @@ html,body{overflow-x:hidden!important}
   .sg-accordion>summary{padding:16px 14px!important}.sg-accordion>summary b{font-size:19px!important}
   .sg-stage-node span{font-size:11px!important}.sg-stage-node small{font-size:9px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.0 — spacing tighten, font cleanup, badge alignment */
+:root{--sg-space-tight:12px;--sg-space-card:14px}
+/* tighter overall rhythm */
+.sg-panel{gap:14px!important}
+.sg-panel>section,.sg-panel>details,.sg-panel>div{margin-top:0!important}
+.sg-section-head{margin-bottom:8px!important}
+.sg-section-head b{line-height:1.04!important}
+.sg-live{padding:16px 14px!important}
+.sg-candidate-card{padding:0 12px!important;border-radius:18px!important}
+.sg-candidate-card>summary{padding:13px 0!important;min-height:98px!important;gap:10px!important;align-items:center!important}
+.sg-candidate-detail{padding:2px 0 10px!important}
+.sg-detail-grid{gap:8px!important;margin-top:8px!important}
+.sg-detail-grid>div,.sg-why>div{padding:11px!important;border-radius:14px!important}
+.sg-why{gap:8px!important;margin-top:8px!important}
+.sg-candidate-meta{gap:3px!important}
+.sg-candidate-meta span{font-size:12.5px!important;line-height:1.2!important}
+.sg-candidate-meta small{font-size:10.5px!important;line-height:1.35!important}
+.sg-candidate-bar{height:8px!important;margin-top:2px!important}
+.sg-candidate-main{gap:9px!important;row-gap:8px!important}
+/* ticker font cleanup: no serif for symbols so 4USDT won't look crooked */
+.sg-candidate-main b,.sg-intel-head b,.sg-summary-ticker,.sg-symbol{font-family:Inter,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif!important;font-weight:900!important;font-style:normal!important;letter-spacing:0!important;font-variant-numeric:lining-nums tabular-nums!important;font-feature-settings:"tnum" 1,"lnum" 1!important}
+.sg-candidate-main b{font-size:22px!important;line-height:1.05!important}
+/* unify long/short badge symbol and keep direction by color only */
+.sg-candidate-main span.long,.sg-candidate-main span.short{display:inline-flex!important;align-items:center!important;gap:5px!important}
+.sg-candidate-main span.long::before,.sg-candidate-main span.short::before{content:"◆";font-size:.82em;line-height:1;opacity:.88;color:currentColor}
+.sg-candidate-main span.long{background:linear-gradient(180deg,rgba(40,21,22,.96),rgba(21,15,17,.98))!important;color:#db918d!important;border:1px solid rgba(200,120,116,.26)!important}
+.sg-candidate-main span.short{background:linear-gradient(180deg,rgba(16,31,24,.96),rgba(11,17,16,.98))!important;color:#89cfab!important;border:1px solid rgba(104,185,140,.24)!important}
+/* featured accent should not clash */
+.sg-candidate-card[data-featured="1"]>summary::before{background:linear-gradient(180deg,#a9bee4 0%,#dbb36b 100%)!important;box-shadow:0 0 10px rgba(146,170,213,.14)!important}
+.sg-candidate-card.dir-short[data-featured="1"]>summary::before,.sg-candidate-card.dir-long[data-featured="1"]>summary::before,.sg-candidate-card.tier-blocked[data-featured="1"]>summary::before{background:linear-gradient(180deg,#a9bee4 0%,#dbb36b 100%)!important}
+.sg-candidate-glyph{width:34px!important;height:34px!important;border-radius:11px!important;background:linear-gradient(180deg,rgba(18,24,33,.96),rgba(11,16,22,.98))!important;color:#b8c8e3!important;border:1px solid rgba(143,161,190,.18)!important}
+.sg-candidate-glyph .sg-sigil-svg{width:21px!important;height:21px!important}
+.sg-candidate-card[data-featured="1"] .sg-candidate-glyph{color:#eed39a!important;border-color:rgba(219,179,107,.34)!important;box-shadow:0 0 14px rgba(219,179,107,.08)!important}
+.sg-candidate-card:nth-of-type(2) .sg-candidate-glyph{color:#cdd9ec!important}
+.sg-candidate-card:nth-of-type(3) .sg-candidate-glyph{color:#acc2e8!important}
+.sg-candidate-card:nth-of-type(4) .sg-candidate-glyph{color:#d2c39b!important}
+.sg-candidate-card:nth-of-type(5) .sg-candidate-glyph{color:#a9d0bf!important}
+.sg-chevron{font-size:20px!important;align-self:center!important}
+/* skill list tighter */
+.sg-skills{gap:12px!important}
+.sg-skill{padding:16px!important;border-radius:18px!important}
+.sg-skill-head{grid-template-columns:46px minmax(0,1fr)!important;gap:11px!important;padding-right:54px!important}
+.sg-skill-icon{width:46px!important;height:46px!important;border-radius:13px!important}.sg-skill-icon .sg-sigil-svg{width:25px!important;height:25px!important}
+.sg-skill-head b{font-size:18px!important;line-height:1.1!important}.sg-skill-head small{font-size:11px!important;line-height:1.1!important}
+.sg-skill>p{margin-top:8px!important;font-size:12.5px!important;line-height:1.52!important}
+.sg-skill-bar{margin-top:8px!important;height:6px!important}
+.sg-skill-foot{margin-top:7px!important;font-size:10.5px!important}
+.sg-skill-next{margin-top:6px!important;padding-top:6px!important;font-size:10px!important;letter-spacing:.08em!important}
+/* top brand badge alignment */
+.brandTitle.sg-brand{align-items:center!important;gap:10px!important}
+.sg-brand-toggle{gap:8px!important;line-height:1!important;align-items:center!important}
+.sg-brand-toggle::before{margin-right:1px!important}
+.sg-inline-lv{display:inline-flex!important;align-items:center!important;gap:.02em!important;padding:.13em .34em .16em!important;line-height:1!important}
+.sg-inline-lv .sg-lv-prefix{font-size:.84em!important;line-height:1!important;position:relative;top:0!important}
+.sg-inline-lv .sg-lv-num{line-height:1!important;position:relative;top:0!important}
+/* main large level badge alignment */
+.sg-level-line{gap:12px!important;align-items:center!important}
+.sg-level-badge{display:inline-flex!important;align-items:flex-end!important;gap:.03em!important;padding:.08em .26em .12em!important;line-height:1!important}
+.sg-level-badge .sg-lv-prefix{font-size:.32em!important;line-height:1!important;position:relative;top:-1px!important}
+.sg-level-badge .sg-lv-num{line-height:.94!important;position:relative;top:0!important}
+.sg-level-crest-mini{width:56px!important;height:56px!important}
+/* radar card alignment */
+.sg-radar-card .sg-card-title{margin-bottom:8px!important}
+.sg-radar{margin:10px auto 6px!important}
+.sg-radar-card .sg-card-title b,.sg-radar-title,.sg-radar-head{justify-self:center!important;text-align:center!important}
+.sg-radar-card{padding:18px 16px 16px!important}
+/* chapter buttons slightly tighter */
+.sg-explore{padding:15px!important}.sg-explore-grid{gap:10px!important}.sg-explore-grid button{min-height:58px!important;padding:10px 10px!important;border-radius:16px!important}.sg-explore-grid button span{font-size:12.5px!important}
+/* quick cards compact */
+.sg-quick{gap:12px!important}.sg-quick>div{min-height:116px!important;padding:14px!important}.sg-quick b{font-size:24px!important}
+/* mobile-specific tightening */
+@media(max-width:520px){
+  .sg-panel{padding:16px 13px 22px!important;gap:14px!important}
+  .sg-level-badge{padding:.07em .23em .11em!important}
+  .sg-inline-lv{padding:.11em .3em .14em!important}
+  .sg-level-crest-mini{width:52px!important;height:52px!important}.sg-level-crest-mini .sg-sigil-svg{width:30px!important;height:30px!important}
+  .sg-personality{min-height:82px!important;padding:13px 15px!important}
+  .sg-core-emblem{padding:14px!important;border-radius:18px!important}
+  .sg-emblem-frame{grid-template-columns:78px minmax(0,1fr)!important;gap:12px!important}
+  .sg-emblem-art{width:78px!important;height:78px!important}.sg-emblem-art .sg-sigil-svg{width:49px!important;height:49px!important}
+  .sg-emblem-copy b{font-size:21px!important}.sg-emblem-copy span{font-size:11.5px!important}
+  .sg-emblem-meta{margin-top:12px!important}.sg-emblem-steps{gap:8px!important}
+  .sg-stage{padding:14px!important}.sg-stage-path{margin-top:12px!important}
+  .sg-candidate-card>summary{min-height:92px!important;padding:12px 0!important;gap:9px!important}
+  .sg-candidate-main b{font-size:20px!important}
+  .sg-candidate-main span,.sg-candidate-main em{font-size:11.5px!important;padding:5px 10px!important}
+  .sg-candidate-glyph{width:32px!important;height:32px!important}.sg-candidate-glyph .sg-sigil-svg{width:19px!important;height:19px!important}
+  .sg-candidate-bar{height:8px!important}
+  .sg-candidate-meta span{font-size:12px!important}.sg-candidate-meta small{font-size:10.5px!important}
+  .sg-skills{gap:11px!important}.sg-skill{padding:15px!important}.sg-skill-head{grid-template-columns:44px minmax(0,1fr)!important;gap:10px!important;padding-right:52px!important}.sg-skill-icon{width:44px!important;height:44px!important}.sg-skill-head b{font-size:17px!important}.sg-skill>p{font-size:12.5px!important}
+  .sg-radar{width:min(100%,320px)!important}
+  .sg-quick>div{min-height:106px!important;padding:13px!important}.sg-quick b{font-size:23px!important}
+}
