@@ -352,3 +352,11 @@ body{
 .latest::before,.consensusPanel::before,.tradeCalc::before,.bottomMaster::before,.traderCard::before,.flowHero::before,.recCard::before,.todayHero::before,.biasListPanel::before,.rankCard::before,.testFocusPanel::before{
   content:"";position:absolute;left:16px;right:16px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(149,170,206,.30),rgba(223,180,95,.26),transparent)
 }
+
+
+/* PREMIUM THEME v1.9.0 — FFXIV-style status grouping refinement */
+
+.statusBadge,.confidenceBadge,.customTag,.signalBadge,.qualBadge,.dataBadge,.testDir,.testTrendTag,.testTierTag,.testMonitorDir,.testMonitorRankTag,.testMonitorRecover,.testMonitorState,.testMonitorEventTime{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+}
+.testMonitorItem::before,.rankCard::before,.recCard::before{opacity:.72}

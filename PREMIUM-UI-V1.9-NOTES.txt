@@ -1,0 +1,15 @@
+SYSTEM GROWTH / PREMIUM UI v1.9.0
+
+重要修正
+- 修正 v1.8.0 的 cache 版本仍為 sg170，造成新徽章 / 新 CSS 在手機可能仍載入舊版的問題。現在改為 sg190。
+- SYSTEM Lv.X 旁新增真正的迷你 Research Crest 徽章。
+- 右側大 Research Crest 保留並加入階段 / 等級演化。
+- 正在發生第一筆左側不再使用藍金混合色，改為單一方向色：做空綠、做多紅、BLOCKED 低飽和紅。
+
+圖示與成長
+- 內建 20 個 FF-style 基礎 SVG 圖示族：crest / return / break / shadow / state / depth / risk / sample / dedup / hit / notify / explore / calibrate / verify / stable / journal / history / achievement / codex / intel。
+- 每個圖示有 5 個視覺 grade，因此提供 100 種輕量圖示狀態。
+- 技能圖示依該級經驗進度分 5 個微變化；升級後會有較明顯的框線、色階、細節變化。
+- 章節、快速統計、候選、手冊區加入更多小圖示，但保持 FFXIV HUD 感，不做手遊寶箱/抽卡感。
+
+交易核心未更動。

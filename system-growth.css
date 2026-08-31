@@ -665,3 +665,47 @@ html,body{overflow-x:hidden!important}
   .sg-quick{grid-template-columns:1fr!important}
   .sg-today-growth{grid-template-columns:1fr!important}
 }
+
+
+/* SYSTEM GROWTH UI v1.9.0 — icon atlas + evolving badges */
+
+/* 20 base glyphs × 5 visual grades = 100 lightweight FF-style icon variants. */
+.sg-sigil-svg{display:block;overflow:visible}.sg-sigil-svg .sg-glyph-orbit{opacity:.32;stroke-dasharray:2.2 2.2}.sg-sigil-svg .sg-glyph-spark{opacity:.56}.sg-sigil-svg .sg-glyph-crown{opacity:.62}.sg-glyph-grade-1{opacity:.86}.sg-glyph-grade-2{filter:drop-shadow(0 0 3px rgba(148,177,225,.08))}.sg-glyph-grade-3{filter:drop-shadow(0 0 5px rgba(148,177,225,.12))}.sg-glyph-grade-4{filter:drop-shadow(0 0 7px rgba(216,178,103,.12))}.sg-glyph-grade-5{filter:drop-shadow(0 0 9px rgba(238,215,173,.15))}
+.sg-ui-glyph{width:24px;height:24px;display:inline-grid;place-items:center;border-radius:8px;border:1px solid rgba(147,165,194,.16);background:linear-gradient(180deg,rgba(20,27,36,.98),rgba(11,16,23,.99));color:#a9b9d0;flex:0 0 auto;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.sg-ui-glyph .sg-sigil-svg{width:15px;height:15px}.sg-ui-grade-2{color:#a7bee5}.sg-ui-grade-3{color:#d7bc83;border-color:rgba(210,176,107,.22)}.sg-ui-grade-4{color:#e8c982;border-color:rgba(220,179,98,.30)}.sg-ui-grade-5{color:#f0dcb3;border-color:rgba(230,199,139,.38);box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 10px rgba(218,180,103,.07)}
+.sg-quick-title{display:flex!important;align-items:center;gap:8px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}.sg-quick-title>span:last-child{display:inline!important}
+.sg-mini-sigil{display:inline-grid!important;width:18px;height:18px;place-items:center;vertical-align:middle!important;margin-right:5px!important}.sg-mini-sigil .sg-sigil-svg{width:15px;height:15px;color:#d7b36f}
+
+/* Explicit compact system badge next to Lv.X. Small percent changes; bigger level changes. */
+.sg-level-line{display:flex;align-items:center;gap:10px}.sg-level-crest-mini{position:relative;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:#9fb8df;border:1px solid rgba(148,168,201,.18);background:linear-gradient(180deg,rgba(19,26,35,.98),rgba(11,16,23,.99));box-shadow:inset 0 1px 0 rgba(255,255,255,.03);transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.sg-level-crest-mini .sg-sigil-svg{width:28px;height:28px}.sg-level-crest-mini>i{position:absolute;left:6px;right:6px;bottom:4px;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}.sg-level-crest-mini>i b{height:2px;border-radius:999px;background:#303c4d}.sg-level-crest-mini>i b.on{background:#d8b36b}
+.sg-emblem-grade-1{color:#8fa4c5}.sg-emblem-grade-2{color:#a8bfe3;border-color:rgba(143,170,213,.24)}.sg-emblem-grade-3{color:#d2b474;border-color:rgba(202,165,95,.28)}.sg-emblem-grade-4{color:#e0bd76;border-color:rgba(219,178,100,.36);box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px rgba(219,178,100,.06)}.sg-emblem-grade-5{color:#f0dcb2;border-color:rgba(232,201,143,.44);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 18px rgba(225,189,119,.08)}
+.sg-level-crest-mini.sg-emblem-grade-3,.sg-level-crest-mini.sg-emblem-grade-4,.sg-level-crest-mini.sg-emblem-grade-5{background:radial-gradient(circle at 28% 22%,rgba(230,203,148,.06),transparent 34%),linear-gradient(180deg,rgba(24,28,34,.98),rgba(12,16,22,.99))}
+.sg-level-crest-mini.sg-emblem-grade-4::before,.sg-level-crest-mini.sg-emblem-grade-5::before{content:"";position:absolute;inset:4px;border:1px solid rgba(224,189,120,.15);border-radius:11px}.sg-level-crest-mini.sg-emblem-grade-5::after{content:"";position:absolute;inset:-4px;border:1px solid rgba(236,214,173,.08);border-radius:17px}
+
+/* The large research crest also evolves, but stays HUD-like rather than gacha-like. */
+.sg-core-emblem.sg-emblem-grade-1 .sg-emblem-art{border-color:rgba(143,164,198,.16)}.sg-core-emblem.sg-emblem-grade-2 .sg-emblem-art{border-color:rgba(144,171,215,.24)}.sg-core-emblem.sg-emblem-grade-3 .sg-emblem-art{border-color:rgba(196,163,101,.28)}.sg-core-emblem.sg-emblem-grade-4 .sg-emblem-art{border-color:rgba(218,178,99,.36);box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 14px rgba(218,178,99,.05)}.sg-core-emblem.sg-emblem-grade-5 .sg-emblem-art{border-color:rgba(232,201,143,.44);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 18px rgba(225,189,119,.08)}
+.sg-core-emblem.sg-emblem-grade-3::before,.sg-core-emblem.sg-emblem-grade-4::before,.sg-core-emblem.sg-emblem-grade-5::before{border-color:rgba(206,175,116,.11)}
+
+/* Live research: one accent per direction only. No mixed blue/gold stripe. */
+.sg-candidate-card[data-featured="1"]>summary::before{background:#7b8797!important;box-shadow:none!important}
+.sg-candidate-card.dir-short[data-featured="1"]>summary::before{background:#68b98c!important}
+.sg-candidate-card.dir-long[data-featured="1"]>summary::before{background:#c97874!important}
+.sg-candidate-card.tier-blocked[data-featured="1"]>summary::before{background:#a26060!important}
+.sg-candidate-glyph{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;border:1px solid rgba(143,161,190,.16);background:linear-gradient(180deg,rgba(18,24,33,.96),rgba(11,16,22,.98));color:#9db3d3;flex:0 0 auto}.sg-candidate-glyph .sg-sigil-svg{width:18px;height:18px}.sg-candidate-card.dir-short .sg-candidate-glyph{color:#86caa4;border-color:rgba(104,185,140,.20)}.sg-candidate-card.dir-long .sg-candidate-glyph{color:#d38d88;border-color:rgba(201,120,116,.20)}
+
+/* Skill icon progression: level = macro frame change, XP within level = 5 micro pips. */
+.sg-skill-icon{overflow:visible!important;position:relative}.sg-skill-icon>.sg-sigil-svg{transition:transform .2s ease,filter .2s ease}.sg-skill-pips{position:absolute;left:4px;right:4px;bottom:-7px;height:4px;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}.sg-skill-pips i{height:2px;border-radius:999px;background:#273342}.sg-skill-pips i.on{background:#8fa9d5}
+.sg-skill-grade-1 .sg-skill-icon{border-color:rgba(135,151,178,.16)!important;color:#92a7c5!important}.sg-skill-grade-2 .sg-skill-icon{border-color:rgba(139,166,207,.24)!important;color:#abc0e1!important}.sg-skill-grade-3 .sg-skill-icon{border-color:rgba(199,164,99,.28)!important;color:#d8b875!important}.sg-skill-grade-4 .sg-skill-icon{border-color:rgba(218,178,99,.36)!important;color:#e5c17a!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 12px rgba(218,178,99,.05)!important}.sg-skill-grade-5 .sg-skill-icon{border-color:rgba(231,200,142,.44)!important;color:#f0d8a5!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 16px rgba(225,189,119,.07)!important}
+.sg-skill-step-2 .sg-skill-icon>.sg-sigil-svg{transform:scale(1.025)}.sg-skill-step-3 .sg-skill-icon>.sg-sigil-svg{transform:scale(1.05)}.sg-skill-step-4 .sg-skill-icon>.sg-sigil-svg{transform:scale(1.075)}.sg-skill-step-5 .sg-skill-icon>.sg-sigil-svg{transform:scale(1.1);filter:drop-shadow(0 0 5px rgba(215,179,109,.10))}
+.sg-skill-step-2 .sg-skill-pips i.on,.sg-skill-step-3 .sg-skill-pips i.on{background:#9ab2d8}.sg-skill-step-4 .sg-skill-pips i.on,.sg-skill-step-5 .sg-skill-pips i.on{background:#d8b36d}
+
+/* Accordion/menu glyphs. */
+.sg-accordion>summary{grid-template-columns:30px minmax(0,1fr) auto!important;gap:10px!important}.sg-acc-icon{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;color:#a6b6cd;border:1px solid rgba(143,161,190,.14);background:linear-gradient(180deg,rgba(20,26,34,.94),rgba(12,17,23,.97))}.sg-acc-icon .sg-sigil-svg{width:16px;height:16px}.sg-accordion[open]>.sg-acc-icon,.sg-accordion[open]>summary .sg-acc-icon{color:#d9b978;border-color:rgba(210,174,105,.24)}
+
+@media(max-width:520px){
+  .sg-level-crest-mini{width:44px;height:44px;border-radius:13px}.sg-level-crest-mini .sg-sigil-svg{width:25px;height:25px}
+  .sg-candidate-main{gap:8px!important}.sg-candidate-glyph{width:30px;height:30px}.sg-candidate-main b{min-width:0}
+  .sg-accordion>summary{grid-template-columns:30px minmax(0,1fr) 18px!important}.sg-accordion>summary em{display:none!important}.sg-acc-icon{width:28px;height:28px}
+  .sg-quick-title{font-size:11px!important}
+}
