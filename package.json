@@ -1,6 +1,6 @@
 {
-  "name": "position-alert-v1025-solo-max-entry-snapshot-hotfix",
-  "version": "10.2.5",
+  "name": "position-alert-v1026-solo-max-actual-trade-ledger",
+  "version": "10.2.6",
   "private": true,
   "type": "module",
   "scripts": {

@@ -1,0 +1,27 @@
+V10.2.6 TEST REPORT
+Date: 2026-08-31
+
+PASSED
+- node --check server.js
+- node --check public/app.js
+- node --check public/sw.js
+- HTML DOM IDs: no duplicate IDs
+- V10.2.6 BUILD_VERSION present
+- package.json version = 10.2.6
+- Actual Trade modal fields present: entry / TP1 / TP2 / SP1 / SP2 / margin / quantity / leverage
+- Monitor action order contains: 縮小此筆 -> 實際建倉 -> 移除判讀
+- Actual trade API routes present: GET/POST/PATCH + CSV
+- Actual ledger persistence file present in code: actual-trades-v1026.json
+- Realtime hook present: actualTradeOnPrice is called from Binance realtime price flow / heartbeat fallback
+- Performance response includes actualSummary + actualTrades
+- Actual evidence is linked to strategy/regime/direction and only begins secondary ±1 learning after 12 decisive samples
+- No TEST_PUBLIC_KEY bundled in server.js
+
+NOT RUN / NOT CLAIMED
+- npm unit tests were NOT completed because npm install timed out in this environment and dependencies are unavailable locally.
+- Railway live healthcheck was NOT run here.
+- Real iPhone push / live Binance network acceptance requires deployment.
+
+NOTES
+- TP/SP PnL is a full-position estimate and does not model partial fills, fees, funding or slippage.
+- Same-tick ambiguity is handled conservatively by letting stop-side resolution win when both terminal conditions appear on the same observed update.

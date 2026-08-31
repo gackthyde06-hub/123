@@ -1,0 +1,32 @@
+V10.2.6 SOLO MAX — ACTUAL TRADE LEDGER
+Date: 2026-08-31
+
+NEW — 實際建倉
+1. 系統訊號監控卡「縮小此筆」右邊新增「實際建倉」。
+2. 點擊後開啟獨立小頁面，可填：
+   - 成本
+   - TP1 / TP2
+   - SP1（主要停損/失效）/ SP2（第二保護）
+   - 保證金 U / 數量 / 槓桿
+3. 若填數量，以 數量 × 成本 當名義倉位；未填數量則以 保證金 × 槓桿 推算。
+4. 即時計算 TP1 / TP2 預估獲利與 SP1 / SP2 預估虧損。
+
+NEW — 實際建倉後端追蹤
+1. 新增 actual-trades-v1026.json 持久化帳本。
+2. Binance WS aggTrade / markPrice 與 heartbeat fallback 即時檢查 TP / SP。
+3. 記錄 TP1、TP2、SP1、SP2 first-touch、MFE / MAE、最後價格與估算損益。
+4. SP1（若未填則 SP2）先到會列為失敗佐證；TP1（若未填則 TP2）先到列為成功 first-touch。
+5. 同一系統訊號同時間只允許一筆 ACTIVE 實際建倉，避免重複污染統計。
+6. 績效頁可手動結束 ACTIVE 實際建倉，以當下 Binance 價格結案。
+
+NEW — 績效交叉佐證
+1. 績效頁新增「實際建倉佐證」。
+2. 顯示：實際建倉數、追蹤中、已判定、TP先到率、SP先到率、模型/實倉一致率、實際成本偏離通知、完整倉位估算損益。
+3. 實際建倉會綁定原通知 ID / signalKey、策略、Regime 與當時訊號快照，方便之後做交叉驗證。
+4. 實倉證據採保守二次加權：相同「策略 × Regime × 方向」至少 12 筆 decisive actual trades 後，才最多 ±1 分加入既有 Shadow 狀態學習；不會蓋過 ADL、結構失效、追價、spread、資料不足等硬性風險門檻。
+5. 新增 /api/actual-trades.csv 匯出。
+
+IMPORTANT
+- TP/SP 損益為完整倉位價格變動估算；未包含手續費、Funding、滑價及分批出場。
+- 有填數量時，槓桿只影響保證金需求，不改變名義倉位本身；因此損益以數量×成本計算。
+- 實際建倉帳本是實盤交叉佐證，不會取代正式通知績效或 Shadow 原始資料。
