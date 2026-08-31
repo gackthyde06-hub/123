@@ -589,17 +589,46 @@ function testFullEntryZone(x){
   return null;
 }
 function testStructureStop(x){if(testIsReentryReady(x)&&hasNum(x.reentryStop))return Number(x.reentryStop);if(hasNum(x.structureProtection))return Number(x.structureProtection);if(hasNum(x.stop))return Number(x.stop);if(hasNum(x?.strategyAtConfirm?.invalidation))return Number(x.strategyAtConfirm.invalidation);if(hasNum(x?.strategyProfile?.invalidation))return Number(x.strategyProfile.invalidation);if(x?.setup&&hasNum(x.setup.invalidation))return Number(x.setup.invalidation);return null}
-function testNotifyPoint(x){return Number(testIsReentryReady(x)?x.reentryEntryPrice:x.confirmationPrice)||null}
-function testSuggestedPoint(x){const z=testPreferredZone(x);return z?(z.low+z.high)/2:null}
+function testNoticeZone(x){
+  const lo=Number(x?.lastEntryNotificationPreferredLow),hi=Number(x?.lastEntryNotificationPreferredHigh);
+  if(Number.isFinite(lo)&&Number.isFinite(hi))return {low:Math.min(lo,hi),high:Math.max(lo,hi)};
+  const zlo=Number(x?.lastEntryNotificationZoneLow),zhi=Number(x?.lastEntryNotificationZoneHigh);
+  if(Number.isFinite(zlo)&&Number.isFinite(zhi))return {low:Math.min(zlo,zhi),high:Math.max(zlo,zhi)};
+  return null;
+}
+function testNotifyPoint(x){const snap=Number(x?.lastEntryNotificationPrice);if(Number.isFinite(snap)&&snap>0)return snap;return Number(testIsReentryReady(x)?x.reentryEntryPrice:x.confirmationPrice)||null}
+function testMonitorActionable(x){
+  if(!x||testIsStale(x))return false;
+  const status=String(x.status||''),state=String(x.monitorState||''),tier=String(x.notificationTier||'VALID').toUpperCase();
+  if(status==='INVALID'||status==='DROPPED'||state==='WEAKENING')return false;
+  if(testIsReachedWaiting(x))return false;
+  if(testIsReentryReady(x))return ['HIGH','NORMAL'].includes(tier);
+  return ['HIGH','NORMAL'].includes(tier);
+}
+function testMonitorSuggestedZone(x){
+  if(!testMonitorActionable(x))return null;
+  const z=testPreferredZone(x);if(!z)return null;
+  const dir=x.direction==='SHORT'?-1:1,stop=testStructureStop(x),target=hasNum(x.target1R)?Number(x.target1R):null;
+  if(Number.isFinite(stop)){
+    if(dir>0&&z.low<=stop)return null;
+    if(dir<0&&z.high>=stop)return null;
+  }
+  if(Number.isFinite(target)){
+    if(dir>0&&z.high>=target)return null;
+    if(dir<0&&z.low<=target)return null;
+  }
+  return z;
+}
+function testSuggestedPoint(x){const z=testMonitorSuggestedZone(x);return z?(z.low+z.high)/2:null}
 function testEntryPlanMarkup(x){
-  const saved=loadTestEntryPlans()[x.key]||{},zone=testPreferredZone(x),zoneText=zone?`${price(zone.low)}～${price(zone.high)}`:'等待模型區間';
+  const saved=loadTestEntryPlans()[x.key]||{},zone=testMonitorSuggestedZone(x),zoneText=zone?`${price(zone.low)}～${price(zone.high)}`:'等待模型區間';
   const v=k=>saved[k]??'';
   return `<div class="testEntryPlanner" data-test-planner="${esc(x.key)}"><div class="testPlannerHead"><div><b>進場參考</b><span>依目前最佳策略 / 不追價邏輯，輸入部位後即時計算</span></div><span class="plannerTier ${testTierClass(x)}">${esc(testTierLabel(x))}</span></div><div class="testPlannerGrid"><div class="planEntryField"><label><span>預計進場</span><input data-plan-field="entry" inputmode="decimal" type="number" step="any" value="${esc(v('entry'))}" placeholder="${zone?price((zone.low+zone.high)/2):'點位'}"></label><div class="planEntryButtons"><button type="button" data-plan-use="suggested">建議價</button><button type="button" data-plan-use="notify">通知價</button><button type="button" data-plan-use="current">當下價</button></div></div><label><span>保證金 U</span><input data-plan-field="margin" inputmode="decimal" type="number" min="0" step="1" value="${esc(v('margin'))}" placeholder="300"></label><label><span>槓桿</span><input data-plan-field="lev" inputmode="numeric" type="number" min="1" max="125" step="1" value="${esc(v('lev'))}" placeholder="20"></label><label><span>想盈利 U</span><input data-plan-field="profit" inputmode="decimal" type="number" min="0" step="1" value="${esc(v('profit'))}" placeholder="100"></label><label><span>可虧損 U</span><input data-plan-field="loss" inputmode="decimal" type="number" min="0" step="1" value="${esc(v('loss'))}" placeholder="空白＝盈利÷2"></label></div><div class="testPlannerPointRow"><div><span>通知點位</span><b>${hasNum(testNotifyPoint(x))?price(testNotifyPoint(x)):'—'}</b></div><div><span>當下點位</span><b>${hasNum(x.currentPrice)?price(x.currentPrice):'—'}</b></div><div><span>建議進場</span><b>${hasNum(testSuggestedPoint(x))?price(testSuggestedPoint(x)):'—'}</b></div></div><div class="testPlannerOut"><div><span>較佳進場區</span><b data-plan-zone>${zoneText}</b></div><div><span>數量</span><b data-plan-qty>—</b></div><div><span>TP 參考</span><b data-plan-tp>—</b></div><div><span>結構 SL</span><b data-plan-sl>—</b></div><div><span>RR</span><b data-plan-rr>—</b></div><div><span>結構風險</span><b data-plan-risk>—</b></div></div><div class="testPlannerAdvice"><span>建議</span><b data-plan-advice>輸入預計進場、保證金與槓桿後計算。</b></div></div>`;
 }
 function updateTestPlanner(box){
   if(!box)return;const x=testSignalByKey(box.dataset.testPlanner);if(!x)return;
   const get=k=>box.querySelector(`[data-plan-field="${k}"]`),num=k=>{const v=Number(get(k)?.value);return Number.isFinite(v)&&v>0?v:null};
-  const zone=testPreferredZone(x),full=testFullEntryZone(x),dir=x.direction==='SHORT'?-1:1,entryInput=num('entry'),entry=entryInput||(zone?(zone.low+zone.high)/2:null),margin=num('margin'),lev=num('lev'),profitInput=num('profit'),lossInput=num('loss');
+  const zone=testMonitorSuggestedZone(x),full=testFullEntryZone(x),dir=x.direction==='SHORT'?-1:1,entryInput=num('entry'),entry=entryInput||(zone?(zone.low+zone.high)/2:null),margin=num('margin'),lev=num('lev'),profitInput=num('profit'),lossInput=num('loss');
   const profit=profitInput||(lossInput?lossInput*2:null),loss=lossInput||(profitInput?profitInput/2:null),qty=entry&&margin&&lev?margin*lev/entry:null,stop=testStructureStop(x);
   const set=(sel,text)=>{const el=box.querySelector(sel);if(el)el.textContent=text};
   set('[data-plan-zone]',zone?`${price(zone.low)}～${price(zone.high)}`:'等待模型區間');
@@ -699,8 +728,9 @@ function renderMonitorJudgeCard(x,i,focusKey,reLiveText){
   const reZone=hasNum(x.reentryZoneLow)&&hasNum(x.reentryZoneHigh)?`${price(x.reentryZoneLow)}～${price(x.reentryZoneHigh)}`:'—',reScore=hasNum(x.reentryScore)?Number(x.reentryScore).toFixed(0):'—',reEntry=hasNum(x.reentryEntryPrice)?price(x.reentryEntryPrice):'—',reStop=hasNum(x.reentryStop)?price(x.reentryStop):'—',reTarget=hasNum(x.reentryTarget1R)?price(x.reentryTarget1R):'—';
   const reMeta=(x.reentryReasons||[]).length?`二進：${(x.reentryReasons||[]).map(esc).join('、')}`:'',adl=String(x.monitorEvidence?.adlRisk||x.lastCheck?.adlRisk||'—').toUpperCase(),fund=hasNum(x.monitorEvidence?.fundingPct)?`${Number(x.monitorEvidence.fundingPct).toFixed(4)}%`:hasNum(x.lastCheck?.fundingPct)?`${Number(x.lastCheck.fundingPct).toFixed(4)}%`:'—';
   const strategy=stale?'資料過期，暫停採用這筆進場判讀':esc(x.entryStrategy||'回踩區內等確認，不追價');
-  const preferred=x.preferredEntryZone?`${price(x.preferredEntryZone.low)}～${price(x.preferredEntryZone.high)}`:testZoneText(x.setup);
-  const suggestedMid=!stale&&x.preferredEntryZone?(Number(x.preferredEntryZone.low)+Number(x.preferredEntryZone.high))/2:null,notifyPoint=testNotifyPoint(x),currentPoint=Number(x.currentPrice);
+  const currentSuggestedZone=testMonitorSuggestedZone(x),preferred=currentSuggestedZone?`${price(currentSuggestedZone.low)}～${price(currentSuggestedZone.high)}`:'暫停進場';
+  const noticeZone=testNoticeZone(x),noticeZoneText=noticeZone?`${price(noticeZone.low)}～${price(noticeZone.high)}`:'—';
+  const suggestedMid=currentSuggestedZone?(Number(currentSuggestedZone.low)+Number(currentSuggestedZone.high))/2:null,notifyPoint=testNotifyPoint(x),currentPoint=Number(x.currentPrice);
   const stateLabel=esc(x.monitorLabel||x.statusLabel||'監控中');
   return `<details class="testMonitorItem ${isFocus?'focused':''} ${stale?'dataStale':''}" data-test-judge="${esc(x.key)}" ${open?'open':''}>
     <button type="button" class="judgeDismissBtn" data-test-dismiss="${esc(x.key)}" aria-label="從監控判讀移除 ${esc(x.symbol)}" title="移除這筆；下次新訊號會再出現">×</button>
@@ -710,7 +740,7 @@ function renderMonitorJudgeCard(x,i,focusKey,reLiveText){
         <div class="judgeBadgeRow">${testTrendTag(x)}<span class="testMonitorDir ${long?'long':'short'}">${long?'做多':'做空'}</span><span class="testTierTag ${testMonitorTierClass(x)}">${esc(testMonitorTierLabel(x))}</span><span class="testMonitorState">${stateLabel}</span>${invalidWindow?`<span class="testMonitorRecover">${esc(invalidWindow)}</span>`:''}</div>
         <div class="judgeTimeRow"><span>通知 ${localTime(testMonitorNoticeAt(x))||signalTime} · ${esc(testMonitorExpiryText(x))}</span><b>更新 ${evalTime}</b></div>
       </div>
-      <div class="judgePriceStrip"><div><span>通知點位</span><b>${hasNum(notifyPoint)?price(notifyPoint):'—'}</b></div><div><span>當下點位</span><b>${hasNum(currentPoint)?price(currentPoint):'—'}</b><small>${stale?'現價仍更新':'即時價'}</small></div><div><span>建議進場</span><b>${hasNum(suggestedMid)?price(suggestedMid):stale?'暫停':'—'}</b><small>${stale?'等判讀恢復':esc(preferred)}</small></div></div>
+      <div class="judgePriceStrip"><div><span>通知點位</span><b>${hasNum(notifyPoint)?price(notifyPoint):'—'}</b><small>${noticeZone?`通知區 ${esc(noticeZoneText)}`:'實際送達價'}</small></div><div><span>當下點位</span><b>${hasNum(currentPoint)?price(currentPoint):'—'}</b><small>${stale?'現價仍更新':'即時價'}</small></div><div><span>目前建議進場</span><b>${hasNum(suggestedMid)?price(suggestedMid):'暫停'}</b><small>${hasNum(suggestedMid)?esc(preferred):(stale?'等判讀恢復':'目前未達可再次進場條件')}</small></div></div>
       <div class="testMonitorSummaryScore"><b>${winText}</b><span>${stale?'資料過期':'目前勝率'}</span><small>成立 ${confirmedRate}${delta?` · ${delta}`:''}</small></div>
     </summary>
     <div class="testMonitorBody">
@@ -720,7 +750,7 @@ function renderMonitorJudgeCard(x,i,focusKey,reLiveText){
         <div class="judgeCoreCell"><span>動態強度</span><b>${stale?'—':dynamic}</b></div>
         <div class="judgeCoreCell"><span>成立時勝率</span><b>${confirmedRate}</b></div>
         <div class="judgeCoreCell"><span>目前勝率</span><b>${winText}${delta?` · ${delta}`:''}</b></div>
-        <div class="judgeCoreCell wide"><span>較佳進場區</span><b>${stale?'資料恢復後重算':esc(preferred)}</b></div>
+        <div class="judgeCoreCell wide"><span>通知時建議區</span><b>${esc(noticeZoneText)}</b></div><div class="judgeCoreCell wide"><span>目前較佳進場區</span><b>${stale?'資料恢復後重算':esc(preferred)}</b></div>
         <div class="judgeCoreCell"><span>目前保護位</span><b>${protect}</b></div>
         <div class="judgeCoreCell"><span>最後更新</span><b>${evalTime}</b></div>
         <div class="judgeCoreCell"><span>狀態時間</span><b>${stateTime}</b></div>
