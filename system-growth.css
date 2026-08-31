@@ -1042,3 +1042,167 @@ html,body{overflow-x:hidden!important}
   .sg-radar{width:min(100%,272px)!important}
   .sg-candidate-main b{font-size:17px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.4 — typography tighten, overlap cleanup, mobile balance */
+.sg-candidate-card::before,
+.sg-candidate-card[data-featured="1"]::before{content:none!important;display:none!important}
+
+.sg-panel-topline em,
+.sg-card-title span,
+.sg-section-head div>span,
+.sg-section-head>span,
+.sg-accordion>summary span,
+.sg-lesson>summary span,
+.sg-explore-head small,
+.sg-emblem-copy small,
+.sg-kicker,
+.sg-skill-next,
+.sg-detail-grid span,
+.sg-why span{letter-spacing:.04em!important}
+
+.sg-panel-topline span,
+.sg-panel-topline em,
+.sg-card-title span,
+.sg-section-head div>span,
+.sg-section-head>span,
+.sg-accordion>summary span,
+.sg-lesson>summary span,
+.sg-explore-head small,
+.sg-emblem-copy small,
+.sg-kicker,
+.sg-detail-grid span,
+.sg-why span,
+.sg-quick span,
+.sg-quick small,
+.sg-candidate-meta small,
+.sg-skill-foot,
+.sg-skill-next{line-height:1.22!important}
+
+.sg-section-head{margin-bottom:6px!important}
+.sg-section-head b{line-height:1!important}
+.sg-inline-lv{padding:.08em .26em .12em!important;gap:0!important;vertical-align:middle!important}
+.sg-inline-lv .sg-lv-prefix{margin-right:1px!important;letter-spacing:0!important}
+.sg-level-badge{padding:.03em .20em .11em!important;line-height:.96!important}
+
+.sg-radar-card .sg-card-title,
+.sg-radar-card .sg-card-title b,
+.sg-radar-card .sg-card-title span{text-align:center!important;justify-items:center!important;justify-content:center!important}
+.sg-radar-card .sg-card-title{row-gap:1px!important;margin-bottom:4px!important}
+.sg-radar-card{padding:15px 13px 13px!important}
+.sg-radar{margin:6px auto 2px!important}
+.sg-radar-hint{font-size:10px!important;line-height:1.28!important}
+
+.sg-quick>div{min-height:94px!important}
+.sg-quick b{line-height:1!important}
+
+.sg-explore{padding:12px!important}
+.sg-explore-head{align-items:end!important}
+.sg-explore-head b{line-height:1.02!important}
+.sg-explore-head small{letter-spacing:.10em!important}
+.sg-explore-grid{gap:7px!important}
+.sg-explore-grid button{min-height:50px!important;padding:8px 9px!important}
+.sg-explore-grid button span{line-height:1.06!important}
+
+.sg-lesson>summary,
+.sg-accordion>summary{min-height:66px!important;padding:12px 12px!important}
+.sg-lesson>summary b,
+.sg-accordion>summary b{line-height:1.08!important}
+.sg-lesson>summary small,
+.sg-accordion>summary em,
+.sg-accordion>summary span{line-height:1.22!important}
+
+.sg-live{padding:13px 11px!important}
+.sg-candidate-card{padding:0 9px!important;border-radius:15px!important}
+.sg-candidate-card>summary{grid-template-columns:1fr 20px!important;padding:9px 0!important;min-height:74px!important;gap:6px!important}
+.sg-candidate-card>summary::before{left:-9px!important;top:10px!important;bottom:10px!important;width:2px!important;border-radius:999px!important;background:linear-gradient(180deg,#aabfe2 0%,#dbb56a 100%)!important;opacity:.9!important}
+.sg-candidate-main{gap:7px!important;row-gap:5px!important}
+.sg-candidate-glyph{width:30px!important;height:30px!important;border-radius:10px!important;display:grid!important;place-items:center!important;align-self:center!important}
+.sg-candidate-glyph .sg-sigil-svg{width:18px!important;height:18px!important}
+.sg-candidate-main b,
+.sg-intel-head b,
+.sg-summary-ticker,
+.sg-symbol{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif!important;font-weight:900!important;font-style:normal!important;letter-spacing:0!important;font-variant-numeric:lining-nums tabular-nums!important;font-feature-settings:"tnum" 1,"lnum" 1!important;text-rendering:optimizeLegibility}
+.sg-candidate-main b{font-size:18px!important;line-height:1!important}
+.sg-candidate-main span,
+.sg-candidate-main em{font-size:10.5px!important;padding:4px 8px!important;line-height:1!important}
+.sg-candidate-main span.long,
+.sg-candidate-main span.short{gap:4px!important}
+.sg-candidate-bar{height:6px!important;margin-top:0!important}
+.sg-candidate-meta{gap:1px!important;margin-top:-1px!important}
+.sg-candidate-meta span{font-size:11px!important;line-height:1.14!important;letter-spacing:0!important}
+.sg-candidate-meta small{font-size:9.5px!important;line-height:1.18!important;letter-spacing:0!important}
+.sg-chevron{font-size:15px!important}
+.sg-candidate-detail{padding:2px 0 8px!important}
+.sg-detail-grid{gap:6px!important;margin-top:5px!important}
+.sg-detail-grid>div,
+.sg-why>div{padding:9px!important;border-radius:12px!important}
+.sg-detail-grid b{font-size:15px!important;line-height:1.08!important}
+.sg-why{gap:6px!important;margin-top:6px!important}
+.sg-why li,
+.sg-why p{font-size:10px!important;line-height:1.35!important;margin:2px 0!important}
+
+.sg-accordion{border-radius:16px!important}
+.sg-accordion>summary{padding:13px 12px!important;min-height:64px!important}
+.sg-acc-icon{width:28px!important;height:28px!important}
+.sg-skills{gap:8px!important}
+.sg-skill-tree::before{left:21px!important;top:17px!important;bottom:17px!important;opacity:.55!important}
+.sg-skill{padding:13px 13px 11px!important;border-radius:15px!important;min-height:180px!important}
+.sg-skill::before{width:38px!important;opacity:.72!important}
+.sg-skill::after{right:10px!important;bottom:8px!important;font-size:14px!important;opacity:.32!important}
+.sg-skill-rank{top:8px!important;right:8px!important;font-size:8px!important;padding:3px 6px!important;line-height:1!important}
+.sg-skill-head{grid-template-columns:42px minmax(0,1fr)!important;gap:8px!important;padding-right:44px!important;align-items:start!important}
+.sg-skill-icon{width:42px!important;height:42px!important;border-radius:12px!important;display:grid!important;place-items:center!important;overflow:visible!important}
+.sg-skill-icon .sg-sigil-svg{width:21px!important;height:21px!important}
+.sg-skill-pips{left:5px!important;right:5px!important;bottom:-5px!important;height:3px!important}
+.sg-skill-head b{font-size:15px!important;line-height:1.06!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+.sg-skill-head small{font-size:10px!important;line-height:1.05!important;margin-top:1px!important}
+.sg-skill>p{min-height:0!important;margin:6px 0 0!important;font-size:11px!important;line-height:1.32!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important}
+.sg-skill-bar{height:6px!important;margin-top:8px!important}
+.sg-skill-foot{margin-top:6px!important;font-size:9.5px!important;line-height:1.18!important}
+.sg-skill-next{margin-top:5px!important;padding-top:5px!important;font-size:9px!important;line-height:1.12!important;letter-spacing:.06em!important}
+
+.sg-scroll-rail{right:max(3px,env(safe-area-inset-right))!important;bottom:max(66px,calc(env(safe-area-inset-bottom) + 50px))!important;gap:2px!important;opacity:.54!important}
+.sg-scroll-rail button{width:26px!important;height:26px!important;border-radius:9px!important;font-size:12px!important}
+
+@media(max-width:520px){
+  .sg-panel{padding:14px 10px 18px!important;gap:10px!important}
+  .sg-panel-topline div{gap:5px!important}
+  .brandTitle.sg-brand{gap:8px!important}
+  .sg-level-row strong.sg-level-badge{font-size:clamp(34px,8vw,39px)!important}
+  .sg-level-crest-mini{width:48px!important;height:48px!important}
+  .sg-level-crest-mini .sg-sigil-svg{width:27px!important;height:27px!important}
+  .sg-personality{min-height:74px!important;padding:11px 12px!important}
+  .sg-xp-row>div>b{font-size:16px!important;line-height:1!important}
+  .sg-emblem-frame{grid-template-columns:70px minmax(0,1fr)!important;gap:9px!important}
+  .sg-emblem-art{width:70px!important;height:70px!important}.sg-emblem-art .sg-sigil-svg{width:40px!important;height:40px!important}
+  .sg-emblem-copy b{font-size:17px!important;line-height:1.02!important}.sg-emblem-copy span{font-size:10px!important;line-height:1.22!important}
+  .sg-emblem-meta span{font-size:8.6px!important;line-height:1.08!important}
+  .sg-emblem-steps i{width:26px!important;height:26px!important}.sg-emblem-steps .sg-sigil-svg{width:15px!important;height:15px!important}
+  .sg-stage{padding:11px!important}.sg-stage p{font-size:9.6px!important;line-height:1.24!important}
+  .sg-radar-card{padding:14px 12px 12px!important}.sg-radar{width:min(100%,286px)!important}.sg-radar-label{font-size:10px!important}.sg-radar-value{font-size:11.2px!important}
+  .sg-quick{gap:8px!important}.sg-quick>div{padding:10px!important;min-height:90px!important}.sg-quick b{font-size:18px!important}
+  .sg-explore-head b{font-size:22px!important}.sg-explore-head small{font-size:10px!important}
+  .sg-explore-grid button{min-height:48px!important}
+  .sg-live{padding:12px 10px!important}
+  .sg-section-head b{font-size:18px!important}.sg-section-head div>span,.sg-section-head>span{font-size:10px!important}
+  .sg-candidate-card{padding:0 8px!important}.sg-candidate-card>summary{padding:8px 0!important;min-height:72px!important;gap:6px!important}.sg-candidate-card>summary::before{left:-8px!important;top:9px!important;bottom:9px!important}
+  .sg-candidate-glyph{width:28px!important;height:28px!important}.sg-candidate-glyph .sg-sigil-svg{width:17px!important;height:17px!important}
+  .sg-candidate-main{gap:6px!important;row-gap:4px!important}
+  .sg-candidate-main b{font-size:17px!important}
+  .sg-candidate-main span,.sg-candidate-main em{font-size:10px!important;padding:4px 7px!important}
+  .sg-candidate-meta span{font-size:10.6px!important}.sg-candidate-meta small{font-size:9px!important}
+  .sg-chevron{font-size:15px!important}
+  .sg-detail-grid{gap:5px!important}.sg-detail-grid>div,.sg-why>div{padding:8px!important}.sg-detail-grid b{font-size:14px!important}
+  .sg-why li,.sg-why p{font-size:9.7px!important;line-height:1.32!important}
+  .sg-accordion>summary{padding:12px 11px!important;min-height:62px!important}.sg-accordion>summary b{font-size:17px!important}.sg-accordion>summary span{font-size:10px!important}
+  .sg-skills{gap:8px!important}.sg-skill{padding:12px 12px 11px!important;min-height:174px!important}.sg-skill-head{grid-template-columns:40px minmax(0,1fr)!important;gap:8px!important;padding-right:42px!important}.sg-skill-icon{width:40px!important;height:40px!important}.sg-skill-icon .sg-sigil-svg{width:20px!important;height:20px!important}.sg-skill-rank{padding:3px 6px!important}.sg-skill-head b{font-size:14px!important}.sg-skill-head small{font-size:9.6px!important}.sg-skill>p{font-size:10.6px!important;line-height:1.3!important}.sg-skill-foot{font-size:9.2px!important}.sg-skill-next{font-size:8.8px!important}
+  .sg-scroll-rail{bottom:max(64px,calc(env(safe-area-inset-bottom) + 48px))!important;opacity:.5!important}.sg-scroll-rail button{width:25px!important;height:25px!important}
+}
+@media(max-width:390px){
+  .sg-emblem-frame{grid-template-columns:64px minmax(0,1fr)!important}.sg-emblem-art{width:64px!important;height:64px!important}.sg-emblem-art .sg-sigil-svg{width:37px!important;height:37px!important}
+  .sg-radar{width:min(100%,270px)!important}
+  .sg-candidate-main b{font-size:16px!important}
+  .sg-candidate-main span,.sg-candidate-main em{font-size:9.6px!important}
+  .sg-skill{min-height:168px!important}
+}
