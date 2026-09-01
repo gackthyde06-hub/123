@@ -1496,59 +1496,89 @@ body{
 }
 
 
-/* SYSTEM GROWTH UI v2.1.9 — FF core-zone polish
-   - larger, richer icon language
-   - fill right side of LV row with half-decorative constellation block
-   - cleaner multiline learning headline */
-.sg-level-line{display:flex!important;align-items:center!important;gap:14px!important;flex-wrap:nowrap!important;min-height:64px!important}
-.sg-level-line > .sg-level-ornament{margin-left:auto!important}
-.sg-level-crest-mini.sg-level-mark{width:64px!important;height:64px!important;background:radial-gradient(circle at 50% 44%, rgba(223,180,95,.18), rgba(223,180,95,0) 68%)!important}
-.sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:36px!important;height:36px!important;filter:drop-shadow(0 0 8px rgba(223,180,95,.12))!important}
-.sg-level-crest-mini.sg-level-mark>i{left:8px!important;right:8px!important;bottom:7px!important}
-.sg-level-ornament{display:grid!important;grid-template-columns:auto auto!important;align-items:center!important;gap:10px!important;padding:7px 10px 8px 12px!important;min-width:132px!important;border:1px solid rgba(145,162,195,.16)!important;border-radius:16px!important;background:linear-gradient(180deg,rgba(14,20,28,.82),rgba(10,15,22,.92))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important}
-.sg-level-ornament-copy{display:flex!important;flex-direction:column!important;gap:2px!important}
-.sg-level-ornament-copy small{font-size:9px!important;letter-spacing:.18em!important;font-weight:900!important;color:#92a2bc!important;white-space:nowrap!important}
-.sg-level-ornament-copy em{font-style:normal!important;font-size:8.6px!important;line-height:1.18!important;color:#b2a98c!important;white-space:nowrap!important}
-.sg-level-ornament-grid{display:grid!important;grid-template-columns:repeat(2,30px)!important;grid-template-rows:repeat(2,30px)!important;gap:6px!important}
-.sg-level-orb{width:30px!important;height:30px!important;display:grid!important;place-items:center!important;border-radius:50%!important;border:1px solid rgba(186,165,110,.22)!important;background:radial-gradient(circle at 50% 42%, rgba(220,180,100,.10), rgba(220,180,100,0) 68%), linear-gradient(180deg, rgba(18,24,33,.98), rgba(11,15,22,.98))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important}
-.sg-level-orb .sg-sigil-svg{width:16px!important;height:16px!important;display:block!important;margin:0 auto!important}
-.sg-level-orb-2,.sg-level-orb-3{transform:translateY(1px)!important}
-.sg-level-orb-4{opacity:.9!important}
-.sg-emblem-frame{grid-template-columns:88px minmax(0,1fr)!important;column-gap:16px!important}
-.sg-emblem-art{width:88px!important;height:88px!important}
-.sg-emblem-art .sg-sigil-svg{width:48px!important;height:48px!important}
-.sg-emblem-meta{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
-.sg-emblem-steps i{width:30px!important;height:30px!important}.sg-emblem-steps .sg-sigil-svg{width:16px!important;height:16px!important}
-.sg-quick-title .sg-ui-glyph{width:34px!important;height:34px!important;display:grid!important;place-items:center!important;margin:0!important;align-self:center!important}
-.sg-quick-title .sg-ui-glyph .sg-sigil-svg{width:18px!important;height:18px!important;display:block!important;margin:0 auto!important}
-.sg-lesson>summary>div{min-width:0!important}
-.sg-lesson-title{display:flex!important;flex-direction:column!important;gap:2px!important;line-height:1.02!important;letter-spacing:-.01em!important;white-space:normal!important}
+/* SYSTEM GROWTH UI v2.2.0 — user's layout, one-pass progression + compact attributes */
+.sg-hero{grid-template-columns:1fr!important}
+.sg-core-intro{grid-template-columns:1fr 248px!important;gap:16px!important;align-items:stretch!important}
+.sg-level-row{display:grid!important;grid-template-columns:minmax(150px,.82fr) minmax(220px,1.18fr)!important;align-items:center!important;gap:14px!important;margin-top:4px!important}
+.sg-level-identity{min-width:0!important}
+.sg-level-line{display:flex!important;align-items:center!important;gap:13px!important;min-height:70px!important}
+.sg-level-badge{flex:0 0 auto!important}
+.sg-level-crest-mini.sg-level-mark{width:72px!important;height:72px!important;border:0!important;background:transparent!important;box-shadow:none!important;display:grid!important;place-items:center!important;position:relative!important;overflow:visible!important}
+.sg-level-crest-mini.sg-level-mark::before,.sg-level-crest-mini.sg-level-mark::after{display:none!important}
+.sg-level-crest-svg{width:62px!important;height:62px!important;display:block!important;overflow:visible!important;stroke:#e1bd75;fill:#d9b36c;stroke-width:1.65;filter:drop-shadow(0 0 9px rgba(218,178,99,.12))}
+.sg-level-crest-svg .sg-level-evo-ring{stroke:#91a9ce;stroke-width:1;stroke-dasharray:2.4 3.2;opacity:.7}
+.sg-level-crest-svg .sg-level-evo-wing{stroke:#d7b36d;stroke-width:1.3;opacity:.82}
+.sg-level-crest-svg .sg-level-evo-crown{stroke:#f0d49c;stroke-width:1.5;opacity:.92}
+.sg-level-crest-mini>i{left:10px!important;right:10px!important;bottom:1px!important;height:4px!important;gap:3px!important}
+.sg-level-crest-mini>i b{height:3px!important;border-radius:4px!important;background:#2c3542!important}.sg-level-crest-mini>i b.on{background:#d9b36c!important}
+.sg-level-lv-1 .sg-level-crest-svg{color:#aab9cc}.sg-level-lv-2 .sg-level-crest-svg{stroke:#b4c4dc;fill:#aabbd5}.sg-level-lv-3 .sg-level-crest-svg{stroke:#c9b77c;fill:#bda76a}.sg-level-lv-4 .sg-level-crest-svg{stroke:#d6bd78;fill:#c6a85e}.sg-level-lv-5 .sg-level-crest-svg{stroke:#dbb96e;fill:#cca95f}.sg-level-lv-6 .sg-level-crest-svg{stroke:#e0bd74;fill:#d1ae66}.sg-level-lv-7 .sg-level-crest-svg{stroke:#e5c17c;fill:#d5b26c}.sg-level-lv-8 .sg-level-crest-svg{stroke:#e8c987;fill:#dbb978}.sg-level-lv-9 .sg-level-crest-svg{stroke:#efd39a;fill:#e0bf82}.sg-level-lv-10 .sg-level-crest-svg{stroke:#f4ddb0;fill:#e7c98d;filter:drop-shadow(0 0 12px rgba(236,206,147,.18))}
+
+.sg-acquired-mini{min-height:106px!important;border:1px solid rgba(145,163,195,.17)!important;border-radius:18px!important;background:linear-gradient(180deg,rgba(14,19,27,.88),rgba(10,15,22,.94))!important;padding:10px 11px!important;display:grid!important;grid-template-rows:auto 1fr!important;gap:8px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important}
+.sg-acquired-head{display:flex!important;align-items:baseline!important;justify-content:space-between!important;gap:8px!important}
+.sg-acquired-head b{font-size:12px!important;color:#ecd29a!important;letter-spacing:.04em!important}.sg-acquired-head span{font-size:8px!important;color:#8191aa!important;letter-spacing:.14em!important}
+.sg-acquired-grid{display:grid!important;grid-template-columns:repeat(6,1fr)!important;gap:5px!important;align-items:center!important}
+.sg-acquired-skill{min-width:0!important;display:grid!important;justify-items:center!important;gap:2px!important;color:#d9bc7d!important}
+.sg-acquired-skill i{width:34px!important;height:34px!important;border-radius:11px!important;display:grid!important;place-items:center!important;border:1px solid rgba(166,179,205,.14)!important;background:linear-gradient(180deg,rgba(18,24,33,.92),rgba(10,15,21,.96))!important}
+.sg-acquired-skill i .sg-sigil-svg{width:20px!important;height:20px!important;display:block!important;margin:0 auto!important}
+.sg-acquired-skill small{font-size:7.8px!important;line-height:1!important;color:#a8b3c4!important;letter-spacing:.02em!important}
+.sg-personality{margin-top:12px!important;min-height:76px!important}
+
+.sg-attributes-layout{display:grid!important;grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr)!important;gap:12px!important;align-items:stretch!important}
+.sg-attributes-layout .sg-radar-card{height:100%!important;min-height:0!important;padding:14px 12px 12px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+.sg-attributes-layout .sg-radar{width:min(100%,270px)!important;margin:5px auto 0!important}
+.sg-attributes-layout .sg-radar-hint{display:none!important}
+.sg-attributes-layout .sg-card-title{margin-bottom:2px!important}
+.sg-attributes-layout .sg-card-title b{font-size:18px!important}.sg-attributes-layout .sg-card-title span{font-size:9.5px!important}
+.sg-attributes-layout .sg-quick{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:1fr 1fr!important;gap:8px!important;margin:0!important;height:100%!important}
+.sg-attributes-layout .sg-quick>div{min-height:0!important;padding:11px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;border-radius:16px!important}
+.sg-attributes-layout .sg-quick-title{gap:6px!important;align-items:center!important;line-height:1.08!important}
+.sg-attributes-layout .sg-quick-title .sg-ui-glyph{width:29px!important;height:29px!important;flex:0 0 29px!important;display:grid!important;place-items:center!important}
+.sg-attributes-layout .sg-quick-title .sg-ui-glyph .sg-sigil-svg{width:16px!important;height:16px!important}
+.sg-attributes-layout .sg-quick-title>span:last-child{font-size:10.5px!important;line-height:1.12!important}
+.sg-attributes-layout .sg-quick b{font-size:24px!important;margin-top:7px!important;line-height:1!important}.sg-attributes-layout .sg-quick small{font-size:9px!important;margin-top:5px!important;line-height:1.2!important}
+
+.sg-lesson-title{display:flex!important;flex-direction:column!important;gap:3px!important;white-space:normal!important;line-height:1.04!important;letter-spacing:-.01em!important}
 .sg-lesson-title span{display:block!important}
-.sg-lesson-lead{display:block!important;margin-top:8px!important;line-height:1.4!important}
+.sg-lesson>summary small{margin-top:8px!important;line-height:1.4!important}
 
 @media(max-width:520px){
-  .sg-level-line{gap:12px!important;min-height:60px!important}
-  .sg-level-crest-mini.sg-level-mark{width:58px!important;height:58px!important}
-  .sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:33px!important;height:33px!important}
-  .sg-level-ornament{min-width:118px!important;padding:6px 9px 7px 10px!important;gap:8px!important;border-radius:15px!important}
-  .sg-level-ornament-copy small{font-size:8.6px!important}
-  .sg-level-ornament-copy em{font-size:8.1px!important}
-  .sg-level-ornament-grid{grid-template-columns:repeat(2,27px)!important;grid-template-rows:repeat(2,27px)!important;gap:5px!important}
-  .sg-level-orb{width:27px!important;height:27px!important}
-  .sg-level-orb .sg-sigil-svg{width:14px!important;height:14px!important}
-  .sg-emblem-frame{grid-template-columns:82px minmax(0,1fr)!important;column-gap:14px!important}
-  .sg-emblem-art{width:82px!important;height:82px!important}
-  .sg-emblem-art .sg-sigil-svg{width:44px!important;height:44px!important}
-  .sg-lesson-title{font-size:clamp(18px,7.8vw,28px)!important}
+  .sg-core-intro{grid-template-columns:1fr!important;gap:12px!important}
+  .sg-level-row{grid-template-columns:minmax(132px,.74fr) minmax(0,1.26fr)!important;gap:10px!important}
+  .sg-level-line{gap:9px!important;min-height:62px!important}
+  .sg-level-crest-mini.sg-level-mark{width:62px!important;height:62px!important}.sg-level-crest-svg{width:54px!important;height:54px!important}
+  .sg-level-crest-mini>i{left:8px!important;right:8px!important}
+  .sg-acquired-mini{min-height:94px!important;padding:9px!important;border-radius:16px!important;gap:6px!important}
+  .sg-acquired-head b{font-size:10.5px!important}.sg-acquired-head span{font-size:7.5px!important}
+  .sg-acquired-grid{grid-template-columns:repeat(3,1fr)!important;gap:5px 4px!important}
+  .sg-acquired-skill{grid-template-columns:27px auto!important;justify-content:start!important;align-items:center!important;gap:3px!important}
+  .sg-acquired-skill i{width:27px!important;height:27px!important;border-radius:9px!important}.sg-acquired-skill i .sg-sigil-svg{width:16px!important;height:16px!important}
+  .sg-acquired-skill small{font-size:7.4px!important}
+  .sg-personality{margin-top:10px!important;min-height:70px!important}
+  .sg-attributes-layout{grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr)!important;gap:8px!important}
+  .sg-attributes-layout .sg-radar-card{padding:11px 7px 9px!important;border-radius:17px!important}
+  .sg-attributes-layout .sg-card-title b{font-size:15px!important}.sg-attributes-layout .sg-card-title span{font-size:7.8px!important}
+  .sg-attributes-layout .sg-radar{width:min(100%,185px)!important;margin:3px auto 0!important}
+  .sg-attributes-layout .sg-radar-label{font-size:8.2px!important}.sg-attributes-layout .sg-radar-value{font-size:9.4px!important}
+  .sg-attributes-layout .sg-quick{gap:6px!important}
+  .sg-attributes-layout .sg-quick>div{padding:8px 7px!important;border-radius:14px!important}
+  .sg-attributes-layout .sg-quick-title{gap:4px!important}.sg-attributes-layout .sg-quick-title .sg-ui-glyph{width:23px!important;height:23px!important;flex-basis:23px!important}.sg-attributes-layout .sg-quick-title .sg-ui-glyph .sg-sigil-svg{width:13px!important;height:13px!important}
+  .sg-attributes-layout .sg-quick-title>span:last-child{font-size:8.7px!important;letter-spacing:0!important}
+  .sg-attributes-layout .sg-quick b{font-size:20px!important;margin-top:5px!important}.sg-attributes-layout .sg-quick small{font-size:7.8px!important;margin-top:4px!important}
+  .sg-lesson-title{font-size:clamp(19px,6.6vw,28px)!important}
 }
 @media(max-width:390px){
-  .sg-level-line{flex-wrap:wrap!important;row-gap:8px!important}
-  .sg-level-line > .sg-level-ornament{margin-left:0!important;width:100%!important;grid-template-columns:1fr auto!important}
-  .sg-level-ornament-copy em{white-space:normal!important}
-  .sg-level-ornament-grid{justify-self:end!important}
+  .sg-level-row{grid-template-columns:124px minmax(0,1fr)!important;gap:8px!important}
+  .sg-level-crest-mini.sg-level-mark{width:58px!important;height:58px!important}.sg-level-crest-svg{width:50px!important;height:50px!important}
+  .sg-acquired-skill i{width:25px!important;height:25px!important}.sg-acquired-skill i .sg-sigil-svg{width:14px!important;height:14px!important}
+  .sg-attributes-layout{grid-template-columns:minmax(0,.91fr) minmax(0,1.09fr)!important;gap:7px!important}
+  .sg-attributes-layout .sg-radar{width:min(100%,170px)!important}
+  .sg-attributes-layout .sg-quick-title>span:last-child{font-size:8.3px!important}
+  .sg-attributes-layout .sg-quick b{font-size:18px!important}.sg-attributes-layout .sg-quick small{font-size:7.4px!important}
 }
 @media(min-width:821px){
-  .sg-panel{max-width:900px!important}
-  .wrap{max-width:960px!important}
-  .sg-level-ornament{min-width:156px!important}
+  .sg-core-intro{grid-template-columns:1fr 248px!important}
+  .sg-level-row{grid-template-columns:minmax(180px,.78fr) minmax(300px,1.22fr)!important}
+  .sg-acquired-grid{grid-template-columns:repeat(6,1fr)!important}
+  .sg-attributes-layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  .sg-attributes-layout .sg-radar{width:min(100%,320px)!important}
 }
