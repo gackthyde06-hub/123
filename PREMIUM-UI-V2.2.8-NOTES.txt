@@ -1,0 +1,11 @@
+PREMIUM UI V2.2.8
+
+- Rebuilt the main SYSTEM badge in the selected existing UI style: deep navy, warm gold, restrained blue crystal accents.
+- Removed dashed/orbit clutter; badge evolution now gains rings, wreath, crystal nodes, crown and royal details by level.
+- Enlarged and re-centered the main badge while keeping LV and acquired-skills control balanced.
+- Fixed 4 progress pips so they are centered and detached from the badge.
+- Removed the diamond above 六維屬性.
+- Fixed mobile 影子學習報告 summary so its status sentence is not truncated.
+- Removed the old translucent diamond pseudo-element that overlapped small accordion icons from 技能樹 downward.
+- Tightened lower accordion spacing and preserved the existing app layout.
+- Cache tag updated to sg228.

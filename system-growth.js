@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.2.7';
+  const VERSION='2.2.8';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
@@ -208,41 +208,41 @@
   }
   function levelCrestSvg(level,ratio){
     const lv=Math.max(1,Math.min(10,Number(level)||1)),phase=Math.max(0,Math.min(3,Math.floor(clamp(ratio)/25)));
-    const motif={
-      1:`<circle cx="40" cy="40" r="8"/><path d="M40 20v11M40 49v11M20 40h11M49 40h11" fill="none"/>`,
-      2:`<path d="M40 16 56 26v28L40 64 24 54V26Z" fill="none"/><circle cx="40" cy="40" r="6"/><path d="M31 40h18" fill="none"/>`,
-      3:`<path d="M40 14 58 40 40 66 22 40Z" fill="none"/><path d="M29 40h22M40 29v22" fill="none"/><circle cx="40" cy="40" r="3"/>`,
-      4:`<circle cx="40" cy="40" r="20" fill="none"/><path d="M40 18l6 15 16 7-16 7-6 15-6-15-16-7 16-7Z" fill="none"/>`,
-      5:`<path d="M20 53c10-3 17-12 20-34 3 22 10 31 20 34-6 5-13 9-20 13-7-4-14-8-20-13Z" fill="none"/><path d="M29 39h22M40 24v31" fill="none"/>`,
-      6:`<circle cx="40" cy="40" r="22" fill="none"/><path d="M40 14 48 34 68 40 48 46 40 68 32 46 12 40 32 34Z" fill="none"/><circle cx="40" cy="40" r="5"/><path d="M23 23l7 7M57 23l-7 7M23 57l7-7M57 57l-7-7" fill="none"/>`,
-      7:`<path d="M40 12 62 24v32L40 68 18 56V24Z" fill="none"/><path d="M25 50c5-13 10-20 15-20s10 7 15 20M40 22v37" fill="none"/><path d="M31 18l9-7 9 7" fill="none"/>`,
-      8:`<circle cx="40" cy="40" r="23" fill="none"/><path d="M22 54c4-17 10-26 18-26s14 9 18 26M24 29c5 6 10 9 16 9s11-3 16-9" fill="none"/><path d="M31 17l9-7 9 7M27 61l13 7 13-7" fill="none"/>`,
-      9:`<path d="M40 10 64 23v30L40 70 16 53V23Z" fill="none"/><path d="M25 28 40 18l15 10-5 25-10 7-10-7Z" fill="none"/><circle cx="40" cy="40" r="5"/><path d="M18 40h9M53 40h9" fill="none"/>`,
-      10:`<circle cx="40" cy="40" r="25" fill="none"/><path d="M40 8 48 31 72 40 48 49 40 72 32 49 8 40 32 31Z" fill="none"/><path d="M20 20 29 26M60 20l-9 6M20 60l9-6M60 60l-9-6" fill="none"/><circle cx="40" cy="40" r="6"/><circle cx="40" cy="40" r="17" fill="none"/>`
-    }[lv];
-    const tier=lv<=2
-      ? `<circle cx="40" cy="40" r="28" class="sg-level-tier-ring" fill="none"/>`
-      : lv<=4
-        ? `<circle cx="40" cy="40" r="29" class="sg-level-tier-ring" fill="none"/><path d="M11 31l6 3M69 31l-6 3M11 49l6-3M69 49l-6-3" class="sg-level-tier-mark" fill="none"/>`
-        : lv<=6
-          ? `<circle cx="40" cy="40" r="30" class="sg-level-tier-ring" fill="none"/><path d="M8 29c6-5 11-7 16-8M72 29c-6-5-11-7-16-8M8 51c6 5 11 7 16 8M72 51c-6 5-11 7-16 8" class="sg-level-tier-wing" fill="none"/>`
-          : lv<=8
-            ? `<circle cx="40" cy="40" r="30" class="sg-level-tier-ring" fill="none"/><path d="M8 30c7-7 13-10 19-11M72 30c-7-7-13-10-19-11M8 50c7 7 13 10 19 11M72 50c-7 7-13 10-19 11" class="sg-level-tier-wing" fill="none"/><path d="M31 11 40 5l9 6" class="sg-level-tier-crown" fill="none"/>`
-            : `<circle cx="40" cy="40" r="31" class="sg-level-tier-ring" fill="none"/><circle cx="40" cy="40" r="27" class="sg-level-tier-ring sg-level-tier-ring-2" fill="none"/><path d="M7 29c7-7 14-10 21-11M73 29c-7-7-14-10-21-11M7 51c7 7 14 10 21 11M73 51c-7 7-14 10-21 11" class="sg-level-tier-wing" fill="none"/><path d="M29 11 40 3l11 8M28 69l12 8 12-8" class="sg-level-tier-crown" fill="none"/>`;
-    const phaseOverlay=[
-      `<circle cx="40" cy="12" r="1.8" class="sg-level-phase-node"/>`,
-      `<circle cx="40" cy="12" r="2.2" class="sg-level-phase-node"/><path d="M15 40h5M60 40h5" class="sg-level-phase-mark" fill="none"/>`,
-      `<circle cx="40" cy="12" r="2.2" class="sg-level-phase-node"/><path d="M15 40h5M60 40h5M40 15v5M40 60v5" class="sg-level-phase-mark" fill="none"/><path d="M19 19l4 4M61 19l-4 4M19 61l4-4M61 61l-4-4" class="sg-level-phase-spark" fill="none"/>`,
-      `<circle cx="40" cy="12" r="2.4" class="sg-level-phase-node"/><path d="M15 40h6M59 40h6M40 15v6M40 59v6" class="sg-level-phase-mark" fill="none"/><path d="M18 18l5 5M62 18l-5 5M18 62l5-5M62 62l-5-5" class="sg-level-phase-spark" fill="none"/><path d="M34 8 40 4l6 4M34 72l6 4 6-4" class="sg-level-phase-crown" fill="none"/>`
+    const addInner=lv>=2, addCardinal=lv>=3, addWreath=lv>=5, addCrown=lv>=6, addRoyal=lv>=8;
+    const nodes=[
+      `<g class="sg-level-gem sg-level-gem-n"><path d="M40 6 44 12 40 18 36 12Z"/><path d="M40 8.6 42.2 12 40 15.4 37.8 12Z" class="sg-level-gem-core"/></g>`,
+      `<g class="sg-level-gem sg-level-gem-e"><path d="M74 40 68 44 62 40 68 36Z"/><path d="M71.4 40 68 42.2 64.6 40 68 37.8Z" class="sg-level-gem-core"/></g>`,
+      `<g class="sg-level-gem sg-level-gem-s"><path d="M40 74 44 68 40 62 36 68Z"/><path d="M40 71.4 42.2 68 40 64.6 37.8 68Z" class="sg-level-gem-core"/></g>`,
+      `<g class="sg-level-gem sg-level-gem-w"><path d="M6 40 12 44 18 40 12 36Z"/><path d="M8.6 40 12 42.2 15.4 40 12 37.8Z" class="sg-level-gem-core"/></g>`
+    ];
+    const cardinal=addCardinal ? (lv<6 ? nodes.slice(0,2).join('') : nodes.join('')) : '';
+    const wreath=addWreath?`<g class="sg-level-wreath"><path d="M21 18c6-5 12-7 19-7s13 2 19 7"/><path d="M21 62c6 5 12 7 19 7s13-2 19-7"/><path d="M17 23c-4 5-6 10-6 17s2 12 6 17"/><path d="M63 23c4 5 6 10 6 17s-2 12-6 17"/></g>`:'';
+    const crown=addCrown?`<g class="sg-level-crown"><path d="M33 9 40 3l7 6-3 5h-8Z"/><path d="M33 71 40 77l7-6-3-5h-8Z"/></g>`:'';
+    const royal=addRoyal?`<g class="sg-level-royal"><path d="M17 18c7-7 14-10 23-10s16 3 23 10"/><path d="M17 62c7 7 14 10 23 10s16-3 23-10"/><circle cx="40" cy="40" r="34"/></g>`:'';
+    const extra=lv>=9?`<g class="sg-level-royal-extra"><path d="M18 27 11 22l8-2M62 27l7-5-8-2M18 53l-7 5 8 2M62 53l7 5-8 2"/><circle cx="40" cy="40" r="27"/></g>`:'';
+    const inner=addInner?`<circle cx="40" cy="40" r="23" class="sg-level-inner-ring"/>`:'';
+    const phaseMarks=[
+      `<circle cx="40" cy="8" r="1.2" class="sg-level-phase-dot"/>`,
+      `<circle cx="40" cy="8" r="1.5" class="sg-level-phase-dot"/><path d="M22 58l4-3M58 58l-4-3" class="sg-level-phase-line"/>`,
+      `<circle cx="40" cy="8" r="1.6" class="sg-level-phase-dot"/><path d="M22 58l4-3M58 58l-4-3M22 22l4 3M58 22l-4 3" class="sg-level-phase-line"/>`,
+      `<circle cx="40" cy="8" r="1.8" class="sg-level-phase-dot"/><path d="M22 58l4-3M58 58l-4-3M22 22l4 3M58 22l-4 3" class="sg-level-phase-line"/><circle cx="40" cy="40" r="31" class="sg-level-phase-halo"/>`
     ][phase];
-    const ornament=lv<=2
-      ? `<circle cx="40" cy="40" r="33" class="sg-level-ornament-ring" fill="none"/><path d="M23 17c5-3 11-5 17-5s12 2 17 5" class="sg-level-ornament-gold" fill="none"/><path d="M23 63c5 3 11 5 17 5s12-2 17-5" class="sg-level-ornament-gold" fill="none"/>`
-      : lv<=5
-        ? `<circle cx="40" cy="40" r="33" class="sg-level-ornament-ring" fill="none"/><path d="M20 18c6-4 12-6 20-6s14 2 20 6" class="sg-level-ornament-gold" fill="none"/><path d="M20 62c6 4 12 6 20 6s14-2 20-6" class="sg-level-ornament-gold" fill="none"/><path d="M18 24c4 4 6 9 6 16s-2 12-6 16" class="sg-level-ornament-blue" fill="none"/><path d="M62 24c-4 4-6 9-6 16s2 12 6 16" class="sg-level-ornament-blue" fill="none"/>`
-        : lv<=8
-          ? `<circle cx="40" cy="40" r="34" class="sg-level-ornament-ring" fill="none"/><circle cx="40" cy="40" r="25" class="sg-level-ornament-ring-2" fill="none"/><path d="M17 19c6-5 13-8 23-8s17 3 23 8" class="sg-level-ornament-gold" fill="none"/><path d="M17 61c6 5 13 8 23 8s17-3 23-8" class="sg-level-ornament-gold" fill="none"/><path d="M19 17c5 5 8 12 8 23s-3 18-8 23" class="sg-level-ornament-blue" fill="none"/><path d="M61 17c-5 5-8 12-8 23s3 18 8 23" class="sg-level-ornament-blue" fill="none"/><path d="M31 8l9-5 9 5M31 72l9 5 9-5" class="sg-level-ornament-crown" fill="none"/>`
-          : `<circle cx="40" cy="40" r="35" class="sg-level-ornament-ring" fill="none"/><circle cx="40" cy="40" r="26" class="sg-level-ornament-ring-2" fill="none"/><path d="M15 19c7-6 15-9 25-9s18 3 25 9" class="sg-level-ornament-gold" fill="none"/><path d="M15 61c7 6 15 9 25 9s18-3 25-9" class="sg-level-ornament-gold" fill="none"/><path d="M18 15c6 6 9 14 9 25s-3 19-9 25" class="sg-level-ornament-blue" fill="none"/><path d="M62 15c-6 6-9 14-9 25s3 19 9 25" class="sg-level-ornament-blue" fill="none"/><path d="M29 8l11-6 11 6M29 72l11 6 11-6" class="sg-level-ornament-crown" fill="none"/><circle cx="40" cy="40" r="4.8" class="sg-level-ornament-core"/>`;
-    return `<svg viewBox="0 0 80 80" class="sg-level-crest-svg sg-level-lv-${lv} sg-level-phase-${phase}" aria-hidden="true">${tier}<g class="sg-level-ornament">${ornament}</g><g class="sg-level-core-motif">${motif}</g>${phaseOverlay}</svg>`;
+    return `<svg viewBox="0 0 80 80" class="sg-level-crest-svg sg-level-lv-${lv} sg-level-phase-${phase}" aria-hidden="true">
+      <defs>
+        <radialGradient id="sgCore${lv}${phase}" cx="40%" cy="34%" r="70%"><stop offset="0%" stop-color="#f4d79a"/><stop offset="55%" stop-color="#d6ad60"/><stop offset="100%" stop-color="#8b672d"/></radialGradient>
+        <linearGradient id="sgGem${lv}${phase}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e8f2ff"/><stop offset="48%" stop-color="#9cb9e8"/><stop offset="100%" stop-color="#48658f"/></linearGradient>
+      </defs>
+      <circle cx="40" cy="40" r="31" class="sg-level-outer-ring"/>
+      ${royal}${extra}${wreath}${inner}
+      <g class="sg-level-compass">
+        <path d="M40 13 46 32 67 40 46 48 40 67 34 48 13 40 34 32Z"/>
+        <path d="M40 20 43 35 60 40 43 45 40 60 37 45 20 40 37 35Z" class="sg-level-compass-inner"/>
+      </g>
+      ${crown}${cardinal}
+      <circle cx="40" cy="40" r="7.3" class="sg-level-core-disc" fill="url(#sgCore${lv}${phase})"/>
+      <circle cx="40" cy="40" r="4.8" class="sg-level-core-ring"/>
+      ${phaseMarks}
+    </svg>`;
   }
   function systemLevelCrest(level){
     const phase=Math.max(0,Math.min(3,Math.floor(clamp(level.ratio)/25)));
@@ -307,7 +307,7 @@
     return {
       tag:'影子學習報告',
       title:`目前在${m.stage.name}階段｜下一站：${nextStageName}`, 
-      lead:`影子樣本 ${num(sh.sample||0)} 筆，去相關有效 ${num(m.xp.effective||0)} 筆，影子命中 ${pct(sh.hitRate,1)}，${pfLine}`,
+      lead:`影子樣本 ${num(sh.sample||0)} · 去相關 ${num(m.xp.effective||0)} · 命中 ${pct(sh.hitRate,1)} · PF ${pf(sh.profitFactor)}。${has(sh.profitFactor)&&Number(sh.profitFactor)>=1?'樣本結構持續驗證中。':'總獲利尚未蓋過總虧損，系統正在修正條件。'}`,
       focus: phaseLine,
       points:[
         `目前狀況：真正送達通知 ${num(m.sum?.sample||0)} 筆，通知級樣本 ${readyCount} 筆，系統型態偏向「${m.personality}」。`,
