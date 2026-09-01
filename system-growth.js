@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.2.0';
+  const VERSION='2.2.2';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
@@ -204,29 +204,38 @@
     const grade=levelArtGrade(m.level.level),step=iconGradeFromProgress(m.level.ratio),current=stageIconByIndex(m.stage.index);
     const stageTrack=['explore','ward','verify','stable'];
     const steps=stageTrack.map((icon,i)=>`<i class="${i<=m.stage.index?'on':''}">${sigilSvg(icon,i<=m.stage.index?Math.min(5,grade+1):1)}</i>`).join('');
-    return `<aside class="sg-core-emblem sg-phase-${m.stage.index} sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg(current,Math.min(5,grade+1))}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b><span>${esc(m.personality)}</span></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
+    return `<aside class="sg-core-emblem sg-phase-${m.stage.index} sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg(current,Math.min(5,grade+1))}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
   }
   function levelCrestSvg(level,ratio){
     const lv=Math.max(1,Math.min(10,Number(level)||1)),phase=Math.max(0,Math.min(3,Math.floor(clamp(ratio)/25)));
     const motif={
-      1:`<circle cx="32" cy="32" r="7"/><path d="M32 16v9M32 39v9M16 32h9M39 32h9" fill="none"/>`,
-      2:`<path d="M32 13 45 22v20L32 51 19 42V22Z" fill="none"/><circle cx="32" cy="32" r="5"/>`,
-      3:`<path d="M32 12 46 32 32 52 18 32Z" fill="none"/><path d="M24 32h16M32 24v16" fill="none"/>`,
-      4:`<circle cx="32" cy="32" r="16" fill="none"/><path d="M32 16l5 11 11 5-11 5-5 11-5-11-11-5 11-5Z" fill="none"/>`,
-      5:`<path d="M17 41c8-2 13-9 15-25 2 16 7 23 15 25-5 4-10 7-15 10-5-3-10-6-15-10Z" fill="none"/><path d="M24 31h16" fill="none"/>`,
-      6:`<circle cx="32" cy="32" r="18" fill="none"/><path d="M32 12 39 27 52 32 39 37 32 52 25 37 12 32 25 27Z" fill="none"/><circle cx="32" cy="32" r="4"/>`,
-      7:`<path d="M32 10 49 20v24L32 54 15 44V20Z" fill="none"/><path d="M21 38c4-9 8-14 11-14s7 5 11 14M32 18v28" fill="none"/>`,
-      8:`<circle cx="32" cy="32" r="19" fill="none"/><path d="M18 42c3-13 8-20 14-20s11 7 14 20M20 24c4 5 8 7 12 7s8-2 12-7" fill="none"/><path d="M26 14l6-5 6 5" fill="none"/>`,
-      9:`<path d="M32 9 50 19v21L32 55 14 40V19Z" fill="none"/><path d="M20 24 32 16l12 8-4 19-8 5-8-5Z" fill="none"/><circle cx="32" cy="32" r="4"/>`,
-      10:`<circle cx="32" cy="32" r="20" fill="none"/><path d="M32 7 38 24 55 32 38 40 32 57 26 40 9 32 26 24Z" fill="none"/><path d="M18 17 24 21M46 17l-6 4M18 47l6-4M46 47l-6-4" fill="none"/><circle cx="32" cy="32" r="5"/>`
+      1:`<circle cx="40" cy="40" r="8"/><path d="M40 20v11M40 49v11M20 40h11M49 40h11" fill="none"/>`,
+      2:`<path d="M40 16 56 26v28L40 64 24 54V26Z" fill="none"/><circle cx="40" cy="40" r="6"/><path d="M31 40h18" fill="none"/>`,
+      3:`<path d="M40 14 58 40 40 66 22 40Z" fill="none"/><path d="M29 40h22M40 29v22" fill="none"/><circle cx="40" cy="40" r="3"/>`,
+      4:`<circle cx="40" cy="40" r="20" fill="none"/><path d="M40 18l6 15 16 7-16 7-6 15-6-15-16-7 16-7Z" fill="none"/>`,
+      5:`<path d="M20 53c10-3 17-12 20-34 3 22 10 31 20 34-6 5-13 9-20 13-7-4-14-8-20-13Z" fill="none"/><path d="M29 39h22M40 24v31" fill="none"/>`,
+      6:`<circle cx="40" cy="40" r="22" fill="none"/><path d="M40 14 48 34 68 40 48 46 40 68 32 46 12 40 32 34Z" fill="none"/><circle cx="40" cy="40" r="5"/><path d="M23 23l7 7M57 23l-7 7M23 57l7-7M57 57l-7-7" fill="none"/>`,
+      7:`<path d="M40 12 62 24v32L40 68 18 56V24Z" fill="none"/><path d="M25 50c5-13 10-20 15-20s10 7 15 20M40 22v37" fill="none"/><path d="M31 18l9-7 9 7" fill="none"/>`,
+      8:`<circle cx="40" cy="40" r="23" fill="none"/><path d="M22 54c4-17 10-26 18-26s14 9 18 26M24 29c5 6 10 9 16 9s11-3 16-9" fill="none"/><path d="M31 17l9-7 9 7M27 61l13 7 13-7" fill="none"/>`,
+      9:`<path d="M40 10 64 23v30L40 70 16 53V23Z" fill="none"/><path d="M25 28 40 18l15 10-5 25-10 7-10-7Z" fill="none"/><circle cx="40" cy="40" r="5"/><path d="M18 40h9M53 40h9" fill="none"/>`,
+      10:`<circle cx="40" cy="40" r="25" fill="none"/><path d="M40 8 48 31 72 40 48 49 40 72 32 49 8 40 32 31Z" fill="none"/><path d="M20 20 29 26M60 20l-9 6M20 60l9-6M60 60l-9-6" fill="none"/><circle cx="40" cy="40" r="6"/><circle cx="40" cy="40" r="17" fill="none"/>`
     }[lv];
-    const overlays=[
-      ``,
-      `<circle cx="32" cy="32" r="23" class="sg-level-evo-ring" fill="none"/><circle cx="32" cy="7" r="1.8"/>`,
-      `<circle cx="32" cy="32" r="23" class="sg-level-evo-ring" fill="none"/><path d="M9 24c5-5 9-7 13-8M55 24c-5-5-9-7-13-8M9 40c5 5 9 7 13 8M55 40c-5 5-9 7-13 8" class="sg-level-evo-wing" fill="none"/>`,
-      `<circle cx="32" cy="32" r="23" class="sg-level-evo-ring" fill="none"/><path d="M9 24c5-5 9-7 13-8M55 24c-5-5-9-7-13-8M9 40c5 5 9 7 13 8M55 40c-5 5-9 7-13 8" class="sg-level-evo-wing" fill="none"/><path d="M24 10 32 4l8 6M23 54l9 6 9-6" class="sg-level-evo-crown" fill="none"/>`
+    const tier=lv<=2
+      ? `<circle cx="40" cy="40" r="28" class="sg-level-tier-ring" fill="none"/>`
+      : lv<=4
+        ? `<circle cx="40" cy="40" r="29" class="sg-level-tier-ring" fill="none"/><path d="M11 31l6 3M69 31l-6 3M11 49l6-3M69 49l-6-3" class="sg-level-tier-mark" fill="none"/>`
+        : lv<=6
+          ? `<circle cx="40" cy="40" r="30" class="sg-level-tier-ring" fill="none"/><path d="M8 29c6-5 11-7 16-8M72 29c-6-5-11-7-16-8M8 51c6 5 11 7 16 8M72 51c-6 5-11 7-16 8" class="sg-level-tier-wing" fill="none"/>`
+          : lv<=8
+            ? `<circle cx="40" cy="40" r="30" class="sg-level-tier-ring" fill="none"/><path d="M8 30c7-7 13-10 19-11M72 30c-7-7-13-10-19-11M8 50c7 7 13 10 19 11M72 50c-7 7-13 10-19 11" class="sg-level-tier-wing" fill="none"/><path d="M31 11 40 5l9 6" class="sg-level-tier-crown" fill="none"/>`
+            : `<circle cx="40" cy="40" r="31" class="sg-level-tier-ring" fill="none"/><circle cx="40" cy="40" r="27" class="sg-level-tier-ring sg-level-tier-ring-2" fill="none"/><path d="M7 29c7-7 14-10 21-11M73 29c-7-7-14-10-21-11M7 51c7 7 14 10 21 11M73 51c-7 7-14 10-21 11" class="sg-level-tier-wing" fill="none"/><path d="M29 11 40 3l11 8M28 69l12 8 12-8" class="sg-level-tier-crown" fill="none"/>`;
+    const phaseOverlay=[
+      `<circle cx="40" cy="12" r="1.8" class="sg-level-phase-node"/>`,
+      `<circle cx="40" cy="12" r="2.2" class="sg-level-phase-node"/><path d="M15 40h5M60 40h5" class="sg-level-phase-mark" fill="none"/>`,
+      `<circle cx="40" cy="12" r="2.2" class="sg-level-phase-node"/><path d="M15 40h5M60 40h5M40 15v5M40 60v5" class="sg-level-phase-mark" fill="none"/><path d="M19 19l4 4M61 19l-4 4M19 61l4-4M61 61l-4-4" class="sg-level-phase-spark" fill="none"/>`,
+      `<circle cx="40" cy="12" r="2.4" class="sg-level-phase-node"/><path d="M15 40h6M59 40h6M40 15v6M40 59v6" class="sg-level-phase-mark" fill="none"/><path d="M18 18l5 5M62 18l-5 5M18 62l5-5M62 62l-5-5" class="sg-level-phase-spark" fill="none"/><path d="M34 8 40 4l6 4M34 72l6 4 6-4" class="sg-level-phase-crown" fill="none"/>`
     ][phase];
-    return `<svg viewBox="0 0 64 64" class="sg-level-crest-svg sg-level-lv-${lv} sg-level-phase-${phase}" aria-hidden="true"><g>${motif}</g>${overlays}</svg>`;
+    return `<svg viewBox="0 0 80 80" class="sg-level-crest-svg sg-level-lv-${lv} sg-level-phase-${phase}" aria-hidden="true"><g class="sg-level-core-motif">${motif}</g>${tier}${phaseOverlay}</svg>`;
   }
   function systemLevelCrest(level){
     const phase=Math.max(0,Math.min(3,Math.floor(clamp(level.ratio)/25)));
@@ -243,8 +252,8 @@
     ];
   }
   function acquiredSkillsHtml(skillCounts){
-    const defs=acquiredSkillDefs(skillCounts),preview=defs.slice(0,3);
-    return `<button type="button" class="sg-acquired-toggle" data-sg-acquired-toggle aria-expanded="false"><span class="sg-acquired-toggle-copy"><b>已獲得技能</b><small>${defs.length} SKILLS</small></span><span class="sg-acquired-preview">${preview.map(([icon,name,count])=>{const s=skillLevel(count);return `<i title="${esc(name)} Lv.${s.lv}">${sigilSvg(icon,Math.min(5,levelArtGrade(s.lv)))}</i>`}).join('')}</span><em>⌄</em></button>`;
+    const defs=acquiredSkillDefs(skillCounts),open=!!storageGet(ACQUIRED_KEY,false);
+    return `<button type="button" class="sg-acquired-toggle ${open?'open':''}" data-sg-acquired-toggle aria-expanded="${open?'true':'false'}"><span class="sg-acquired-toggle-glyph">${sigilSvg('achievement',2)}</span><span class="sg-acquired-toggle-copy"><b>已獲得技能</b><small>${defs.length}</small></span><em>⌄</em></button>`;
   }
   function acquiredSkillsDetailHtml(skillCounts){
     const defs=acquiredSkillDefs(skillCounts),open=!!storageGet(ACQUIRED_KEY,false);

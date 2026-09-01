@@ -24,12 +24,12 @@ const removers=[
 for(const re of removers)html=html.replace(re,'');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg221">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg221">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg222">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg222">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg221"></script>',
-  '<script defer src="/premium-theme.js?v=sg221"></script>',
+  '<script defer src="/system-growth.js?v=sg222"></script>',
+  '<script defer src="/premium-theme.js?v=sg222"></script>',
 ].join('\n');
 
 html=html.replace('</head>',`${cssTags}\n</head>`);
