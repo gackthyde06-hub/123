@@ -1,0 +1,19 @@
+SHADOW RESEARCH R1 — Known Issues & Next Gates
+Date: 2026-09-01
+
+已知問題（本次先處理研究層，不硬改交易核心）：
+1. Score 100 目前是條件/結構完成度，不是 100% 勝率。
+2. 舊 blocked 統計把「未通知」混成 BLOCKED；R1 已修正語意並保留 unnotified 獨立統計。
+3. 需要用 Net PF / Net Expectancy / netR 看成本後是否真的有 edge。
+4. BLOCKED 原因同時可能包含 Risk / Alpha / Readiness；R1 新增 primary + multi-flag 分類。
+5. Crypto、股票/ETF 類永續、貴金屬不應直接共用同一結論；R1 先分 Asset Class 研究。
+6. 核心 state bucket 仍可能稀疏；現階段不為了湊樣本降低門檻。
+7. 真通知與實際建倉樣本仍少，不能把 shadow 直接當 production alpha。
+8. 多次調參/版本會產生 multiple-testing / selection bias；R1 記錄 revision、config drift、baseline、checkpoint。
+
+下一個研究閘門：
+- R1 去相關新樣本 >= 30：做 PRE_R1 vs R1 OOS 比較。
+- 總去相關 >= 150：重估 VALID/BLOCKED、策略×Regime×方向與 Net PF。
+- 任一核心桶 >= 20：才檢查是否有資格保守學習，不因單一漂亮結果加權。
+- 真通知 decisive >= 20：才開始把 calibration / Brier / notification PF 當有意義指標。
+- 同策略×Regime×方向實際建倉 decisive >= 12：維持最多 ±1 的實盤佐證，不蓋掉硬風控。

@@ -1,12 +1,17 @@
-SYSTEM GROWTH + PREMIUM UI v1.5.0
+SYSTEM GROWTH v2.3.1 + SHADOW RESEARCH LAYER R1
 
-將以下檔案覆蓋到 GitHub 專案根目錄：
-- package.json
-- prepare-ui.mjs
-- system-growth.js
-- system-growth.css
-- premium-theme.js
-- premium-theme.css
+將 ZIP 內檔案直接覆蓋 / 上傳到 GitHub 專案根目錄，commit / push 後讓 Railway 重新部署即可。
 
-commit / push 後讓 Railway 重新部署即可。
-不需要改 server.js，也不要動 Railway volume。
+本包新增：
+- research-layer-patch.mjs
+
+部署流程：
+- prepare-ui.mjs 會在 Railway 啟動前「可重複安全地」套用 research-only server patch。
+- 不需要你手動修改 server.js。
+- 不會刪除 / 清空 Railway Volume。
+- 保留既有 shadow-performance-v1022.json、actual-trades-v1026.json、signal-performance 等資料。
+- 新增持久化 research-audit-v1031.json，用來記錄研究修正日期 / baseline / checkpoint / config drift。
+
+重要：
+- 本版不放寬 HIGH / NORMAL 門檻。
+- 不改核心策略、停損/停利、硬風控或通知核心判斷。

@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { patchResearchLayer } from './research-layer-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
+patchResearchLayer();
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
 const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg'];
@@ -24,15 +26,15 @@ const removers=[
 for(const re of removers)html=html.replace(re,'');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg228">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg228">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg231">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg231">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg228"></script>',
-  '<script defer src="/premium-theme.js?v=sg228"></script>',
+  '<script defer src="/system-growth.js?v=sg231"></script>',
+  '<script defer src="/premium-theme.js?v=sg231"></script>',
 ].join('\n');
 
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log('[ui] premium integration v2.2.8 ready');
+console.log('[ui] premium integration v2.3.1 + research layer ready');

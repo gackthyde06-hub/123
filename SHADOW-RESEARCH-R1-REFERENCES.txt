@@ -1,0 +1,33 @@
+Shadow Research Layer R1 — research rationale / external references
+Date: 2026-09-01
+
+1) QuantConnect — Research Pipeline
+https://www.quantconnect.com/docs/v2/cloud-platform/research-pipeline
+- Research -> Backtest -> Paper -> Live staged validation.
+- Paper stage checks same-period backtest consistency and whether OOS behavior remains inside the original statistical envelope.
+- R1 mapping: revision cohorts, baseline, checkpoints, core-config drift log, OOS readiness gate.
+
+2) QuantConnect — Live Reconciliation
+https://www.quantconnect.com/docs/v2/research-environment/meta-analysis/live-reconciliation
+- Compare live execution with an OOS backtest over the identical period to expose unrealistic assumptions or data/execution differences.
+- R1 mapping: preserve PRE_R1 vs R1 cohorts and never blend a changed rule set into one performance number without a revision label.
+
+3) Freqtrade — Strategy Quickstart / Forward Testing
+https://docs.freqtrade.io/en/stable/strategy-101/
+- Backtests can be distorted; dry-run/forward testing is a more reliable indicator of potential real-world performance.
+- R1 mapping: Shadow/forward evidence remains primary. No threshold loosening from current 100+ samples.
+
+4) Freqtrade — Lookahead Analysis
+https://docs.freqtrade.io/en/2026.5/lookahead-analysis/
+- Lookahead bias can make a strategy appear profitable by accidentally using future information.
+- R1 mapping: research history is versioned and forward-collected; future backtest work should be reconciled against forward cohorts rather than replace them.
+
+5) Bailey & López de Prado — Deflated Sharpe Ratio
+https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551
+- Multiple testing / selection bias can inflate apparent strategy performance.
+- R1 mapping: record revisions and config drift; warn as research attempts accumulate; evaluate new revision samples OOS instead of cherry-picking the best historical configuration.
+
+6) AQR — Transactions Costs: Practical Application
+https://www.aqr.com/Insights/Research/White-Papers/Transactions-Costs-Practical-Application
+- Transaction costs are necessary for assessing implementability and can change conclusions.
+- R1 mapping: add netR, Net PF, Net Expectancy and cost drag; first-touch WIN alone is not sufficient evidence of economic edge.

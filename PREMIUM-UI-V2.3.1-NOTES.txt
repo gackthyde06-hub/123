@@ -1,0 +1,28 @@
+Premium UI v2.3.1 + Shadow Research Layer R1
+Date: 2026-09-01
+
+本版定位：研究層修正，不放寬通知，不改核心交易策略與硬風控。
+
+修正 / 新增：
+1. 修正 BLOCKED 統計語意：BLOCKED 改以 tierAtEntry=BLOCKED 判定；「未通知」另列，不再混在一起。
+2. Score 重新定義為「結構 / 條件完成度」，明確標示 100 ≠ 100% 勝率。
+3. 新增 Net PF / Net Expectancy / cost drag，避免只看 first-touch WIN。
+4. 新增 Score bucket + 分數對結果相關性，檢查 80/90/100 分是否真的有辨識力。
+5. 新增 Asset Class 研究分層：CRYPTO / EQUITY_TOKEN / COMMODITY；目前只分層研究，不改核心學習權重。
+6. 新增 Block Class：RISK / ALPHA / READINESS / OTHER；只對真正 BLOCKED 樣本分類。
+7. 新增 Strategy × Regime × Direction 階層研究統計與稀疏度警示；不因小樣本自動放寬。
+8. 新增研究版號 V10.2.7-R1、首次安裝日期、baseline、每日 checkpoint、核心設定 drift 紀錄。
+9. 新 Shadow 樣本記錄 researchRevisionAtEntry / coreBuildAtEntry / assetClassAtEntry / primaryBlockClassAtEntry。
+10. Shadow CSV 保留舊欄位並新增 researchRevision / assetClass / blockClass / scoreBucket / netR。
+11. /api/performance 新增 research 唯讀診斷；新增 /api/research-diagnostics 與 /api/research-audit。
+12. 模型日誌新增 Research Audit，小幅顯示版本、Net PF、Score 辨識力、核心狀態桶成熟度。
+13. 修正前一版 cache-busting 未更新問題：sg228 -> sg231。
+14. 新增 revision cohort / OOS readiness：R1 上線後先累積至少 30 個去相關新樣本，再與 PRE_R1 比較。
+15. 若核心設定發生 drift 或研究嘗試次數增加，後台會提示 configuration drift / multiple-testing risk，避免只挑最好看的版本。
+
+研究原則：
+- forward/shadow evidence 優先於漂亮回測。
+- 規則修正必須用 revision 分隔，讓後續樣本可以做 out-of-sample / before-after 對照。
+- 統計以去相關樣本為主；原始 Shadow 完整保留做稽核。
+- 成本後結果優先於單純 first-touch 勝率。
+- 不因 100+ 樣本就直接把弱證據寫回硬風控。

@@ -1,0 +1,20 @@
+SHADOW RESEARCH LAYER R1 — Validation Report
+Date: 2026-09-01
+
+PASS — research-layer-patch.mjs syntax check
+PASS — system-growth.js syntax check
+PASS — prepare-ui.mjs syntax check
+PASS — clean synthetic V10.2.7 anchor patch applied
+PASS — patched server passed `node --check`
+PASS — second patch run is idempotent (no duplicate patch)
+PASS — runtime patch writes to temporary file, validates syntax, then atomically replaces server.js
+PASS — prepare-ui copies assets and injects cache-bust `sg231`
+PASS — BLOCKED semantics patched to tierAtEntry=BLOCKED; unnotified kept separate
+PASS — new research revision metadata / audit / checkpoints / config drift / OOS gate present
+PASS — Net PF / Net Expectancy / netR diagnostics present
+PASS — asset class and multi-label blocker diagnostics present
+PASS — core HIGH/NORMAL thresholds, TP/SL, hard risk gates, BUILD_VERSION remain untouched by this package
+PASS — existing Railway Volume data files are not deleted/reset by this package
+
+Scope note:
+This validates patch syntax, anchor behavior, idempotency and UI integration against the inspected V10.2.7 source structure. It does not claim a live Railway deployment has already been executed.
