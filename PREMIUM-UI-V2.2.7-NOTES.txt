@@ -1,0 +1,7 @@
+PREMIUM UI V2.2.7
+
+- Re-centered the hero composition so the SYSTEM / Lv block, centered crest, crest pips, and 系統型態 card read on the same visual axis.
+- Fixed the crest pip row mismatch: four pips now use a true 4-column layout instead of a 5-column grid, removing the awkward spacing.
+- Lifted and enlarged the central crest, increased the gap above the 系統型態 card, and balanced left/right side spacing for a smoother mobile view.
+- Added more decorative filigree/orbit detail to the main level crest while keeping the same overall UI language.
+- Updated asset version/cache tag to sg227.

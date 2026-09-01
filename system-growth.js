@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.2.6';
+  const VERSION='2.2.7';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
@@ -235,7 +235,14 @@
       `<circle cx="40" cy="12" r="2.2" class="sg-level-phase-node"/><path d="M15 40h5M60 40h5M40 15v5M40 60v5" class="sg-level-phase-mark" fill="none"/><path d="M19 19l4 4M61 19l-4 4M19 61l4-4M61 61l-4-4" class="sg-level-phase-spark" fill="none"/>`,
       `<circle cx="40" cy="12" r="2.4" class="sg-level-phase-node"/><path d="M15 40h6M59 40h6M40 15v6M40 59v6" class="sg-level-phase-mark" fill="none"/><path d="M18 18l5 5M62 18l-5 5M18 62l5-5M62 62l-5-5" class="sg-level-phase-spark" fill="none"/><path d="M34 8 40 4l6 4M34 72l6 4 6-4" class="sg-level-phase-crown" fill="none"/>`
     ][phase];
-    return `<svg viewBox="0 0 80 80" class="sg-level-crest-svg sg-level-lv-${lv} sg-level-phase-${phase}" aria-hidden="true"><g class="sg-level-core-motif">${motif}</g>${tier}${phaseOverlay}</svg>`;
+    const ornament=lv<=2
+      ? `<circle cx="40" cy="40" r="33" class="sg-level-ornament-ring" fill="none"/><path d="M23 17c5-3 11-5 17-5s12 2 17 5" class="sg-level-ornament-gold" fill="none"/><path d="M23 63c5 3 11 5 17 5s12-2 17-5" class="sg-level-ornament-gold" fill="none"/>`
+      : lv<=5
+        ? `<circle cx="40" cy="40" r="33" class="sg-level-ornament-ring" fill="none"/><path d="M20 18c6-4 12-6 20-6s14 2 20 6" class="sg-level-ornament-gold" fill="none"/><path d="M20 62c6 4 12 6 20 6s14-2 20-6" class="sg-level-ornament-gold" fill="none"/><path d="M18 24c4 4 6 9 6 16s-2 12-6 16" class="sg-level-ornament-blue" fill="none"/><path d="M62 24c-4 4-6 9-6 16s2 12 6 16" class="sg-level-ornament-blue" fill="none"/>`
+        : lv<=8
+          ? `<circle cx="40" cy="40" r="34" class="sg-level-ornament-ring" fill="none"/><circle cx="40" cy="40" r="25" class="sg-level-ornament-ring-2" fill="none"/><path d="M17 19c6-5 13-8 23-8s17 3 23 8" class="sg-level-ornament-gold" fill="none"/><path d="M17 61c6 5 13 8 23 8s17-3 23-8" class="sg-level-ornament-gold" fill="none"/><path d="M19 17c5 5 8 12 8 23s-3 18-8 23" class="sg-level-ornament-blue" fill="none"/><path d="M61 17c-5 5-8 12-8 23s3 18 8 23" class="sg-level-ornament-blue" fill="none"/><path d="M31 8l9-5 9 5M31 72l9 5 9-5" class="sg-level-ornament-crown" fill="none"/>`
+          : `<circle cx="40" cy="40" r="35" class="sg-level-ornament-ring" fill="none"/><circle cx="40" cy="40" r="26" class="sg-level-ornament-ring-2" fill="none"/><path d="M15 19c7-6 15-9 25-9s18 3 25 9" class="sg-level-ornament-gold" fill="none"/><path d="M15 61c7 6 15 9 25 9s18-3 25-9" class="sg-level-ornament-gold" fill="none"/><path d="M18 15c6 6 9 14 9 25s-3 19-9 25" class="sg-level-ornament-blue" fill="none"/><path d="M62 15c-6 6-9 14-9 25s3 19 9 25" class="sg-level-ornament-blue" fill="none"/><path d="M29 8l11-6 11 6M29 72l11 6 11-6" class="sg-level-ornament-crown" fill="none"/><circle cx="40" cy="40" r="4.8" class="sg-level-ornament-core"/>`;
+    return `<svg viewBox="0 0 80 80" class="sg-level-crest-svg sg-level-lv-${lv} sg-level-phase-${phase}" aria-hidden="true">${tier}<g class="sg-level-ornament">${ornament}</g><g class="sg-level-core-motif">${motif}</g>${phaseOverlay}</svg>`;
   }
   function systemLevelCrest(level){
     const phase=Math.max(0,Math.min(3,Math.floor(clamp(level.ratio)/25)));
