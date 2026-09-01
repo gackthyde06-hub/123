@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.2.5';
+  const VERSION='2.2.6';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';

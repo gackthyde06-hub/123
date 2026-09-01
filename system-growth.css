@@ -2128,3 +2128,132 @@ body{
   .sg-level-center .sg-level-crest-svg{width:121px!important;height:121px!important}
   .sg-level-center .sg-level-crest-mini>i{bottom:-7px!important;width:54px!important;gap:4px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.2.6 — screenshot spacing pass
+   Goal: close the dead zone above the crest, lift SYSTEM/Lv and crest,
+   separate crest progress pips from the emblem, and give the identity card
+   deliberate breathing room above and below. */
+
+/* The outer frame should read as one uniform stroke, not a brighter top cap. */
+.sg-panel.open{
+  box-sizing:border-box!important;
+  padding:10px 10px 14px!important;
+}
+.sg-panel::after{display:none!important}
+.sg-core-card{
+  box-sizing:border-box!important;
+  margin:0!important;
+  padding:12px 14px 15px!important;
+}
+
+/* Bring the status/skill row slightly downward into the former dead space. */
+.sg-kicker{
+  top:8px!important;
+  min-height:34px!important;
+  padding:0 2px!important;
+  margin:0!important;
+}
+
+/* Re-balance the level composition: left identity and center crest both lift. */
+.sg-level-row{
+  min-height:151px!important;
+  margin-top:0!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+.sg-level-identity{
+  top:17px!important;
+}
+.sg-level-center{
+  top:-19px!important;
+  width:154px!important;
+  height:154px!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  overflow:visible!important;
+}
+.sg-level-center .sg-level-crest-mini.sg-level-mark{
+  width:148px!important;
+  height:148px!important;
+  overflow:visible!important;
+}
+.sg-level-center .sg-level-crest-svg{
+  width:134px!important;
+  height:134px!important;
+}
+
+/* Progress pips are a separate status line, never touching the crest art. */
+.sg-level-center .sg-level-crest-mini>i{
+  left:50%!important;
+  right:auto!important;
+  bottom:-15px!important;
+  width:60px!important;
+  height:4px!important;
+  transform:translateX(-50%)!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr)!important;
+  gap:6px!important;
+  z-index:5!important;
+}
+.sg-level-center .sg-level-crest-mini>i b{
+  height:3px!important;
+  min-width:0!important;
+  border-radius:999px!important;
+}
+
+/* The identity card was visually glued to both neighbours; give it air. */
+.sg-personality{
+  margin-top:13px!important;
+  margin-bottom:0!important;
+}
+.sg-xp-row{
+  margin-top:17px!important;
+}
+.sg-core-emblem{
+  margin-top:13px!important;
+}
+
+@media(max-width:520px){
+  .sg-panel.open{padding:10px 10px 14px!important}
+  .sg-core-card{padding:11px 13px 14px!important}
+  .sg-kicker{top:8px!important;min-height:33px!important;padding:0 1px!important}
+  .sg-level-row{min-height:146px!important}
+  .sg-level-identity{top:16px!important}
+  .sg-level-center{top:-18px!important;width:146px!important;height:146px!important}
+  .sg-level-center::after{
+    box-shadow:
+      0 -65px 0 rgba(147,173,215,.56),
+      0 65px 0 rgba(216,179,109,.40),
+      65px 0 0 rgba(147,173,215,.40),
+      -65px 0 0 rgba(216,179,109,.30)!important;
+  }
+  .sg-level-center .sg-level-crest-mini.sg-level-mark{width:140px!important;height:140px!important}
+  .sg-level-center .sg-level-crest-svg{width:127px!important;height:127px!important}
+  .sg-level-center .sg-level-crest-mini>i{bottom:-14px!important;width:58px!important;gap:6px!important}
+  .sg-personality{margin-top:12px!important}
+  .sg-xp-row{margin-top:16px!important}
+  .sg-core-emblem{margin-top:12px!important}
+}
+
+@media(max-width:390px){
+  .sg-panel.open{padding:9px 9px 13px!important}
+  .sg-core-card{padding:10px 12px 13px!important}
+  .sg-kicker{top:7px!important;min-height:32px!important}
+  .sg-level-row{min-height:141px!important}
+  .sg-level-identity{top:15px!important}
+  .sg-level-center{top:-17px!important;width:138px!important;height:138px!important}
+  .sg-level-center::after{
+    box-shadow:
+      0 -61px 0 rgba(147,173,215,.54),
+      0 61px 0 rgba(216,179,109,.38),
+      61px 0 0 rgba(147,173,215,.38),
+      -61px 0 0 rgba(216,179,109,.28)!important;
+  }
+  .sg-level-center .sg-level-crest-mini.sg-level-mark{width:134px!important;height:134px!important}
+  .sg-level-center .sg-level-crest-svg{width:121px!important;height:121px!important}
+  .sg-level-center .sg-level-crest-mini>i{bottom:-13px!important;width:55px!important;gap:5px!important}
+  .sg-personality{margin-top:11px!important}
+  .sg-xp-row{margin-top:15px!important}
+  .sg-core-emblem{margin-top:11px!important}
+}
