@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.2.3';
+  const VERSION='2.2.4';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
@@ -333,7 +333,6 @@
     const personalitySub=m.best?`偏好：${esc(m.best.features?.strategyLabel||'多策略')} / ${esc(({TREND_UP:'強多',TREND_DOWN:'強空',CHOP:'震盪',HIGH_VOL:'高波動',LIQUIDATION:'清算'})[m.best.features?.regime]||m.best.features?.regime||'跨狀態')}`:'尚在建立偏好';
     const badge=rootDoc.getElementById('sgBrandLevel');if(badge)badge.innerHTML=`<span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span>`;
     panel.innerHTML=`
-      <div class="sg-panel-topline"><span><i class="sg-mini-sigil">${sigilSvg('crest',2)}</i> 成長核心 · V${VERSION}</span></div>
       <div class="sg-hero">
         <section class="sg-core-card">
           <div class="sg-kicker"><span class="sg-kicker-status"><span class="sg-status-dot"></span>研究中</span>${acquiredSkillsHtml(skillCounts)}</div>
