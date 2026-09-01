@@ -1862,3 +1862,66 @@ body{
   .sg-acquired-toggle{min-width:80px!important;max-width:86px!important}
   .sg-acquired-toggle-copy b{font-size:7.5px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.2.3 — compact header / skills on research row */
+.sg-panel-topline{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  min-height:24px!important;
+  margin-bottom:7px!important;
+  padding-right:2px!important;
+}
+.sg-panel-topline>div{display:none!important}
+.sg-panel-topline>span{display:inline-flex!important;align-items:center!important;gap:4px!important}
+
+.sg-kicker{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  width:100%!important;
+  min-height:38px!important;
+}
+.sg-kicker-status{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:0!important;
+  white-space:nowrap!important;
+}
+.sg-kicker .sg-acquired-toggle{
+  position:static!important;
+  inset:auto!important;
+  margin-left:auto!important;
+  width:auto!important;
+  min-width:88px!important;
+  max-width:104px!important;
+  min-height:32px!important;
+  padding:4px 6px!important;
+  border-radius:11px!important;
+  grid-template-columns:18px minmax(0,1fr) 8px!important;
+  gap:3px!important;
+  align-self:center!important;
+  justify-self:end!important;
+  transform:none!important;
+}
+.sg-kicker .sg-acquired-toggle-glyph{width:18px!important;height:18px!important}
+.sg-kicker .sg-acquired-toggle-glyph .sg-sigil-svg{width:12px!important;height:12px!important}
+.sg-kicker .sg-acquired-toggle-copy b{font-size:7.8px!important;line-height:1!important}
+.sg-kicker .sg-acquired-toggle-copy small{font-size:6.5px!important;line-height:1!important}
+.sg-kicker .sg-acquired-toggle>em{font-size:9px!important}
+
+/* level row now has only LV + centered crest, so keep the emblem visually centered */
+.sg-level-row{padding-top:2px!important}
+.sg-level-center{z-index:2!important}
+
+@media(max-width:520px){
+  .sg-panel-topline{min-height:22px!important;margin-bottom:6px!important}
+  .sg-kicker{min-height:34px!important;gap:8px!important}
+  .sg-kicker .sg-acquired-toggle{min-width:80px!important;max-width:92px!important;min-height:30px!important;padding:4px 5px!important;grid-template-columns:16px minmax(0,1fr) 7px!important}
+  .sg-kicker .sg-acquired-toggle-glyph{width:16px!important;height:16px!important}
+  .sg-kicker .sg-acquired-toggle-glyph .sg-sigil-svg{width:11px!important;height:11px!important}
+  .sg-kicker .sg-acquired-toggle-copy b{font-size:7.4px!important}.sg-kicker .sg-acquired-toggle-copy small{font-size:6.2px!important}
+}

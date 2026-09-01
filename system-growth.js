@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.2.2';
+  const VERSION='2.2.3';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
@@ -333,13 +333,13 @@
     const personalitySub=m.best?`偏好：${esc(m.best.features?.strategyLabel||'多策略')} / ${esc(({TREND_UP:'強多',TREND_DOWN:'強空',CHOP:'震盪',HIGH_VOL:'高波動',LIQUIDATION:'清算'})[m.best.features?.regime]||m.best.features?.regime||'跨狀態')}`:'尚在建立偏好';
     const badge=rootDoc.getElementById('sgBrandLevel');if(badge)badge.innerHTML=`<span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span>`;
     panel.innerHTML=`
-      <div class="sg-panel-topline"><span><i class="sg-mini-sigil">${sigilSvg('crest',2)}</i> 成長核心 · V${VERSION}</span><div><b>${m.stage.name}</b><em>${formatAge(state.perf.generatedAt||state.signals?.generatedAt)}</em></div></div>
+      <div class="sg-panel-topline"><span><i class="sg-mini-sigil">${sigilSvg('crest',2)}</i> 成長核心 · V${VERSION}</span></div>
       <div class="sg-hero">
         <section class="sg-core-card">
-          <div class="sg-kicker"><span class="sg-status-dot"></span>研究中</div>
+          <div class="sg-kicker"><span class="sg-kicker-status"><span class="sg-status-dot"></span>研究中</span>${acquiredSkillsHtml(skillCounts)}</div>
           <div class="sg-core-intro">
             <div class="sg-core-main">
-              <div class="sg-level-row"><div class="sg-level-identity"><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-level-center">${systemLevelCrest(level)}</div>${acquiredSkillsHtml(skillCounts)}</div>
+              <div class="sg-level-row"><div class="sg-level-identity"><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-level-center">${systemLevelCrest(level)}</div></div>
               ${acquiredSkillsDetailHtml(skillCounts)}
               <div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div>
               <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
