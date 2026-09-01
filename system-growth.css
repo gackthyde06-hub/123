@@ -1288,3 +1288,73 @@ html,body{overflow-x:hidden!important}
   .sg-skill{min-height:176px!important}
   .sg-skill::before{left:56px!important;right:12px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.6 — clean premium background + alignment + stable accordion state */
+.sg-panel::before{
+  inset:0!important;
+  opacity:.78!important;
+  background-image:
+    radial-gradient(circle at 14% 1%, rgba(233,207,150,.12), transparent 32%),
+    radial-gradient(circle at 86% 9%, rgba(155,186,232,.11), transparent 24%),
+    radial-gradient(circle at 52% 44%, rgba(170,198,239,.04), transparent 38%),
+    linear-gradient(180deg, rgba(10,13,17,.00) 0%, rgba(11,15,20,.30) 100%)!important;
+  background-size:auto,auto,auto,auto!important;
+  background-position:14% 1%,86% 9%,52% 44%,center!important;
+  background-repeat:no-repeat!important;
+  mask-image:linear-gradient(180deg, rgba(0,0,0,.99) 0%, rgba(0,0,0,.95) 76%, rgba(0,0,0,.86) 100%)!important;
+}
+.sg-core-card::before,.sg-radar-card::before,.sg-live::before,.sg-quick>div::before,.sg-explore::before,.sg-lesson::before,.sg-accordion::before,.sg-skill::before,.sg-core-emblem::before,.sg-stage::before{
+  background:
+    radial-gradient(circle at 14% 16%, rgba(219,179,107,.052), transparent 26%),
+    radial-gradient(circle at 84% 14%, rgba(162,188,230,.05), transparent 22%),
+    linear-gradient(180deg, rgba(255,255,255,.012), rgba(255,255,255,0))!important;
+  opacity:.22!important;
+  mix-blend-mode:screen!important;
+  mask-image:linear-gradient(180deg, rgba(0,0,0,.98), rgba(0,0,0,.84) 78%, rgba(0,0,0,.68) 100%)!important;
+}
+.sg-personality,.sg-candidate-card,.sg-detail-grid>div,.sg-why>div,.sg-skill,.sg-quick>div,.sg-explore-grid button,.sg-lesson,.sg-accordion{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+
+/* Level badge / crest use independent look and centered placement */
+.sg-level-line{display:flex!important;align-items:center!important;gap:12px!important;min-height:58px!important}
+.sg-level-crest-mini.sg-level-mark{width:52px!important;height:52px!important;display:grid!important;place-items:center!important;align-self:center!important;justify-self:start!important;margin:0!important;position:relative!important}
+.sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:30px!important;height:30px!important;display:block!important;margin:0 auto!important}
+.sg-level-crest-mini.sg-level-mark>i{left:7px!important;right:7px!important;bottom:6px!important}
+.sg-level-mark .sg-sigil-svg.level .sg-glyph-orbit,.sg-level-mark .sg-sigil-svg.level .sg-glyph-crown{opacity:.95!important}
+
+.sg-emblem-frame{display:grid!important;grid-template-columns:76px minmax(0,1fr)!important;align-items:center!important;column-gap:14px!important}
+.sg-emblem-art{width:76px!important;height:76px!important;display:grid!important;place-items:center!important;align-self:center!important;justify-self:center!important;margin:0 auto!important}
+.sg-emblem-art .sg-sigil-svg{width:42px!important;height:42px!important;display:block!important;margin:0 auto!important}
+.sg-emblem-copy{min-height:74px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;row-gap:2px!important}
+.sg-emblem-copy b,.sg-emblem-copy small,.sg-emblem-copy span{text-align:left!important}
+
+/* Skill tree rank/tag moved away from icon; icon centered */
+.sg-skill{padding:18px 14px 12px!important;min-height:186px!important}
+.sg-skill::before{left:72px!important;right:16px!important;top:13px!important;width:auto!important;height:2px!important;background:linear-gradient(90deg,rgba(219,179,107,.52),rgba(219,179,107,.14))!important;opacity:.95!important}
+.sg-skill-rank{top:6px!important;left:12px!important;right:auto!important;z-index:4!important;line-height:1!important;padding:4px 8px!important}
+.sg-skill-head{grid-template-columns:42px minmax(0,1fr)!important;gap:10px!important;padding-right:40px!important;align-items:center!important;padding-top:14px!important}
+.sg-skill-icon{width:42px!important;height:42px!important;display:grid!important;place-items:center!important;align-self:center!important;justify-self:center!important;margin:0 auto!important;overflow:visible!important}
+.sg-skill-icon .sg-sigil-svg{display:block!important;margin:0 auto!important}
+.sg-skill-pips{left:4px!important;right:4px!important;bottom:-6px!important}
+
+/* extra comfort on narrow screens */
+@media(max-width:520px){
+  .sg-panel::before{opacity:.74!important;background-size:auto!important;background-position:14% 1%,86% 9%,52% 44%,center!important}
+  .sg-level-crest-mini.sg-level-mark{width:48px!important;height:48px!important}
+  .sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:28px!important;height:28px!important}
+  .sg-emblem-frame{grid-template-columns:70px minmax(0,1fr)!important;column-gap:12px!important}
+  .sg-emblem-art{width:70px!important;height:70px!important}
+  .sg-emblem-art .sg-sigil-svg{width:38px!important;height:38px!important}
+  .sg-skill{padding:17px 14px 12px!important;min-height:180px!important}
+  .sg-skill::before{left:66px!important;right:14px!important;top:12px!important}
+  .sg-skill-rank{top:5px!important;left:11px!important;padding:3px 8px!important}
+  .sg-skill-head{grid-template-columns:40px minmax(0,1fr)!important;gap:9px!important;padding-right:36px!important;padding-top:13px!important}
+  .sg-skill-icon{width:40px!important;height:40px!important}
+  .sg-skill-icon .sg-sigil-svg{width:20px!important;height:20px!important}
+}
+@media(max-width:390px){
+  .sg-emblem-frame{grid-template-columns:66px minmax(0,1fr)!important}
+  .sg-emblem-art{width:66px!important;height:66px!important}
+  .sg-level-crest-mini.sg-level-mark{width:46px!important;height:46px!important}
+  .sg-skill::before{left:62px!important;right:12px!important}
+}

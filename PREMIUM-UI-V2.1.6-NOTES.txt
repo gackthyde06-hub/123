@@ -1,0 +1,9 @@
+PREMIUM UI V2.1.6 — clean background + alignment + UX stability
+
+更新內容：
+1. 系統養成背景移除幾何線條／水晶線框，保留原本深藍＋淡金＋淡藍光感。
+2. 養成區等級徽章改為獨立圖樣，不再和下方 RESEARCH CREST 使用同一圖示。
+3. 養成主卡、RESEARCH CREST、等級徽章圖示重新置中校正。
+4. 技能樹階級標籤上移，避免壓到技能圖示。
+5. 各 details / accordion 展開狀態加入 localStorage 記憶，資料刷新後不會自己收掉。
+6. prepare-ui 資源快取版號更新為 sg216，避免前端吃到舊 CSS / JS。
