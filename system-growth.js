@@ -1,12 +1,13 @@
 (()=>{
   'use strict';
-  const VERSION='2.0.0';
+  const VERSION='2.0.1';
+  const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
   const PROGRESS_KEY='sg-progress-v20';
   const VISIT_KEY='sg-visits-v1';
-  const DETAILS_KEY='sg-details-v216';
+  const DETAILS_KEY='sg-details-v219';
   const EXPLORE_PREFIX='sg-explore-v1-';
   const rootDoc=document;
   const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,Number(v)||0));
@@ -17,7 +18,7 @@
   const pf=v=>has(v)?Number(v).toFixed(2):'—';
   const dateKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const todayKey=()=>dateKey();
-  const state={open:false,loading:false,perf:null,signals:null,lastLoadedAt:0,intel:new Map(),timer:null,toastTimer:null,renderKey:''};
+  const state={open:false,loading:false,perf:null,signals:null,lastLoadedAt:0,intel:new Map(),timer:null,toastTimer:null,renderKey:'',interactUntil:0};
 
   const hashString=s=>{s=String(s||'');let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h>>>0};
   const stageIconByIndex=i=>(['explore','ward','verify','stable','achievement'][Math.max(0,Math.min(4,Number(i)||0))]||'crest');
@@ -58,6 +59,7 @@
   function getExplore(){return storageGet(EXPLORE_PREFIX+todayKey(),{lesson:false,candidate:false,journal:false})||{lesson:false,candidate:false,journal:false}}
   function markExplore(key){const ex=getExplore();if(ex[key])return;ex[key]=true;storageSet(EXPLORE_PREFIX+todayKey(),ex);showToast(`章節 +1 · ${key==='lesson'?'解析':key==='candidate'?'候選':'日誌'}`);updateExploreUi()}
   function updateExploreUi(){const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length,box=rootDoc.querySelector('[data-sg-explore]');if(!box)return;const count=box.querySelector('[data-sg-explore-count]'),note=box.querySelector('[data-sg-explore-note]');if(count)count.textContent=`${done} / 3`;if(note)note.textContent=done===3?'COMPLETE':'RESEARCH PATH';box.querySelectorAll('[data-sg-jump]').forEach(btn=>{const k=btn.dataset.sgJump,ok=!!ex[k];btn.classList.toggle('done',ok);const i=btn.querySelector('i');if(i)i.innerHTML=sigilSvg(ok?'verify':({lesson:'explore',candidate:'calibrate',journal:'journal'}[k]||'explore'),ok?3:1)})}
+  function markInteraction(ms=INTERACT_HOLD_MS){state.interactUntil=Math.max(state.interactUntil||0,Date.now()+ms)}
   function updateVisits(){
     const today=todayKey(),arr=storageGet(VISIT_KEY,[])||[],set=new Set(arr.filter(Boolean));set.add(today);
     const sorted=[...set].sort().slice(-30);storageSet(VISIT_KEY,sorted);return sorted;
@@ -231,14 +233,34 @@
   }
 
   function lessonFor(m){
-    const sh=m.sh,e=m.xp.effective;
-    if(e<20)return {tag:'2 分鐘',title:'為什麼現在最重要的是樣本數？',lead:`目前只有 ${e} 個去相關有效樣本。這時候任何漂亮或難看的勝率，都很容易只是短期運氣。`,points:['先累積，暫時不要因幾筆輸贏改規則。','去相關後的樣本，比同一波行情重複十次更有價值。','到 20 / 50 / 100 筆，再逐步提高對統計的信任。'],focus:`下一個研究門檻：${Math.max(0,20-e)} 筆。`};
-    if(has(sh.profitFactor)&&Number(sh.profitFactor)<1)return {tag:'2 分鐘',title:'PF < 1 到底代表什麼？',lead:`目前影子 PF ${pf(sh.profitFactor)}。意思是已結算樣本中，總獲利還沒蓋過總虧損。`,points:['PF 比單看勝率更接近「這套東西值不值得做」。','勝率高但每次小賺大賠，PF 仍可能很差。','現在的工作不是救數字，而是繼續讓篩選器接受考試。'],focus:'觀察 HIGH / NORMAL 是否逐步拉開和 BLOCKED 的差距。'};
-    if(has(sh.hitRate)&&Number(sh.hitRate)<50&&Number(sh.profitFactor)>=1)return {tag:'2 分鐘',title:'勝率不到 50%，為什麼仍可能有優勢？',lead:`目前命中 ${pct(sh.hitRate,1)}、PF ${pf(sh.profitFactor)}。只要贏的平均幅度大於輸的，低於 50% 也可能是正期望。`,points:['勝率只是結果頻率，不是獲利大小。','真正要一起看：PF、期望 R、回撤。','不要為了追求 70% 勝率，把好 RR 犧牲掉。'],focus:'下一步看「策略表現」裡哪一類在拉高 PF。'};
-    if(m.xp.blocked>=30)return {tag:'3 分鐘',title:'BLOCKED 為什麼不是垃圾資料？',lead:`系統已累積 ${m.xp.blocked} 個被擋研究樣本。這些是最重要的反證組之一。`,points:['如果 BLOCKED 後續普遍差，代表過濾器真的有價值。','如果 BLOCKED 常常大勝，就表示規則可能擋太多。','好模型不只研究「做了什麼」，也研究「沒做什麼」。'],focus:'打開模型日誌，看最常阻擋你的條件。'};
-    return {tag:'3 分鐘',title:'怎麼知道「找到規律」不是過度擬合？',lead:`目前已有 ${m.patterns.length} 個啟動中的狀態模式。模式越多，不代表越強；要看新資料是否繼續支持。`,points:['先在舊資料找到模式，再用後續新樣本驗證。','不同 Regime 都能活下來，比單一行情神準更重要。','規則越細，越需要更多樣本才能相信。'],focus:'現在先看最強與最弱模式是否持續分化。'};
+    const sh=m.sh||{}, nextStageMap=['校準','驗證','穩定','深化','專精'];
+    const nextStageName=nextStageMap[Math.min(m.stage.index+1,nextStageMap.length-1)]||'深化';
+    const nextStageNeed=Math.max(0,Number(m.stage.to||0)-Number(m.xp.effective||0));
+    const nextLevelNeed=Math.max(0,Number(m.level.need||0)-Number(m.level.current||0));
+    const blockerText=m.blockerTop?.length?m.blockerTop.slice(0,2).map(([k,v])=>`${k} × ${v}`).join('、'):'暫時沒有明顯集中阻礙';
+    const readyCount=Number(m.tierCounts?.HIGH||0)+Number(m.tierCounts?.NORMAL||0);
+    const phaseLine=nextStageNeed>0
+      ? `再累積 ${num(nextStageNeed)} 筆去相關有效樣本，就會從「${m.stage.name}」往「${nextStageName}」推進。`
+      : `目前已接近下一階段，可開始觀察是否具備跨狀態穩定性。`;
+    const pfLine=has(sh.profitFactor)
+      ? (Number(sh.profitFactor)>=1
+          ? `PF ${pf(sh.profitFactor)}，代表獲利結構已不算差，但還需要更多新樣本證明不是短期運氣。`
+          : `PF ${pf(sh.profitFactor)}，目前總獲利還沒蓋過總虧損，系統還在修正哪些條件該留、哪些該擋。`)
+      : 'PF 尚未成形，現在先以樣本品質與去相關累積為主。';
+    return {
+      tag:'影子學習報告',
+      title:`目前在${m.stage.name}階段，下一站是${nextStageName}`,
+      lead:`影子樣本 ${num(sh.sample||0)} 筆，去相關有效 ${num(m.xp.effective||0)} 筆，影子命中 ${pct(sh.hitRate,1)}，${pfLine}`,
+      focus: phaseLine,
+      points:[
+        `目前狀況：真正送達通知 ${num(m.sum?.sample||0)} 筆，通知級樣本 ${readyCount} 筆，系統型態偏向「${m.personality}」。`,
+        `預計進步：距離下一等級還差 ${num(nextLevelNeed)} XP；若去相關樣本持續增加，會先強化「${m.stage.name}」的可信度，再往「${nextStageName}」走。`,
+        `主要阻礙：${blockerText}。這些條件代表系統最常卡住的地方，也是現在最需要觀察的瓶頸。`,
+        `正在克服：持續用 BLOCKED 與已通知樣本對照，清掉重複行情干擾，並讓 HIGH / NORMAL / BLOCKED 的差異逐步拉開。`
+      ]
+    };
   }
-  function lessonHtml(m){const l=lessonFor(m);return `<details class="sg-lesson" data-sg-lesson data-sg-detail-key="lesson"><summary><div><span>${esc(l.tag)} · 今日解析</span><b>${esc(l.title)}</b><small>${esc(l.lead)}</small></div><i>展開</i></summary><div class="sg-lesson-body"><div class="sg-lesson-current"><span>當前焦點</span><b>${esc(l.focus)}</b></div><ol>${l.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div></details>`}
+  function lessonHtml(m){const l=lessonFor(m);return `<details class="sg-lesson" data-sg-lesson data-sg-detail-key="lesson"><summary><div><span>${esc(l.tag)}</span><b>${esc(l.title)}</b><small>${esc(l.lead)}</small></div><i>展開</i></summary><div class="sg-lesson-body"><div class="sg-lesson-current"><span>目前重點</span><b>${esc(l.focus)}</b></div><ol>${l.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div></details>`}
 
   function explorationHtml(){
     const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length;return `<section class="sg-explore" data-sg-explore><div class="sg-explore-head"><div><span>今日章節</span><b data-sg-explore-count>${done} / 3</b></div><small data-sg-explore-note>${done===3?'COMPLETE':'RESEARCH PATH'}</small></div><div class="sg-explore-grid sg-questline"><button type="button" data-sg-jump="lesson" class="${ex.lesson?'done':''}"><i>${sigilSvg(ex.lesson?'verify':'explore',ex.lesson?3:1)}</i><span>解析</span></button><button type="button" data-sg-jump="candidate" class="${ex.candidate?'done':''}"><i>${sigilSvg(ex.candidate?'verify':'calibrate',ex.candidate?3:1)}</i><span>候選</span></button><button type="button" data-sg-jump="journal" class="${ex.journal?'done':''}"><i>${sigilSvg(ex.journal?'verify':'journal',ex.journal?3:1)}</i><span>日誌</span></button></div></section>`;
@@ -299,10 +321,16 @@
 
   function intelListHtml(rows){const list=candidateRows(rows).slice(0,3);if(!list.length)return'<div class="sg-empty">目前沒有候選情報檔案。</div>';return list.map(x=>`<article class="sg-intel" data-sg-intel="${esc(x.symbol)}:${esc(x.direction)}"><div class="sg-intel-head"><div><b>${esc(x.symbol)}</b><span>${x.direction==='SHORT'?'做空':'做多'} · ${esc(x.strategyAtConfirm?.label||x.strategyProfile?.label||'多策略')}</span></div><button type="button" class="sg-intel-btn" data-sg-intel-btn data-symbol="${esc(x.symbol)}" data-direction="${esc(x.direction)}">查最新情報</button></div><div class="sg-intel-body" data-sg-intel-body>尚未查詢</div></article>`).join('')}
   function bindPanelEvents(panel){
+    const keepAlive=()=>markInteraction(180000);
+    panel.addEventListener('pointerdown',keepAlive,{passive:true});
+    panel.addEventListener('touchstart',keepAlive,{passive:true});
+    panel.addEventListener('focusin',keepAlive);
+    panel.addEventListener('mouseenter',keepAlive,{passive:true});
+    panel.addEventListener('scroll',keepAlive,{passive:true,capture:true});
     panel.querySelectorAll('details').forEach(el=>{
-      el.addEventListener('toggle',()=>captureDetailsState(panel));
+      el.addEventListener('toggle',()=>{keepAlive();captureDetailsState(panel)});
       const summary=el.querySelector(':scope > summary');
-      if(summary)summary.addEventListener('click',()=>setTimeout(()=>captureDetailsState(panel),0));
+      if(summary)summary.addEventListener('click',()=>setTimeout(()=>{keepAlive();captureDetailsState(panel)},0));
     });
     panel.querySelectorAll('[data-sg-intel-btn]').forEach(btn=>btn.addEventListener('click',()=>loadIntel(btn)));
     panel.querySelector('[data-sg-lesson]')?.addEventListener('toggle',e=>{if(e.currentTarget.open)markExplore('lesson')});
@@ -311,6 +339,7 @@
     panel.querySelectorAll('[data-sg-jump]').forEach(btn=>btn.addEventListener('click',()=>jumpTo(btn.dataset.sgJump)));
   }
   function jumpTo(key){
+    markInteraction(180000);
     const map={lesson:'#sgLessonSection .sg-lesson',candidate:'#sgCandidateSection .sg-candidate-card',journal:'#sgJournal'},el=rootDoc.querySelector(map[key]);if(!el)return;
     if(el.tagName==='DETAILS')el.open=true;el.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
   }
@@ -343,7 +372,10 @@
   function showToast(text){const t=rootDoc.getElementById('sgToast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
   async function getJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(`${path} ${r.status}`);return r.json()}
   async function loadData(force=false){
-    if(state.loading)return;if(!force&&state.perf&&Date.now()-state.lastLoadedAt<30_000){render();return}state.loading=true;setStatus('同步研究資料…');
+    if(state.loading)return;
+    if(force&&state.open&&Date.now()<Number(state.interactUntil||0))return;
+    if(!force&&state.perf&&Date.now()-state.lastLoadedAt<30_000){render();return}
+    state.loading=true;setStatus('同步研究資料…');
     try{
       const [perf,signals]=await Promise.all([getJson('/api/performance'),getJson('/api/test-signals').catch(()=>null)]);
       const key=renderKeyFor(perf,signals);
@@ -359,7 +391,7 @@
   function setStatus(text){const el=rootDoc.getElementById('sgLoading');if(el)el.textContent=text||''}
   function setOpen(open){
     state.open=!!open;const panel=rootDoc.getElementById('sgPanel'),btn=rootDoc.getElementById('sgBrandToggle');if(!panel||!btn)return;panel.hidden=!state.open;panel.classList.toggle('open',state.open);btn.classList.toggle('active',state.open);btn.setAttribute('aria-expanded',String(state.open));try{localStorage.setItem(OPEN_KEY,state.open?'1':'0')}catch{}
-    if(state.open){updateVisits();void loadData(false);startTimer()}else stopTimer();updateScrollRail()
+    if(state.open){markInteraction(INTERACT_HOLD_MS);updateVisits();void loadData(false);startTimer()}else stopTimer();updateScrollRail()
   }
   function startTimer(){stopTimer();state.timer=setInterval(()=>{if(state.open)void loadData(true)},60_000)}
   function stopTimer(){if(state.timer){clearInterval(state.timer);state.timer=null}}

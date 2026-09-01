@@ -1466,3 +1466,31 @@ body{
   .sg-skill{min-height:194px!important}
   .sg-skill-head{padding-top:16px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.8 — desktop sync / calmer learning panel
+   - remove stray glow on crest card
+   - desktop follows mobile flow more closely
+   - keep detail panels open during reading session */
+.sg-core-emblem::after{display:none!important}
+.sg-panel{max-width:860px!important;margin-left:auto!important;margin-right:auto!important}
+.sg-lesson>summary span{color:#b59a67!important}
+.sg-lesson-current span{color:#b59a67!important}
+.sg-lesson-body ol{padding-left:18px!important}
+.sg-lesson-body li{margin:7px 0!important}
+
+@media(min-width:821px){
+  .wrap{max-width:900px!important}
+  .sg-panel{max-width:860px!important}
+  .sg-hero{grid-template-columns:1fr!important;gap:14px!important}
+  .sg-core-intro{grid-template-columns:1fr!important;gap:16px!important}
+  .sg-core-card,.sg-radar-card,.sg-live,.sg-explore,.sg-lesson,.sg-accordion{border-radius:20px!important}
+  .sg-quick{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+  .sg-skills{grid-template-columns:1fr!important;gap:12px!important}
+  .sg-candidate-card{padding:0 12px!important;border-radius:18px!important}
+  .sg-candidate-card>summary{grid-template-columns:1fr 24px!important;padding:13px 0!important;min-height:98px!important;gap:10px!important;align-items:center!important}
+  .sg-candidate-bar{grid-column:1!important;height:10px!important}
+  .sg-candidate-meta span{font-size:13px!important}.sg-candidate-meta small{font-size:11px!important}
+  .sg-chevron{font-size:22px!important}
+  .sg-radar{width:min(100%,400px)!important}
+}
