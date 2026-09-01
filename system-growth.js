@@ -186,7 +186,8 @@
       achievement:`<path d="M10 5h12v8a6 6 0 0 1-12 0Z" fill="none"/><path d="M10 8H6v2a5 5 0 0 0 5 5M22 8h4v2a5 5 0 0 1-5 5M16 19v5M11 27h10" fill="none"/>`,
       codex:`<path d="M7 7h9v19H7zM16 7h9v19h-9" fill="none"/><path d="M10 11h4M18 11h4M10 15h4M18 15h4" fill="none"/>`,
       intel:`<circle cx="14" cy="14" r="7" fill="none"/><path d="m19 19 7 7M11 14h6M14 11v6" fill="none"/>`,
-      level:`<path d="M16 4 26 10v12l-10 6L6 22V10Z" fill="none"/><path d="M16 8l3 6 6 2-6 2-3 6-3-6-6-2 6-2Z" fill="none"/><circle cx="16" cy="16" r="2.5"/>`
+      level:`<path d="M16 4 26 10v12l-10 6L6 22V10Z" fill="none"/><path d="M16 8l3 6 6 2-6 2-3 6-3-6-6-2 6-2Z" fill="none"/><circle cx="16" cy="16" r="2.5"/>`,
+      zenith:`<circle cx="16" cy="16" r="11" fill="none"/><path d="M16 4l2.4 6.6L25 13l-6.6 2.4L16 22l-2.4-6.6L7 13l6.6-2.4Z" fill="none"/><path d="M10 22c1.8-1 3.8-1.5 6-1.5s4.2.5 6 1.5" fill="none"/><circle cx="16" cy="13" r="1.9"/>`
     };
     const body=icons[type]||icons.crest;
     return wrap(type,`${ring}${body}${spark}${crown}`);
@@ -203,7 +204,7 @@
     return `<aside class="sg-core-emblem sg-phase-${m.stage.index} sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg(current,Math.min(5,grade+1))}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b><span>${esc(m.personality)}</span></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
   }
   function systemLevelCrest(level,stageIndex=0){
-    const grade=levelArtGrade(level.level),step=iconGradeFromProgress(level.ratio),icon='level';
+    const grade=levelArtGrade(level.level),step=iconGradeFromProgress(level.ratio),icon='zenith';
     return `<span class="sg-level-crest-mini sg-level-mark sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true">${sigilSvg(icon,Math.min(5,grade+1))}<i>${Array.from({length:5},(_,i)=>`<b class="${i<step?'on':''}"></b>`).join('')}</i></span>`;
   }
 
@@ -282,7 +283,7 @@
       <section class="sg-live" id="sgCandidateSection"><div class="sg-section-head"><div><b>正在發生</b><span>LIVE RESEARCH</span></div><span>${rows.length} 個觀察狀態</span></div>${candidateHtml(rows)}</section>
       <div class="sg-accordions">
         <details class="sg-accordion" data-sg-detail-key="skill-tree" open><summary><i class="sg-acc-icon">${sigilSvg('state',2)}</i><div><b>技能樹</b><span>SKILL BOARD</span></div><em>6 PATHS</em></summary><div class="sg-detail-body"><div class="sg-skills sg-skill-tree">
-          ${skillCard('return','回踩獵手','順勢回踩 · Regime 表現',skillReturn,'回踩模式樣本')}${skillCard('break','破局之眼','突破 / 回測 · 事件命中',skillBreak,'突破模式樣本')}${skillCard('shadow','影子研究','未通知樣本 · 去偏誤研究',m.xp.effective,'去相關有效樣本')}${skillCard('state','狀態學習','策略 × Regime × 資金 × 深度',stateResearch,'模式有效樣本')}${skillCard('depth','流動性雷達','Depth / Spread / 流動性',depthResearch,'Depth 模式樣本')}${skillCard('risk','危機預警','風險閘門 · 反證樣本',m.xp.blocked,'被擋樣本')}
+          ${skillCard('return','回踩獵手','辨識順勢回踩是否值得等，專看不同 Regime 的回踩勝率與延續性',skillReturn,'回踩模式樣本')}${skillCard('break','破局之眼','研究突破後的回測是否站穩，避免追到假突破或事件沖高回落',skillBreak,'突破模式樣本')}${skillCard('shadow','影子研究','把沒通知的樣本也納入研究，避免只記得贏單，降低主觀偏誤',m.xp.effective,'去相關有效樣本')}${skillCard('state','狀態學習','比較策略 × Regime × 資金 × 深度的組合，找出長期更有優勢的局',stateResearch,'模式有效樣本')}${skillCard('depth','流動性雷達','觀察掛單厚度、價差與流動性，避開容易滑價或被掃的區域',depthResearch,'Depth 模式樣本')}${skillCard('risk','危機預警','累積被擋樣本與反證訊號，提醒哪些情況看起來漂亮其實不該出手',m.xp.blocked,'被擋樣本')}
         </div></div></details>
         <details class="sg-accordion" id="sgJournal" data-sg-detail-key="journal"><summary><i class="sg-acc-icon">${sigilSvg('journal',2)}</i><div><b>模型日誌</b><span>MODEL LOG</span></div><em>${patterns.length} ACTIVE</em></summary><div class="sg-detail-body"><div class="sg-journal-grid"><div class="good"><span>目前最強模式</span><b>${esc(patternText(m.best))}</b></div><div class="bad"><span>目前最弱模式</span><b>${esc(patternText(m.worst))}</b></div></div><div class="sg-journal-note"><span>目前最常阻擋</span><div>${m.blockerTop.length?m.blockerTop.map(([k,v])=>`<i>${esc(k)} <b>${v}</b></i>`).join(''):'<i>暫無集中風險</i>'}</div></div><div class="sg-journal-note"><span>今日狀態</span><b>${m.tierCounts.HIGH+m.tierCounts.NORMAL>0?`READY · ${m.tierCounts.HIGH+m.tierCounts.NORMAL} 通知級`:'WAIT'}</b></div></div></details>
         <details class="sg-accordion" data-sg-detail-key="history"><summary><i class="sg-acc-icon">${sigilSvg('history',2)}</i><div><b>研究足跡</b><span>TRACE LOG</span></div><em>7D</em></summary><div class="sg-detail-body"><div class="sg-history-card">${historySvg(history)}</div></div></details>
@@ -298,7 +299,11 @@
 
   function intelListHtml(rows){const list=candidateRows(rows).slice(0,3);if(!list.length)return'<div class="sg-empty">目前沒有候選情報檔案。</div>';return list.map(x=>`<article class="sg-intel" data-sg-intel="${esc(x.symbol)}:${esc(x.direction)}"><div class="sg-intel-head"><div><b>${esc(x.symbol)}</b><span>${x.direction==='SHORT'?'做空':'做多'} · ${esc(x.strategyAtConfirm?.label||x.strategyProfile?.label||'多策略')}</span></div><button type="button" class="sg-intel-btn" data-sg-intel-btn data-symbol="${esc(x.symbol)}" data-direction="${esc(x.direction)}">查最新情報</button></div><div class="sg-intel-body" data-sg-intel-body>尚未查詢</div></article>`).join('')}
   function bindPanelEvents(panel){
-    panel.querySelectorAll('details').forEach(el=>el.addEventListener('toggle',()=>captureDetailsState(panel)));
+    panel.querySelectorAll('details').forEach(el=>{
+      el.addEventListener('toggle',()=>captureDetailsState(panel));
+      const summary=el.querySelector(':scope > summary');
+      if(summary)summary.addEventListener('click',()=>setTimeout(()=>captureDetailsState(panel),0));
+    });
     panel.querySelectorAll('[data-sg-intel-btn]').forEach(btn=>btn.addEventListener('click',()=>loadIntel(btn)));
     panel.querySelector('[data-sg-lesson]')?.addEventListener('toggle',e=>{if(e.currentTarget.open)markExplore('lesson')});
     panel.querySelectorAll('[data-sg-candidate]').forEach(el=>el.addEventListener('toggle',e=>{if(e.currentTarget.open)markExplore('candidate')}));
@@ -363,7 +368,7 @@
     brand.classList.add('sg-brand');const btn=rootDoc.createElement('button');btn.type='button';btn.id='sgBrandToggle';btn.className='sg-brand-toggle';btn.setAttribute('aria-expanded','false');btn.innerHTML=`<span>系統養成</span><em id="sgBrandLevel" class="sg-inline-lv"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">—</span></em>`;brand.appendChild(btn);
     const loading=rootDoc.createElement('div');loading.id='sgLoading';loading.className='sg-loading';loading.setAttribute('aria-live','polite');const panel=rootDoc.createElement('section');panel.id='sgPanel';panel.className='sg-panel';panel.hidden=true;panel.setAttribute('aria-label','系統養成');panel.innerHTML='<div class="sg-skeleton">讀取養成資料中…</div>';
     const toast=rootDoc.createElement('div');toast.id='sgToast';toast.className='sg-toast';toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');rootDoc.body.appendChild(toast);mountScrollRail();
-    top.insertAdjacentElement('afterend',loading);loading.insertAdjacentElement('afterend',panel);btn.addEventListener('click',()=>setOpen(!state.open));let initial=false;try{const v=localStorage.getItem(OPEN_KEY);initial=v===null?true:v==='1'}catch{initial=true}setOpen(initial);
+    top.insertAdjacentElement('afterend',loading);loading.insertAdjacentElement('afterend',panel);btn.addEventListener('click',()=>setOpen(!state.open));window.addEventListener('beforeunload',()=>captureDetailsState(panel));document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')return;captureDetailsState(panel)});let initial=false;try{const v=localStorage.getItem(OPEN_KEY);initial=v===null?true:v==='1'}catch{initial=true}setOpen(initial);
   }
   if(rootDoc.readyState==='loading')rootDoc.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

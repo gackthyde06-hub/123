@@ -1358,3 +1358,111 @@ html,body{overflow-x:hidden!important}
   .sg-level-crest-mini.sg-level-mark{width:46px!important;height:46px!important}
   .sg-skill::before{left:62px!important;right:12px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.7 — mobile cleanup requested
+   - cleaner background (remove geometric line feel)
+   - better centering for icons
+   - skill tree header line removed + rank lifted
+   - remove blue dot + extra tiny expand diamond
+   - distinct level crest without frame */
+body{
+  background:
+    radial-gradient(circle at 14% -10%, rgba(223,180,95,.08), transparent 26%),
+    radial-gradient(circle at 92% 8%, rgba(134,167,231,.06), transparent 22%),
+    linear-gradient(180deg,#080a0c 0%,#0b1015 48%,#080a0c 100%)!important;
+}
+.sg-panel::before{
+  opacity:.62!important;
+  background-image:
+    radial-gradient(circle at 14% 2%, rgba(233,207,150,.10), transparent 30%),
+    radial-gradient(circle at 86% 10%, rgba(155,186,232,.09), transparent 22%),
+    radial-gradient(circle at 52% 46%, rgba(170,198,239,.03), transparent 36%),
+    linear-gradient(180deg, rgba(10,13,17,0) 0%, rgba(11,15,20,.22) 100%)!important;
+  background-size:auto!important;
+  background-repeat:no-repeat!important;
+  mask-image:none!important;
+}
+.sg-core-card::before,.sg-radar-card::before,.sg-live::before,.sg-quick>div::before,.sg-explore::before,.sg-lesson::before,.sg-accordion::before,.sg-skill::before,.sg-core-emblem::before,.sg-stage::before{
+  background:none!important;
+  opacity:0!important;
+  mask-image:none!important;
+}
+
+/* top metric and emblem icons centered in their boxes */
+.sg-quick-title{display:flex!important;align-items:center!important;gap:9px!important}
+.sg-ui-glyph{display:grid!important;place-items:center!important;align-self:center!important;justify-self:center!important;margin:0!important}
+.sg-ui-glyph .sg-sigil-svg{display:block!important;margin:0 auto!important}
+.sg-emblem-art,.sg-level-crest-mini,.sg-level-mark{display:grid!important;place-items:center!important}
+.sg-emblem-art .sg-sigil-svg,.sg-level-mark .sg-sigil-svg{display:block!important;margin:0 auto!important}
+
+/* distinct level crest: no outer frame, richer icon presence */
+.sg-level-crest-mini.sg-level-mark{
+  width:56px!important;
+  height:56px!important;
+  border:0!important;
+  background:radial-gradient(circle at 50% 42%, rgba(223,180,95,.14), rgba(223,180,95,0) 62%)!important;
+  box-shadow:none!important;
+}
+.sg-level-crest-mini.sg-level-mark::before,
+.sg-level-crest-mini.sg-level-mark::after{display:none!important}
+.sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:31px!important;height:31px!important;filter:drop-shadow(0 0 10px rgba(223,180,95,.18))}
+.sg-level-crest-mini.sg-level-mark>i{left:8px!important;right:8px!important;bottom:5px!important}
+
+/* skill tree cleanup */
+.sg-skill{
+  padding:18px 14px 12px!important;
+  min-height:204px!important;
+}
+.sg-skill::before,
+.sg-skill::after{display:none!important}
+.sg-skill-rank{
+  top:4px!important;
+  left:12px!important;
+  right:auto!important;
+  z-index:4!important;
+}
+.sg-skill-head{
+  grid-template-columns:42px minmax(0,1fr)!important;
+  gap:10px!important;
+  padding-top:18px!important;
+  padding-right:12px!important;
+  align-items:center!important;
+}
+.sg-skill-icon{
+  width:42px!important;
+  height:42px!important;
+  display:grid!important;
+  place-items:center!important;
+  align-self:center!important;
+  justify-self:center!important;
+  margin:0 auto!important;
+}
+.sg-skill-icon::after{display:none!important}
+.sg-skill-pips{left:4px!important;right:4px!important;bottom:-6px!important}
+.sg-skill-head b{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+.sg-skill>p{
+  min-height:58px!important;
+  margin-top:10px!important;
+  display:block!important;
+  -webkit-line-clamp:unset!important;
+  -webkit-box-orient:initial!important;
+  overflow:visible!important;
+}
+
+/* remove extra little visual clutter on accordion card corners */
+.sg-accordion::after,.sg-lesson::after,.sg-explore::after,.sg-live::after,.sg-core-card::after,.sg-radar-card::after{opacity:.55!important}
+
+@media(max-width:520px){
+  .sg-level-crest-mini.sg-level-mark{width:50px!important;height:50px!important}
+  .sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:28px!important;height:28px!important}
+  .sg-skill{padding:17px 14px 12px!important;min-height:198px!important}
+  .sg-skill-rank{top:4px!important;left:11px!important}
+  .sg-skill-head{grid-template-columns:40px minmax(0,1fr)!important;gap:9px!important;padding-top:17px!important;padding-right:10px!important}
+  .sg-skill-icon{width:40px!important;height:40px!important}
+  .sg-skill-icon .sg-sigil-svg{width:20px!important;height:20px!important}
+}
+@media(max-width:390px){
+  .sg-skill{min-height:194px!important}
+  .sg-skill-head{padding-top:16px!important}
+}
