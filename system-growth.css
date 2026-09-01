@@ -2005,3 +2005,126 @@ body{
   .sg-level-center .sg-level-crest-svg{width:123px!important;height:123px!important}
   .sg-level-center .sg-level-crest-mini>i{left:35px!important;right:35px!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.2.5 — crest vertical balance / equal outer frame
+   Screenshot-driven cleanup: lift crest, lower status row slightly,
+   separate level progress pips from the crest, and equalize top/side frame. */
+
+/* Outer frame: top and side inset must read as one consistent border/frame. */
+.sg-panel.open{
+  padding:10px 10px 15px!important;
+  gap:11px!important;
+}
+.sg-hero{width:100%!important;margin:0!important}
+.sg-core-card{
+  width:100%!important;
+  margin:0!important;
+  padding:12px 14px 15px!important;
+  border-width:1px!important;
+}
+
+/* Status / acquired-skills row sits a little lower, but stays compact. */
+.sg-kicker{
+  position:relative!important;
+  top:4px!important;
+  min-height:33px!important;
+  padding:0 2px!important;
+  margin:0!important;
+  align-items:center!important;
+}
+.sg-kicker-status,.sg-kicker .sg-acquired-toggle{align-self:center!important}
+
+/* Lift the central emblem without moving SYSTEM/Lv, so the composition balances. */
+.sg-level-row{
+  min-height:154px!important;
+  margin-top:0!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+.sg-level-identity{top:31px!important}
+.sg-level-center{
+  top:-10px!important;
+  width:154px!important;
+  height:154px!important;
+  overflow:visible!important;
+}
+.sg-level-center::before{inset:8px!important}
+.sg-level-center::after{
+  box-shadow:
+    0 -69px 0 rgba(147,173,215,.56),
+    0 69px 0 rgba(216,179,109,.40),
+    69px 0 0 rgba(147,173,215,.40),
+    -69px 0 0 rgba(216,179,109,.30)!important;
+}
+.sg-level-center .sg-level-crest-mini.sg-level-mark{
+  width:148px!important;
+  height:148px!important;
+  overflow:visible!important;
+}
+.sg-level-center .sg-level-crest-svg{
+  width:134px!important;
+  height:134px!important;
+}
+
+/* Level progress pips: detached from the emblem with a deliberate air gap. */
+.sg-level-center .sg-level-crest-mini>i{
+  left:50%!important;
+  right:auto!important;
+  bottom:-8px!important;
+  width:58px!important;
+  height:4px!important;
+  transform:translateX(-50%)!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,1fr)!important;
+  gap:5px!important;
+  z-index:4!important;
+  pointer-events:none!important;
+}
+.sg-level-center .sg-level-crest-mini>i b{
+  height:3px!important;
+  min-width:0!important;
+  border-radius:999px!important;
+}
+
+/* Keep a clean, intentional gap after the floating crest. */
+.sg-personality{margin-top:0!important}
+.sg-xp-row{margin-top:10px!important}
+.sg-core-emblem{margin-top:10px!important}
+
+@media(max-width:520px){
+  .sg-panel.open{padding:10px 10px 14px!important;gap:10px!important}
+  .sg-core-card{padding:11px 13px 14px!important}
+  .sg-kicker{top:4px!important;min-height:32px!important;padding:0 1px!important}
+  .sg-level-row{min-height:148px!important}
+  .sg-level-identity{top:30px!important}
+  .sg-level-center{top:-9px!important;width:146px!important;height:146px!important}
+  .sg-level-center::after{
+    box-shadow:
+      0 -65px 0 rgba(147,173,215,.56),
+      0 65px 0 rgba(216,179,109,.40),
+      65px 0 0 rgba(147,173,215,.40),
+      -65px 0 0 rgba(216,179,109,.30)!important;
+  }
+  .sg-level-center .sg-level-crest-mini.sg-level-mark{width:140px!important;height:140px!important}
+  .sg-level-center .sg-level-crest-svg{width:127px!important;height:127px!important}
+  .sg-level-center .sg-level-crest-mini>i{bottom:-8px!important;width:56px!important;gap:5px!important}
+}
+@media(max-width:390px){
+  .sg-panel.open{padding:9px 9px 13px!important}
+  .sg-core-card{padding:10px 12px 13px!important}
+  .sg-kicker{top:3px!important;min-height:31px!important}
+  .sg-level-row{min-height:143px!important}
+  .sg-level-identity{top:29px!important}
+  .sg-level-center{top:-8px!important;width:138px!important;height:138px!important}
+  .sg-level-center::after{
+    box-shadow:
+      0 -61px 0 rgba(147,173,215,.54),
+      0 61px 0 rgba(216,179,109,.38),
+      61px 0 0 rgba(147,173,215,.38),
+      -61px 0 0 rgba(216,179,109,.28)!important;
+  }
+  .sg-level-center .sg-level-crest-mini.sg-level-mark{width:134px!important;height:134px!important}
+  .sg-level-center .sg-level-crest-svg{width:121px!important;height:121px!important}
+  .sg-level-center .sg-level-crest-mini>i{bottom:-7px!important;width:54px!important;gap:4px!important}
+}
