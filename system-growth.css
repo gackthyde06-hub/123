@@ -1494,3 +1494,61 @@ body{
   .sg-chevron{font-size:22px!important}
   .sg-radar{width:min(100%,400px)!important}
 }
+
+
+/* SYSTEM GROWTH UI v2.1.9 — FF core-zone polish
+   - larger, richer icon language
+   - fill right side of LV row with half-decorative constellation block
+   - cleaner multiline learning headline */
+.sg-level-line{display:flex!important;align-items:center!important;gap:14px!important;flex-wrap:nowrap!important;min-height:64px!important}
+.sg-level-line > .sg-level-ornament{margin-left:auto!important}
+.sg-level-crest-mini.sg-level-mark{width:64px!important;height:64px!important;background:radial-gradient(circle at 50% 44%, rgba(223,180,95,.18), rgba(223,180,95,0) 68%)!important}
+.sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:36px!important;height:36px!important;filter:drop-shadow(0 0 8px rgba(223,180,95,.12))!important}
+.sg-level-crest-mini.sg-level-mark>i{left:8px!important;right:8px!important;bottom:7px!important}
+.sg-level-ornament{display:grid!important;grid-template-columns:auto auto!important;align-items:center!important;gap:10px!important;padding:7px 10px 8px 12px!important;min-width:132px!important;border:1px solid rgba(145,162,195,.16)!important;border-radius:16px!important;background:linear-gradient(180deg,rgba(14,20,28,.82),rgba(10,15,22,.92))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important}
+.sg-level-ornament-copy{display:flex!important;flex-direction:column!important;gap:2px!important}
+.sg-level-ornament-copy small{font-size:9px!important;letter-spacing:.18em!important;font-weight:900!important;color:#92a2bc!important;white-space:nowrap!important}
+.sg-level-ornament-copy em{font-style:normal!important;font-size:8.6px!important;line-height:1.18!important;color:#b2a98c!important;white-space:nowrap!important}
+.sg-level-ornament-grid{display:grid!important;grid-template-columns:repeat(2,30px)!important;grid-template-rows:repeat(2,30px)!important;gap:6px!important}
+.sg-level-orb{width:30px!important;height:30px!important;display:grid!important;place-items:center!important;border-radius:50%!important;border:1px solid rgba(186,165,110,.22)!important;background:radial-gradient(circle at 50% 42%, rgba(220,180,100,.10), rgba(220,180,100,0) 68%), linear-gradient(180deg, rgba(18,24,33,.98), rgba(11,15,22,.98))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.02)!important}
+.sg-level-orb .sg-sigil-svg{width:16px!important;height:16px!important;display:block!important;margin:0 auto!important}
+.sg-level-orb-2,.sg-level-orb-3{transform:translateY(1px)!important}
+.sg-level-orb-4{opacity:.9!important}
+.sg-emblem-frame{grid-template-columns:88px minmax(0,1fr)!important;column-gap:16px!important}
+.sg-emblem-art{width:88px!important;height:88px!important}
+.sg-emblem-art .sg-sigil-svg{width:48px!important;height:48px!important}
+.sg-emblem-meta{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+.sg-emblem-steps i{width:30px!important;height:30px!important}.sg-emblem-steps .sg-sigil-svg{width:16px!important;height:16px!important}
+.sg-quick-title .sg-ui-glyph{width:34px!important;height:34px!important;display:grid!important;place-items:center!important;margin:0!important;align-self:center!important}
+.sg-quick-title .sg-ui-glyph .sg-sigil-svg{width:18px!important;height:18px!important;display:block!important;margin:0 auto!important}
+.sg-lesson>summary>div{min-width:0!important}
+.sg-lesson-title{display:flex!important;flex-direction:column!important;gap:2px!important;line-height:1.02!important;letter-spacing:-.01em!important;white-space:normal!important}
+.sg-lesson-title span{display:block!important}
+.sg-lesson-lead{display:block!important;margin-top:8px!important;line-height:1.4!important}
+
+@media(max-width:520px){
+  .sg-level-line{gap:12px!important;min-height:60px!important}
+  .sg-level-crest-mini.sg-level-mark{width:58px!important;height:58px!important}
+  .sg-level-crest-mini.sg-level-mark .sg-sigil-svg{width:33px!important;height:33px!important}
+  .sg-level-ornament{min-width:118px!important;padding:6px 9px 7px 10px!important;gap:8px!important;border-radius:15px!important}
+  .sg-level-ornament-copy small{font-size:8.6px!important}
+  .sg-level-ornament-copy em{font-size:8.1px!important}
+  .sg-level-ornament-grid{grid-template-columns:repeat(2,27px)!important;grid-template-rows:repeat(2,27px)!important;gap:5px!important}
+  .sg-level-orb{width:27px!important;height:27px!important}
+  .sg-level-orb .sg-sigil-svg{width:14px!important;height:14px!important}
+  .sg-emblem-frame{grid-template-columns:82px minmax(0,1fr)!important;column-gap:14px!important}
+  .sg-emblem-art{width:82px!important;height:82px!important}
+  .sg-emblem-art .sg-sigil-svg{width:44px!important;height:44px!important}
+  .sg-lesson-title{font-size:clamp(18px,7.8vw,28px)!important}
+}
+@media(max-width:390px){
+  .sg-level-line{flex-wrap:wrap!important;row-gap:8px!important}
+  .sg-level-line > .sg-level-ornament{margin-left:0!important;width:100%!important;grid-template-columns:1fr auto!important}
+  .sg-level-ornament-copy em{white-space:normal!important}
+  .sg-level-ornament-grid{justify-self:end!important}
+}
+@media(min-width:821px){
+  .sg-panel{max-width:900px!important}
+  .wrap{max-width:960px!important}
+  .sg-level-ornament{min-width:156px!important}
+}

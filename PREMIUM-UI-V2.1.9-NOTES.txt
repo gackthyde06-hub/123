@@ -1,0 +1,8 @@
+PREMIUM UI v2.1.9
+
+1. 主等級區加入新的 FF 風核心區塊（半裝飾、半資訊），補掉 Lv 右側空洞。
+2. 主等級徽章改為獨立圖樣，不再與下方研究徽章同造型。
+3. 新增多組獨特圖樣（aether / matrix / nova / helix）並套用到核心區。
+4. Research Crest 與主等級圖示整體放大，閱讀辨識更好。
+5. 影子學習報告標題改成兩行排版，避免硬擠一行。
+6. Quick metrics 小圖與 Research Crest 小圖做置中微調。

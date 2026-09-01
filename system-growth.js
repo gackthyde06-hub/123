@@ -1,13 +1,13 @@
 (()=>{
   'use strict';
-  const VERSION='2.0.1';
+  const VERSION='2.0.2';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v1';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
   const PROGRESS_KEY='sg-progress-v20';
   const VISIT_KEY='sg-visits-v1';
-  const DETAILS_KEY='sg-details-v219';
+  const DETAILS_KEY='sg-details-v220';
   const EXPLORE_PREFIX='sg-explore-v1-';
   const rootDoc=document;
   const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,Number(v)||0));
@@ -152,7 +152,7 @@
     return `<svg class="sg-history-svg" viewBox="0 0 ${w} ${h}" aria-label="近七日研究經驗曲線"><polyline points="${pts}" fill="none" class="sg-history-line"/>${pts.split(' ').map(pt=>{const [x,y]=pt.split(',');return `<circle cx="${x}" cy="${y}" r="3" class="sg-history-dot"/>`}).join('')}</svg><div class="sg-history-labels"><span>${esc(list[0].date.slice(5))}</span><b>${num(list[list.length-1].xp)} XP</b><span>${esc(list[list.length-1].date.slice(5))}</span></div>`;
   }
 
-  const SG_GLYPH_TYPES=['crest','return','break','shadow','state','depth','risk','sample','dedup','hit','notify','explore','calibrate','verify','stable','journal','history','achievement','codex','intel'];
+  const SG_GLYPH_TYPES=['crest','return','break','shadow','state','depth','risk','sample','dedup','hit','notify','explore','calibrate','verify','stable','journal','history','achievement','codex','intel','aether','matrix','nova','helix'];
   function sigilSvg(type,grade=1){
     const g=Math.max(1,Math.min(5,Number(grade)||1));
     const wrap=(cls,inner)=>`<svg viewBox="0 0 32 32" class="sg-sigil-svg ${cls} sg-glyph-grade-${g}" aria-hidden="true">${inner}</svg>`;
@@ -188,6 +188,10 @@
       achievement:`<path d="M10 5h12v8a6 6 0 0 1-12 0Z" fill="none"/><path d="M10 8H6v2a5 5 0 0 0 5 5M22 8h4v2a5 5 0 0 1-5 5M16 19v5M11 27h10" fill="none"/>`,
       codex:`<path d="M7 7h9v19H7zM16 7h9v19h-9" fill="none"/><path d="M10 11h4M18 11h4M10 15h4M18 15h4" fill="none"/>`,
       intel:`<circle cx="14" cy="14" r="7" fill="none"/><path d="m19 19 7 7M11 14h6M14 11v6" fill="none"/>`,
+      aether:`<circle cx="16" cy="16" r="10.5" fill="none"/><path d="M16 5.5 22 10v12l-6 4.5L10 22V10Z" fill="none"/><path d="M9 16h14M16 9v14" fill="none"/>`,
+      matrix:`<path d="M16 4 28 16 16 28 4 16Z" fill="none"/><path d="M10 10h12v12H10z" fill="none"/><circle cx="16" cy="16" r="2"/>`,
+      nova:`<circle cx="16" cy="16" r="9.5" fill="none"/><path d="M16 4v7M16 21v7M4 16h7M21 16h7M8 8l4 4M20 20l4 4M24 8l-4 4M8 24l4-4" fill="none"/><circle cx="16" cy="16" r="2.2"/>`,
+      helix:`<path d="M8 10c2.3-2.2 5.1-3.3 8.2-3.3 2.8 0 5.2.8 7 2.5" fill="none"/><path d="M24 22c-2.3 2.2-5.1 3.3-8.2 3.3-2.8 0-5.2-.8-7-2.5" fill="none"/><path d="M10 20c1.7-1.6 3.7-2.4 6-2.4 2.2 0 4.2.8 6 2.4" fill="none"/><path d="M22 12c-1.7 1.6-3.7 2.4-6 2.4-2.2 0-4.2-.8-6-2.4" fill="none"/>`,
       level:`<path d="M16 4 26 10v12l-10 6L6 22V10Z" fill="none"/><path d="M16 8l3 6 6 2-6 2-3 6-3-6-6-2 6-2Z" fill="none"/><circle cx="16" cy="16" r="2.5"/>`,
       zenith:`<circle cx="16" cy="16" r="11" fill="none"/><path d="M16 4l2.4 6.6L25 13l-6.6 2.4L16 22l-2.4-6.6L7 13l6.6-2.4Z" fill="none"/><path d="M10 22c1.8-1 3.8-1.5 6-1.5s4.2.5 6 1.5" fill="none"/><circle cx="16" cy="13" r="1.9"/>`
     };
@@ -206,8 +210,22 @@
     return `<aside class="sg-core-emblem sg-phase-${m.stage.index} sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true"><div class="sg-emblem-frame"><div class="sg-emblem-art">${sigilSvg(current,Math.min(5,grade+1))}</div><div class="sg-emblem-copy"><small>RESEARCH CREST</small><b>${esc(m.stage.name)}</b><span>${esc(m.personality)}</span></div></div><div class="sg-emblem-meta"><span>LV ${m.level.level}</span><span>${num(m.xp.effective)} SAMPLE</span></div><div class="sg-emblem-steps">${steps}</div></aside>`;
   }
   function systemLevelCrest(level,stageIndex=0){
-    const grade=levelArtGrade(level.level),step=iconGradeFromProgress(level.ratio),icon='zenith';
+    const grade=levelArtGrade(level.level),step=iconGradeFromProgress(level.ratio),icon=['aether','matrix','nova','zenith'][Math.max(0,Math.min(3,Number(stageIndex)||0))]||'zenith';
     return `<span class="sg-level-crest-mini sg-level-mark sg-emblem-grade-${grade} sg-emblem-step-${step}" aria-hidden="true">${sigilSvg(icon,Math.min(5,grade+1))}<i>${Array.from({length:5},(_,i)=>`<b class="${i<step?'on':''}"></b>`).join('')}</i></span>`;
+  }
+  function systemLevelConstellation(m){
+    const grade=Math.min(5,levelArtGrade(m.level.level)+1);
+    const iconSets=[
+      ['explore','return','aether','focus'],
+      ['calibrate','matrix','return','sample'],
+      ['verify','nova','shadow','intel'],
+      ['stable','zenith','achievement','codex']
+    ];
+    const labelSets=['PATH SIGILS','CALIBRATION ARRAY','VERIFY MATRIX','STABLE CONSTELLATION'];
+    const subtitleSets=['回踩／趨勢／節奏','篩選／比較／取樣','驗證／去偏誤／觀察','穩定／整合／沉澱'];
+    const idx=Math.max(0,Math.min(3,Number(m.stage.index)||0));
+    const items=iconSets[idx].map((icon,i)=>`<b class="sg-level-orb sg-level-orb-${i+1}">${sigilSvg(icon,Math.max(1,grade-(i===3?1:0)))}</b>`).join('');
+    return `<span class="sg-level-ornament" aria-hidden="true"><span class="sg-level-ornament-copy"><small>${labelSets[idx]}</small><em>${subtitleSets[idx]}</em></span><span class="sg-level-ornament-grid">${items}</span></span>`;
   }
 
 
@@ -249,7 +267,7 @@
       : 'PF 尚未成形，現在先以樣本品質與去相關累積為主。';
     return {
       tag:'影子學習報告',
-      title:`目前在${m.stage.name}階段，下一站是${nextStageName}`,
+      title:`目前：${m.stage.name}階段｜下一站：${nextStageName}`,
       lead:`影子樣本 ${num(sh.sample||0)} 筆，去相關有效 ${num(m.xp.effective||0)} 筆，影子命中 ${pct(sh.hitRate,1)}，${pfLine}`,
       focus: phaseLine,
       points:[
@@ -260,7 +278,7 @@
       ]
     };
   }
-  function lessonHtml(m){const l=lessonFor(m);return `<details class="sg-lesson" data-sg-lesson data-sg-detail-key="lesson"><summary><div><span>${esc(l.tag)}</span><b>${esc(l.title)}</b><small>${esc(l.lead)}</small></div><i>展開</i></summary><div class="sg-lesson-body"><div class="sg-lesson-current"><span>目前重點</span><b>${esc(l.focus)}</b></div><ol>${l.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div></details>`}
+  function lessonHtml(m){const l=lessonFor(m);const parts=String(l.title||'').split('｜');const titleHtml=parts.length>1?`<b class="sg-lesson-title"><span>${esc(parts[0])}</span><span>${esc(parts.slice(1).join('｜'))}</span></b>`:`<b class="sg-lesson-title"><span>${esc(l.title)}</span></b>`;return `<details class="sg-lesson" data-sg-lesson data-sg-detail-key="lesson"><summary><div><span>${esc(l.tag)}</span>${titleHtml}<small class="sg-lesson-lead">${esc(l.lead)}</small></div><i>展開</i></summary><div class="sg-lesson-body"><div class="sg-lesson-current"><span>目前重點</span><b>${esc(l.focus)}</b></div><ol>${l.points.map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div></details>`}
 
   function explorationHtml(){
     const ex=getExplore(),done=['lesson','candidate','journal'].filter(k=>ex[k]).length;return `<section class="sg-explore" data-sg-explore><div class="sg-explore-head"><div><span>今日章節</span><b data-sg-explore-count>${done} / 3</b></div><small data-sg-explore-note>${done===3?'COMPLETE':'RESEARCH PATH'}</small></div><div class="sg-explore-grid sg-questline"><button type="button" data-sg-jump="lesson" class="${ex.lesson?'done':''}"><i>${sigilSvg(ex.lesson?'verify':'explore',ex.lesson?3:1)}</i><span>解析</span></button><button type="button" data-sg-jump="candidate" class="${ex.candidate?'done':''}"><i>${sigilSvg(ex.candidate?'verify':'calibrate',ex.candidate?3:1)}</i><span>候選</span></button><button type="button" data-sg-jump="journal" class="${ex.journal?'done':''}"><i>${sigilSvg(ex.journal?'verify':'journal',ex.journal?3:1)}</i><span>日誌</span></button></div></section>`;
@@ -289,7 +307,7 @@
           <div class="sg-kicker"><span class="sg-status-dot"></span>研究中 <em>近 7 日 ${visits}D</em></div>
           <div class="sg-core-intro">
             <div class="sg-core-main">
-              <div class="sg-level-row"><div><small>SYSTEM</small><div class="sg-level-line"><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong>${systemLevelCrest(level,m.stage.index)}</div></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
+              <div class="sg-level-row"><div><small>SYSTEM</small><div class="sg-level-line"><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong>${systemLevelCrest(level,m.stage.index)}${systemLevelConstellation(m)}</div></div><div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div></div>
               <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
             </div>
             ${coreEmblem(m)}
