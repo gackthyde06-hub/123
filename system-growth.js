@@ -348,7 +348,7 @@
               <div class="sg-level-row"><div class="sg-level-identity"><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-level-center">${systemLevelCrest(level)}</div></div>
               ${acquiredSkillsDetailHtml(skillCounts)}
               <div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div>
-              <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
+              <div class="sg-xp-row"><span class="sg-xp-today">${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
             </div>
             ${coreEmblem(m)}
           </div>

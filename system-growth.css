@@ -2585,3 +2585,45 @@ body{
     font-size:8.5px!important;
   }
 }
+
+
+/* v2.3.0 — remove big white XP count, keep compact today + total row */
+.sg-xp-row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:10px!important;
+  margin-top:6px!important;
+}
+.sg-xp-today{
+  display:block!important;
+  color:#cfa861!important;
+  font-size:9px!important;
+  font-weight:850!important;
+  line-height:1.15!important;
+  letter-spacing:.02em!important;
+}
+.sg-xp-row>small{
+  color:#8f9aa8!important;
+  font-size:8.7px!important;
+  line-height:1.15!important;
+  white-space:nowrap!important;
+}
+.sg-xp{
+  margin-top:4px!important;
+}
+@media (min-width: 1024px){
+  .sg-xp-row{margin-top:5px!important}
+  .sg-xp-today{font-size:8.8px!important}
+  .sg-xp-row>small{font-size:8.4px!important}
+}
+@media (max-width: 768px){
+  .sg-xp-row{margin-top:5px!important;gap:8px!important}
+  .sg-xp-today{font-size:8.6px!important}
+  .sg-xp-row>small{font-size:8.2px!important}
+}
+@media (max-width: 390px){
+  .sg-xp-row{gap:6px!important}
+  .sg-xp-today{font-size:8.2px!important}
+  .sg-xp-row>small{font-size:7.9px!important}
+}
