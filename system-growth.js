@@ -8,6 +8,7 @@
   const PROGRESS_KEY='sg-progress-v20';
   const VISIT_KEY='sg-visits-v1';
   const DETAILS_KEY='sg-details-v220';
+  const ACQUIRED_KEY='sg-acquired-open-v1';
   const EXPLORE_PREFIX='sg-explore-v1-';
   const rootDoc=document;
   const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,Number(v)||0));
@@ -231,9 +232,23 @@
     const phase=Math.max(0,Math.min(3,Math.floor(clamp(level.ratio)/25)));
     return `<span class="sg-level-crest-mini sg-level-mark sg-level-lv-${Math.min(10,Math.max(1,Number(level.level)||1))} sg-level-phase-${phase}" aria-hidden="true">${levelCrestSvg(level.level,level.ratio)}<i>${Array.from({length:4},(_,i)=>`<b class="${i<=phase?'on':''}"></b>`).join('')}</i></span>`;
   }
+  function acquiredSkillDefs(skillCounts){
+    return [
+      ['return','回踩獵手',skillCounts[0],'順勢回踩是否真的值得等，觀察不同 Regime 下的延續性。'],
+      ['break','破局之眼',skillCounts[1],'研究突破與回測能不能站穩，過濾假突破與追高。'],
+      ['shadow','影子研究',skillCounts[2],'把未通知樣本也納入研究，降低只看贏單造成的偏誤。'],
+      ['state','狀態學習',skillCounts[3],'比較策略 × Regime × 資金 × 深度，找出較有優勢的局。'],
+      ['depth','流動性雷達',skillCounts[4],'觀察 Depth / Spread / 流動性，避開滑價與容易被掃的位置。'],
+      ['risk','危機預警',skillCounts[5],'累積被擋樣本與反證，辨識看起來漂亮但不該出手的情況。']
+    ];
+  }
   function acquiredSkillsHtml(skillCounts){
-    const defs=[['return','回踩',skillCounts[0]],['break','破局',skillCounts[1]],['shadow','影子',skillCounts[2]],['state','狀態',skillCounts[3]],['depth','流動',skillCounts[4]],['risk','危機',skillCounts[5]]];
-    return `<aside class="sg-acquired-mini"><div class="sg-acquired-head"><b>已獲得的技能</b><span>SKILLS</span></div><div class="sg-acquired-grid">${defs.map(([icon,name,count])=>{const s=skillLevel(count);return `<div class="sg-acquired-skill" title="${esc(name)} Lv.${s.lv}"><i>${sigilSvg(icon,Math.min(5,levelArtGrade(s.lv)))}</i><small>Lv.${s.lv}</small></div>`}).join('')}</div></aside>`;
+    const defs=acquiredSkillDefs(skillCounts),preview=defs.slice(0,3);
+    return `<button type="button" class="sg-acquired-toggle" data-sg-acquired-toggle aria-expanded="false"><span class="sg-acquired-toggle-copy"><b>已獲得技能</b><small>${defs.length} SKILLS</small></span><span class="sg-acquired-preview">${preview.map(([icon,name,count])=>{const s=skillLevel(count);return `<i title="${esc(name)} Lv.${s.lv}">${sigilSvg(icon,Math.min(5,levelArtGrade(s.lv)))}</i>`}).join('')}</span><em>⌄</em></button>`;
+  }
+  function acquiredSkillsDetailHtml(skillCounts){
+    const defs=acquiredSkillDefs(skillCounts),open=!!storageGet(ACQUIRED_KEY,false);
+    return `<section class="sg-acquired-detail" data-sg-acquired-detail ${open?'':'hidden'}><div class="sg-acquired-detail-head"><b>已獲得的技能</b><span>點右上收合</span></div><div class="sg-acquired-detail-grid">${defs.map(([icon,name,count,desc])=>{const s=skillLevel(count);return `<article><i>${sigilSvg(icon,Math.min(5,levelArtGrade(s.lv)))}</i><div><b>${esc(name)}</b><small>Lv.${s.lv}</small><p>${esc(desc)}</p></div></article>`}).join('')}</div></section>`;
   }
 
 
@@ -315,7 +330,8 @@
           <div class="sg-kicker"><span class="sg-status-dot"></span>研究中</div>
           <div class="sg-core-intro">
             <div class="sg-core-main">
-              <div class="sg-level-row"><div class="sg-level-identity"><small>SYSTEM</small><div class="sg-level-line"><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong>${systemLevelCrest(level)}</div></div>${acquiredSkillsHtml(skillCounts)}</div>
+              <div class="sg-level-row"><div class="sg-level-identity"><small>SYSTEM</small><strong class="sg-level-badge"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">${level.level}</span></strong></div><div class="sg-level-center">${systemLevelCrest(level)}</div>${acquiredSkillsHtml(skillCounts)}</div>
+              ${acquiredSkillsDetailHtml(skillCounts)}
               <div class="sg-personality"><span>系統型態</span><b>${esc(m.personality)}</b><small>${personalitySub}</small></div>
               <div class="sg-xp-row"><div><b>${num(level.current)} / ${num(level.need)} XP</b><span>${dx>0?`今日 +${num(dx)} XP`:'今日持續研究'}</span></div><small>總研究經驗 ${num(level.total)} XP</small></div><div class="sg-xp"><i style="width:${level.ratio}%"></i></div>
             </div>
@@ -325,7 +341,7 @@
           <div class="sg-today-growth"><div><span>今日有效樣本</span><b>+${de}</b></div><div><span>今日淘汰研究</span><b>+${db}</b></div><div><span>今日通知樣本</span><b>+${dn}</b></div></div>
         </section>
       </div>
-      <div class="sg-attributes-layout"><section class="sg-radar-card"><div class="sg-card-title"><b>六維屬性</b><span>研究成熟度 · 非勝率</span></div>${radarSvg(m.attrs)}<div class="sg-radar-hint">成熟度 · 非勝率</div></section><div class="sg-quick"><div><span class="sg-quick-title">${glyph('sample',iconGradeFromProgress(clamp((Number(sh.sample||0)/150)*100)),'影子樣本')}</span><b>${num(sh.sample||0)}</b><small>已結算 ${num(sh.resolved||0)}</small></div><div><span class="sg-quick-title">${glyph('dedup',iconGradeFromProgress(clamp((Number(sh.learningEffectiveResolved||0)/100)*100)),'去相關有效')}</span><b>${num(sh.learningEffectiveResolved||0)}</b><small>${num(sh.learningDedupMinutes||45)} 分去相關</small></div><div><span class="sg-quick-title">${glyph('hit',iconGradeFromProgress(clamp(Number(sh.hitRate||0))),'影子命中')}</span><b>${pct(sh.hitRate,1)}</b><small>PF ${pf(sh.profitFactor)}</small></div><div><span class="sg-quick-title">${glyph('notify',iconGradeFromProgress(clamp((Number(sum.sample||0)/30)*100)),'真正通知')}</span><b>${num(sum.sample||0)}</b><small>${m.tierCounts.HIGH} HIGH · ${m.tierCounts.NORMAL} NORMAL</small></div></div></div>
+      <div class="sg-attributes-layout"><section class="sg-radar-card"><div class="sg-card-title"><b>六維屬性</b><span>研究成熟度 · 非勝率</span></div>${radarSvg(m.attrs)}<div class="sg-radar-hint">成熟度 · 非勝率</div></section><div class="sg-quick"><div><span class="sg-quick-title">${glyph('sample',iconGradeFromProgress(clamp((Number(sh.sample||0)/150)*100)),'影子樣本')}</span><b>${num(sh.sample||0)}</b><small>已結算 ${num(sh.resolved||0)}</small></div><div><span class="sg-quick-title">${glyph('dedup',iconGradeFromProgress(clamp((Number(sh.learningEffectiveResolved||0)/100)*100)),'去相關有效')}</span><b>${num(sh.learningEffectiveResolved||0)}</b><small>${num(sh.learningDedupMinutes||45)} 分去相關</small></div><div><span class="sg-quick-title">${glyph('hit',iconGradeFromProgress(clamp(Number(sh.hitRate||0))),'影子命中')}</span><b>${pct(sh.hitRate,1)}</b><small>PF ${pf(sh.profitFactor)}</small></div><div><span class="sg-quick-title">${glyph('notify',iconGradeFromProgress(clamp((Number(sum.sample||0)/30)*100)),'真正通知')}</span><b>${num(sum.sample||0)}</b><small>${Number(sum.sample||0)>0?`已追蹤 ${num(sum.sample||0)} 筆`:'尚無已追蹤通知'}</small></div></div></div>
       ${explorationHtml()}
       <section id="sgLessonSection">${lessonHtml(m)}</section>
       <section class="sg-live" id="sgCandidateSection"><div class="sg-section-head"><div><b>正在發生</b><span>LIVE RESEARCH</span></div><span>${rows.length} 個觀察狀態</span></div>${candidateHtml(rows)}</section>
@@ -358,6 +374,12 @@
       const summary=el.querySelector(':scope > summary');
       if(summary)summary.addEventListener('click',()=>setTimeout(()=>{keepAlive();captureDetailsState(panel)},0));
     });
+    const acquiredBtn=panel.querySelector('[data-sg-acquired-toggle]'),acquiredDetail=panel.querySelector('[data-sg-acquired-detail]');
+    if(acquiredBtn&&acquiredDetail){
+      const syncAcquired=()=>{const open=!acquiredDetail.hidden;acquiredBtn.setAttribute('aria-expanded',String(open));acquiredBtn.classList.toggle('open',open)};
+      syncAcquired();
+      acquiredBtn.addEventListener('click',()=>{keepAlive();acquiredDetail.hidden=!acquiredDetail.hidden;storageSet(ACQUIRED_KEY,!acquiredDetail.hidden);syncAcquired()});
+    }
     panel.querySelectorAll('[data-sg-intel-btn]').forEach(btn=>btn.addEventListener('click',()=>loadIntel(btn)));
     panel.querySelector('[data-sg-lesson]')?.addEventListener('toggle',e=>{if(e.currentTarget.open)markExplore('lesson')});
     panel.querySelectorAll('[data-sg-candidate]').forEach(el=>el.addEventListener('toggle',e=>{if(e.currentTarget.open)markExplore('candidate')}));
