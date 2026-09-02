@@ -1,0 +1,11 @@
+V2.6.1 static validation
+- V2.6.0 Structure Engine S2.1.0 retained: PASS
+- Structure Learning API retained: PASS
+- Structure learningAdjustment retained: PASS
+- New Growth Structure Mastery panel: PASS
+- New Performance Structure Learning panel: PASS
+- New UI does not override window.fetch: PASS
+- New UI does not use MutationObserver: PASS
+- New UI does not modify pointer-events/page navigation: PASS
+- JS/MJS syntax checks: PASS
+- ZIP integrity: PASS

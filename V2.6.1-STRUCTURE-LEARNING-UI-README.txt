@@ -1,0 +1,25 @@
+V2.6.1 — STRUCTURE LEARNING OBSERVABILITY
+
+基準：V2.6.0 Clean Rebase，不改判讀、不改通知門檻、不改 Shadow/Volume。
+
+新增可視化：
+1) 系統養成：新增「結構記憶 / STRUCTURE MASTERY」遊戲化區塊。
+   - 目前結構狀態：完整 / 受損 / 收復中 / 深回踩機會 / 徹底破壞
+   - 結構健康分、型態、理由
+   - 原始分數 -> 學習後分數
+   - 目前學習加分/減分
+   - detail/core/broad 結構桶樣本進度，未達門檻明示 0 分不調權
+   - 最近結構學習結果
+2) 績效頁：新增「結構學習績效」。
+   - 結構有效樣本、結構命中率、深回踩成功率、假失效率
+   - 即時結構與目前加減分
+   - 最近結構學習結果
+   - 結構學習 CSV 入口
+3) 說明：影子績效仍衡量交易訊號；Structure Learning 另外衡量「結構判讀本身」。兩者分開，不混成假勝率。
+
+安全性：
+- 新 UI 僅讀 /api/structure-learning 與 /api/test-signals。
+- 不覆寫 window.fetch。
+- 不使用 MutationObserver。
+- 不攔截分頁按鈕，不改 pointer-events，不改捲動。
+- API 失敗時靜默略過，不影響主 APP。
