@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const VERSION='2.6.13';
+const VERSION='2.6.13.2';
 const ROOT_ID='actualTradeHubV2613';
 const MODAL_ID='actualTradeQuickModalV2613';
 const PREF='position-alert-quick-trade-v2613';
@@ -40,7 +40,7 @@ function chipFor(ctx){const already=activeRows().some(x=>x.symbol===ctx.symbol&&
 function syncEntryChips(){
   document.querySelectorAll('#recGrid .rankCard,#testGrid .testCard,#manualOpsPanel .manual-card').forEach(card=>{
     const ctx=cardContext(card);if(!ctx)return;let chip=card.querySelector(':scope .quickEntryChipV2613');const already=activeRows().some(x=>x.symbol===ctx.symbol&&x.direction===ctx.direction);
-    if(!chip){chip=chipFor(ctx);const host=card.querySelector('.rankTop,.testSymbolRow,.manual-main>div>div,.manual-main>div')||card.querySelector('summary')||card;host.appendChild(chip)}else{chip.textContent=already?'已建倉':'建倉';chip.disabled=already;chip.classList.toggle('active',already);chip.dataset.symbol=ctx.symbol;chip.dataset.direction=ctx.direction;chip.dataset.source=ctx.source}
+    if(!chip){chip=chipFor(ctx);const host=card.querySelector('.rankTop,.testSymbolRow,.manual-main>div>div,.manual-main>div')||card.querySelector('summary')||card;host.appendChild(chip)}else{/* V26132_MUTATION_LOOP_FIX */const label=already?'已建倉':'建倉';if(chip.textContent!==label)chip.textContent=label;if(chip.disabled!==already)chip.disabled=already;chip.classList.toggle('active',already);chip.dataset.symbol=ctx.symbol;chip.dataset.direction=ctx.direction;chip.dataset.source=ctx.source}
   });
   document.querySelectorAll('.observationActualBtn').forEach(b=>b.classList.add('v2613LegacyActualHidden'));
 }

@@ -6,6 +6,43 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PREPARE_TIMEOUT_MS = Math.max(10_000, Math.min(90_000, Number(process.env.UI_PREPARE_TIMEOUT_MS || 40_000)));
 
+const HUB_FREEZE_MARKER = 'V26132_MUTATION_LOOP_FIX';
+
+function patchHubFreezeLoop(){
+  const publicDir=path.join(__dirname,'public');
+  const hubPath=path.join(publicDir,'actual-trade-hub-v2613.js');
+  const htmlPath=path.join(publicDir,'index.html');
+  let hubOk=false;
+  try{
+    if(fs.existsSync(hubPath)){
+      let js=fs.readFileSync(hubPath,'utf8');
+      if(!js.includes(HUB_FREEZE_MARKER)){
+        const old="}else{chip.textContent=already?'已建倉':'建倉';chip.disabled=already;chip.classList.toggle('active',already);chip.dataset.symbol=ctx.symbol;chip.dataset.direction=ctx.direction;chip.dataset.source=ctx.source}";
+        const fixed="}else{/* "+HUB_FREEZE_MARKER+" */const label=already?'已建倉':'建倉';if(chip.textContent!==label)chip.textContent=label;if(chip.disabled!==already)chip.disabled=already;chip.classList.toggle('active',already);chip.dataset.symbol=ctx.symbol;chip.dataset.direction=ctx.direction;chip.dataset.source=ctx.source}";
+        if(js.includes(old)) js=js.replace(old,fixed);
+        else console.warn('[startup:v26132] Hub freeze anchor already changed; validating current file.');
+        fs.writeFileSync(hubPath,js,'utf8');
+      }
+      const check=spawnSync(process.execPath,['--check',hubPath],{encoding:'utf8'});
+      hubOk=check.status===0;
+      if(!hubOk) console.error('[startup:v26132] Hub JS syntax invalid; disabling hub layer:',String(check.stderr||check.stdout||'').trim());
+    }
+    if(fs.existsSync(htmlPath)){
+      let html=fs.readFileSync(htmlPath,'utf8');
+      if(hubOk){
+        html=html.replace(/\/actual-trade-hub-v2613\.js(?:\?[^\"']*)?/gi,'/actual-trade-hub-v2613.js?v=hub26132');
+        html=html.replace(/\/actual-trade-hub-v2613\.css(?:\?[^\"']*)?/gi,'/actual-trade-hub-v2613.css?v=hub26132');
+      }else{
+        html=html.replace(/<script[^>]+src=[\"']\/actual-trade-hub-v2613\.js(?:\?[^\"']*)?[\"'][^>]*><\/script>\s*/gi,'');
+      }
+      fs.writeFileSync(htmlPath,html,'utf8');
+    }
+    if(hubOk) console.log('[startup:v26132] Actual Trade Hub mutation-loop freeze fixed + cache busted.');
+  }catch(err){
+    console.error('[startup:v26132] Hub safety patch failed; core app will continue:',String(err?.message||err));
+  }
+}
+
 function fallbackHubAssets(){
   try{
     const publicDir=path.join(__dirname,'public');
@@ -51,6 +88,7 @@ function runPrepare(){
 }
 
 runPrepare();
+patchHubFreezeLoop();
 
 const serverPath=path.join(__dirname,'server.js');
 if(!fs.existsSync(serverPath)){

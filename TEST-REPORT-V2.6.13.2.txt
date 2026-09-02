@@ -1,0 +1,7 @@
+V2.6.13.2 TEST
+- start-safe-v26131.mjs node --check: PASS
+- actual-trade-hub-v2613.js node --check: PASS
+- prepare-ui.mjs node --check: PASS
+- broken hub fixture -> startup safety patch inserts V26132_MUTATION_LOOP_FIX: PASS
+- index hub cache query -> hub26132: PASS
+- fixed hub no unconditional existing-chip textContent rewrite: PASS
