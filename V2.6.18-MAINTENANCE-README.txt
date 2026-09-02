@@ -1,0 +1,31 @@
+V2.6.18 — Maintenance Read Bridge
+
+Purpose
+- Let ChatGPT read sanitized live runtime diagnostics after deployment.
+- Keep GitHub source updates separate from runtime diagnostics.
+- Do NOT expose Railway variables, API keys, VAPID keys, push endpoints, cookies, headers, DATA_DIR path, or account credentials.
+
+New endpoint
+GET /api/maintenance-diagnostics
+
+Returned fields
+- runtime version / uptime / Node version
+- cache freshness and sanitized errors
+- ranked idea / A-B-C / tracker / actual-trade / shadow sample counts
+- trader polling health (public trader id/name, last fetch/error, counts only)
+- loaded JS/CSS asset versions
+- expected module-file presence
+
+Security
+- Read only.
+- Sanitized output only.
+- no-store + noindex headers.
+- No write route and no remote command execution.
+
+After deployment
+1. Keep Railway Variables and Volume unchanged.
+2. Send ChatGPT the public APP URL once.
+3. ChatGPT can then read /api/maintenance-diagnostics when diagnosing runtime issues.
+4. GitHub code changes can be made through the already connected GitHub permission.
+
+This version does NOT grant Railway dashboard access and does NOT expose secrets.

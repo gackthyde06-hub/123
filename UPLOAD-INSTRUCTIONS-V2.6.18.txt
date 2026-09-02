@@ -1,0 +1,11 @@
+V2.6.18 上傳方式
+1. 解壓後把 4 個功能檔丟 GitHub repo 根目錄：
+   - package.json（Replace）
+   - maintenance-diagnostics-v2618.mjs（Add）
+   - start-safe-v2618.mjs（Add）
+   - V2.6.18-MAINTENANCE-README.txt（可選）
+2. Railway Variables / Volume 不要改。
+3. Railway Deploy Success 後，APP 會多一個唯讀診斷：
+   /api/maintenance-diagnostics
+4. 把你的 APP 公開網址告訴 ChatGPT 一次，以後 ChatGPT 可直接讀這個診斷。
+5. 這個端點不提供遠端寫檔、不執行指令、不輸出任何 API key / VAPID / Push endpoint / Railway env。
