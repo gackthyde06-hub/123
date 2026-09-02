@@ -1,0 +1,39 @@
+STRUCTURE ENGINE S2.1.0 / UI 2.5.0 — TEST REPORT
+Date: 2026-09-02
+
+PASSED
+- node --check structure-engine-v2-patch.mjs
+- node --check structure-engine-v2-ui.js
+- node --check prepare-ui.mjs
+- synthetic V10.2.7-anchor fixture patch applied successfully
+- node --check on patched synthetic server fixture
+- second patch run is idempotent (changed:false)
+- S2.1 marker present after patch
+- structureV2MaybeNotify is wired into tracker evaluation
+- Structure watch alert is explicitly marked 非進場確認
+- structure watch does not call shadowMarkNotified
+- assetClass and pattern fields included in structure records
+- protectedSwing15 / protectedSwing30 included
+- structure-specific successPrice / failurePrice included
+- marketEpisodeId + cross-symbol episode cap included
+- direct Binance copy holding/add/reduce/close context is weak evidence only
+- cache tag = sg250
+- no code path deletes Shadow / actual-trade / performance datasets
+
+LIVE SOURCE INSPECTION
+Current GitHub V10.2.7 source was checked for the key old behaviours/anchors used by the patch, including:
+- Fib 0.786 FIB_TOO_DEEP invalidation path
+- dataHealth confidence before monitor-state handling
+- existing highMissing notification gate
+- swingLevels helper
+- recentEvents trader event stream
+- canonical states/positions map
+
+NOT CLAIMED YET
+- Railway deployment was not performed by this package test.
+- Real iPhone push delivery was not tested here.
+- S2.1 is not claimed statistically superior until new out-of-sample structure episodes accumulate.
+
+RUNTIME SAFETY
+The patch writes server.js only after all source transformations complete, then runs node --check on patched server.js.
+If syntax validation fails, it restores the original server.js and aborts startup.

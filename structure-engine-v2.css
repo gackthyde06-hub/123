@@ -1,0 +1,21 @@
+/* Structure Engine V2 UI — does not alter core notification thresholds. */
+.sg-candidate-card[data-featured="1"]::before{display:none!important}
+.sg-candidate-card[data-sg-candidate]{position:relative}
+.sg-candidate-card[data-sg-candidate][open]::before{
+  content:""!important;display:block!important;position:absolute!important;left:-13px!important;top:18px!important;width:2px!important;height:30px!important;
+  background:linear-gradient(#7b5b26,#d5a84f,#7b5b26)!important;border-radius:999px!important;opacity:.95!important
+}
+.sg-structure-v2-line{display:grid!important;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px 8px;margin-top:5px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.35!important}
+.sg-structure-v2-line b{font-size:10px;font-weight:950;border:1px solid #3a3c3d;border-radius:999px;padding:2px 6px;white-space:nowrap}
+.sg-structure-v2-line span{font-size:9px;color:#817a71;min-width:0}
+.sg-structure-v2-line.sg-structure-intact b{color:#8dd1aa;border-color:#31513f;background:#0e1913}
+.sg-structure-v2-line.sg-structure-damaged b{color:#e2b96a;border-color:#604b27;background:#1a150d}
+.sg-structure-v2-line.sg-structure-reclaiming b{color:#9fbde7;border-color:#435a77;background:#101722}
+.sg-structure-v2-line.sg-structure-opportunity b{color:#efd083;border-color:#765c2a;background:#1d170c;box-shadow:0 0 10px rgba(215,170,84,.07)}
+.sg-structure-v2-line.sg-structure-destroyed b{color:#ed8a84;border-color:#693737;background:#1e1010}
+.sg-candidate-card.sg-structure-destroyed>summary{opacity:.76}
+@media(max-width:520px){
+  .sg-structure-v2-line{grid-template-columns:1fr!important;gap:3px!important;margin-top:6px!important}
+  .sg-structure-v2-line b{justify-self:start;font-size:10.5px!important}
+  .sg-structure-v2-line span{font-size:9.5px!important;line-height:1.45!important}
+}

@@ -1,0 +1,1 @@
+time,symbol,trader,side,timeframe,structure_state,reason,trader_entry,current_price,suggested_entry,invalid_price,POC,VAH,VAL,BOS,CHOCH,completion,score,market_regime,OI,OI_change_5m,OI_change_15m,funding_rate,taker_ratio,depth_imbalance,spread_bps,data_coverage,data_confidence,final_outcome,outcome_time

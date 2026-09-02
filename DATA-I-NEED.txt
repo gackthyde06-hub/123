@@ -1,0 +1,38 @@
+STRUCTURE ENGINE S2.1 — DATA POLICY
+
+ONGOING OPERATION
+You do NOT need to manually export 熬鷹 positions or market Klines for normal operation.
+
+The app should obtain them online:
+1. 熬鷹 primary: Binance Copy Trading BAPI order_history + reconstructed canonical position state.
+2. Market primary: Binance Futures Kline / WS / mark price / futures-data.
+3. Bybit / OKX: explicit fallback only.
+4. Public Telegram/social/mirror sites: cross-check only, never learning ground truth.
+
+WHAT USER FILES ARE STILL USEFUL FOR
+Uploads are still valuable for retrospective validation / backfill, especially data already collected by the app:
+- Shadow CSV
+- signal-performance CSV
+- actual-trades CSV
+- notification / monitor history
+- old structure decisions
+
+DO NOT manually build a Kline CSV unless there is a historical period the online APIs can no longer retrieve or we need an exact forensic replay.
+
+MOST VALUABLE VALIDATION JOIN
+For each app judgement:
+time + symbol + direction + app structure state + reason codes
+joined to:
+5m/15m/30m/1h exchange candles + later structure outcome
+and, when relevant:
+熬鷹 OPEN/ADD/REDUCE/CLOSE timeline.
+
+IMPORTANT
+熬鷹 actions are context, not labels. An ADD does not prove a structure is valid; a REDUCE does not prove it is dead.
+The ground truth for structure comes from the later price path and protected multi-timeframe structure.
+
+CHECKPOINTS
+30 effective structure episodes: bug/pattern inspection
+50–100: first calibration
+200+: subgroup comparison
+300+ de-correlated: formal validation checkpoint

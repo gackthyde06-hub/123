@@ -2,12 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { patchResearchLayer } from './research-layer-patch.mjs';
+import { patchStructureEngineV2 } from './structure-engine-v2-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 patchResearchLayer();
+patchStructureEngineV2();
+
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
-const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg'];
+const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css'];
 
 for(const name of files){
   const source=path.join(__dirname,name);
@@ -20,21 +23,25 @@ let html=fs.readFileSync(htmlPath,'utf8');
 const removers=[
   /<link[^>]+href=["']\/system-growth\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/premium-theme\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
+  /<link[^>]+href=["']\/structure-engine-v2\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<script[^>]+src=["']\/system-growth\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/premium-theme\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
+  /<script[^>]+src=["']\/structure-engine-v2-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
 ];
 for(const re of removers)html=html.replace(re,'');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg231">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg231">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg250">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg250">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg250">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg231"></script>',
-  '<script defer src="/premium-theme.js?v=sg231"></script>',
+  '<script defer src="/system-growth.js?v=sg250"></script>',
+  '<script defer src="/premium-theme.js?v=sg250"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg250"></script>',
 ].join('\n');
 
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log('[ui] premium integration v2.3.1 + research layer ready');
+console.log('[ui] premium integration v2.5.0 + Research R1 + Structure Engine V2 ready');
