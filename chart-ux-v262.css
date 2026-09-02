@@ -1,0 +1,18 @@
+/* V2.6.2 chart clarity + explicit Asia/Taipei freshness */
+.chartTimeMeta{margin-top:3px;color:#737d86;font-size:8px;line-height:1.35;white-space:normal;max-width:62vw;font-variant-numeric:tabular-nums}
+.chartTimeMeta.fresh{color:#739c85}.chartTimeMeta.aging{color:#b79a62}
+.chartSource{padding:7px 12px!important;text-align:left!important;font-size:9px!important;line-height:1.45!important;color:#8a918f!important;border-top:1px solid #171b1d;background:#0a0d0e!important;font-variant-numeric:tabular-nums}
+.chartSource::before{content:'●';display:inline-block;margin-right:6px;font-size:7px;color:#6a736f;vertical-align:1px}
+.chartSource.sg-chart-fresh::before{color:#67bd83}.chartSource.sg-chart-aging::before{color:#d4a54b}.chartSource.sg-chart-stale{color:#c68a82!important}.chartSource.sg-chart-stale::before{color:#d85b5b}
+.chartLevels{gap:7px!important}.chartLevels>div{padding:8px!important}.chartLevels span{font-size:7.5px!important}.chartLevels b{font-size:10.5px!important}
+.chartLegend{border-top:1px solid #15191a;padding-top:7px!important}
+@media(max-width:520px){
+  .chartShell{grid-template-rows:auto auto clamp(340px,48vh,430px) auto auto auto auto auto!important;align-content:start!important;overflow-y:auto!important;overscroll-behavior:contain}
+  .chartStage{min-height:0!important;height:auto!important}
+  .chartTopbar{padding:10px 12px 8px!important}.chartTitleLine>b{font-size:18px!important}.chartStatus{max-width:55vw!important;font-size:8.5px!important}.chartTimeMeta{max-width:56vw;font-size:7.8px}
+  .chartTfBar{padding:7px 9px!important}.chartTfBar button{height:32px!important}
+  .chartSource{font-size:8.5px!important;padding:7px 10px!important}
+  .chartLevels{grid-template-columns:repeat(2,minmax(0,1fr))!important;padding:8px 10px!important}.chartLevels>div:first-child{grid-column:1/-1!important}
+  .chartLegend{gap:5px 10px!important;font-size:7.5px!important;padding:6px 10px 7px!important}
+  .chartAttribution{padding:0 10px 5px!important}
+}

@@ -1,0 +1,14 @@
+V2.6.2 — Chart Clarity / Taiwan Time / Freshness
+
+這版只優化系統圖表顯示，不更改任何交易判斷、Structure V2、Structure Learning、Shadow、通知門檻或 Volume。
+
+修正：
+1. Lightweight Charts 時間軸與十字線明確使用 Asia/Taipei。
+2. 圖表下方顯示：最後 K 線台灣時間、距今多久、即時/偏舊/可能過期、刷新時間。
+3. 標題區顯示訊號建立時間與最後判讀時間（有資料時）。
+4. 進場區上下界只保留陰影區與虛線，不再各佔一個右側價格標籤。
+5. 入場 / SL / TP1 / TP2 若彼此太近，自動只保留不重疊的高優先價格標籤；線仍全部保留，精確價格仍在下方卡片。
+6. 手機圖表高度收斂，資訊排列更乾淨。
+7. app.js cache bust 到 v=10262，避免手機繼續吃舊時間格式。
+
+部署：把 ZIP 全部檔案放 GitHub 根目錄，同名 Replace。

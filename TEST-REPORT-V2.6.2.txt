@@ -1,0 +1,10 @@
+V2.6.2 TEST REPORT
+PASS — prepare-ui.mjs syntax
+PASS — chart-ux-v262-patch.mjs syntax
+PASS — patch fixture anchors
+PASS — patched generated app.js syntax
+PASS — Asia/Taipei formatter inserted
+PASS — tickMarkFormatter inserted
+PASS — price-label overlap control inserted
+PASS — zone axis labels suppressed while lines remain
+PASS — no trading/structure/shadow/learning thresholds changed
