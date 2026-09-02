@@ -1,0 +1,31 @@
+V2.6.17 TEST REPORT
+
+PASS — node --check
+- ui-stability-v2617-patch.mjs
+- prepare-ui.mjs
+- start-safe-v2617.mjs
+- notification-control-v2616-patch.mjs
+- ui-control-v2616-patch.mjs
+- runtime-stability-v2616-patch.mjs
+- actual-trade-hub-v2613.js
+
+PASS — synthetic combined runtime fixture
+- TV capture/apply/restore anchors patched
+- TV restore waits for matching card/layout, max 4.2s
+- one-shot scroll restore; old repeated correction function replaced
+- 8-second refresh gated during touch/scroll/TV return
+- ranked list identical redraw suppression installed
+- observation list identical redraw suppression installed
+- manual anchor guard installed
+- system growth anchor guard installed
+- V2.6.16 Actual Trade Hub render shape recognized and patched
+- hidden Actual Trade toggle behavior preserved
+- active trade price/PnL updates in place
+- app cache key 102617
+- asset cache key sg2617
+
+PASS — idempotency
+Second execution of patchUiStabilityV2617 returns changed:false for app/manual/growth/hub/index.
+
+PASS — ZIP integrity
+Verified with unzip -t after package creation.

@@ -7,7 +7,7 @@ const results=[];
 async function run(label,file,fn){
   try{
     const p=path.join(__dirname,file);if(!fs.existsSync(p)){results.push(`${label}=missing`);return null}
-    const mod=await import(`./${file}?v2616=${Date.now()}-${Math.random()}`);const f=mod?.[fn];if(typeof f!=='function'){results.push(`${label}=no-export`);return null}
+    const mod=await import(`./${file}?v2617=${Date.now()}-${Math.random()}`);const f=mod?.[fn];if(typeof f!=='function'){results.push(`${label}=no-export`);return null}
     const out=await f();results.push(`${label}=${out?.changed===false?'ready':'ok'}`);return out;
   }catch(e){console.warn(`[v2616] ${label} skipped:`,String(e?.message||e));results.push(`${label}=skip`);return null}
 }
@@ -24,9 +24,9 @@ function installAssets(){
   for(const n of names)h=h.replace(new RegExp(`<link[^>]+href=["']/${n.replaceAll('.','\\.')}(?:\\?[^"']*)?["'][^>]*>\\s*`,'gi'),'');
   const scripts=['system-growth.js','premium-theme.js','structure-engine-v2-ui.js','structure-learning-ui.js','manual-mode-ui.js','growth-abc-v264.js','actual-trade-hub-v2613.js'];
   for(const n of scripts)h=h.replace(new RegExp(`<script[^>]+src=["']/${n.replaceAll('.','\\.')}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,'gi'),'');
-  h=h.replace(/<script\s+src=["']\/app\.js(?:\?[^"']*)?["']><\/script>/i,'<script src="/app.js?v=102616"></script>');
-  const css=names.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<link rel="stylesheet" href="/${n}?v=sg2616">`).join('\n');
-  const js=scripts.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<script defer src="/${n}?v=sg2616"></script>`).join('\n');
+  h=h.replace(/<script\s+src=["']\/app\.js(?:\?[^"']*)?["']><\/script>/i,'<script src="/app.js?v=102617"></script>');
+  const css=names.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<link rel="stylesheet" href="/${n}?v=sg2617">`).join('\n');
+  const js=scripts.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<script defer src="/${n}?v=sg2617"></script>`).join('\n');
   h=h.replace('</head>',`${css}\n</head>`).replace('</body>',`${js}\n</body>`);
   fs.writeFileSync(htmlPath,h,'utf8');
 }
@@ -57,5 +57,6 @@ await run('Ui2612','ui-polish-v2612-patch.mjs','patchUiPolishV2612');
 const notify=await run('Notify2616','notification-control-v2616-patch.mjs','patchNotificationControlV2616');
 const ui=await run('Ui2616','ui-control-v2616-patch.mjs','patchUiControlV2616');
 const runtime=await run('Runtime2616','runtime-stability-v2616-patch.mjs','patchRuntimeStabilityV2616');
-if(!notify||!ui||!runtime)throw new Error('V2.6.16 final control layer did not apply; refusing partial UI');
-console.log('[v2616] READY '+results.join(' · '));
+const stable=await run('UiStability2617','ui-stability-v2617-patch.mjs','patchUiStabilityV2617');
+if(!notify||!ui||!runtime||!stable)throw new Error('V2.6.17 final control layer did not apply; refusing partial UI');
+console.log('[v2617] READY '+results.join(' · '));

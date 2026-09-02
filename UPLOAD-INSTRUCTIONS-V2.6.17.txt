@@ -1,0 +1,6 @@
+Upload ALL files in this package to the GitHub repository ROOT.
+Replace same-name files; add new files.
+Do NOT change Railway Variables or Railway Volume.
+If Railway Start Command is manually set, use: node start-safe-v2617.mjs
+If Start Command is blank, leave it blank; package.json already points to start-safe-v2617.mjs.
+After Railway shows Deploy Success, fully close the iPhone PWA from the app switcher and reopen it once so app 102617 / sg2617 are loaded.

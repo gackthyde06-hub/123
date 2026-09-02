@@ -1,0 +1,29 @@
+V2.6.17 — UI Stability / TradingView Return
+
+This release fixes the two UI problems reported on iPhone/PWA:
+
+1. TradingView return position
+   - When a symbol is opened in TradingView, the app stores: current page, symbol, card identity, card top position, link top position, and scrollY.
+   - When returning from TradingView, it first restores the same app page.
+   - It waits up to 4.2 seconds for the same symbol/card and page layout to become stable.
+   - It then performs ONE restore to the original card position. The old repeated 8–12 scroll corrections are removed.
+   - Background refresh is blocked during the return window so it cannot reorder cards while restoration is happening.
+
+2. Screen jitter / jumping while reading
+   - The normal 8-second refresh is paused while the user is touching, scrolling, or returning from TradingView.
+   - Ranked Ideas and Observation skip full DOM redraws when the meaningful data signature is unchanged.
+   - On a meaningful list update, one visible-card anchor is preserved instead of repeatedly fighting the browser scroll position.
+   - Manual-mode and System Growth anchor correction is disabled while the user is interacting and ignores tiny movement under 8 px.
+   - Actual Trade Hub updates current price/PnL in place when the trade structure is unchanged instead of rebuilding the whole section.
+   - Native browser scroll anchoring is preserved during normal use; overflow anchoring is disabled only during the short TV-return restoration window.
+
+Cache keys:
+- app.js?v=102617
+- UI assets ?v=sg2617
+
+Unchanged:
+- trading thresholds
+- Shadow/ABC learning and samples
+- notification policy
+- Actual Trade records/history
+- Railway Volume / Variables
