@@ -1,0 +1,17 @@
+STRUCTURE ENGINE V2.5.2 — DEPLOY REGEX HOTFIX
+Date: 2026-09-02
+
+Root cause confirmed from Railway Deploy Logs:
+- generated server.js failed syntax check in structureV2CsvEscape()
+- \n / \r inside the outer template literal were consumed as real line breaks
+- resulting regex became an unterminated regular expression
+
+Fix:
+- double-escape newline / carriage-return in the patch source so generated server.js contains /[",\n\r]/ correctly
+- no trading thresholds changed
+- no Structure Engine rules changed
+- no Shadow / actual-trade / performance / Railway Volume data reset
+
+DEPLOY:
+Upload ONLY structure-engine-v2-patch.mjs to the GitHub repo ROOT and replace the existing file.
+No need to upload prepare-ui.mjs again.
