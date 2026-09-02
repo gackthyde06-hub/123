@@ -1,0 +1,70 @@
+V2.6.7 — RAILWAY HOBBY MATCH + APP POLISH
+日期：2026-09-02
+基底：V2.6.6 Railway Egress Optimization + V2.6.5 ABC Shadow Learning Fix
+
+這版的目標
+你已經升級 Railway Hobby，所以 V2.6.7 同時做兩件事：
+1) 讓付費 Hobby 的 Volume / RAM / 24x7 運作能力真正幫 Shadow 成長；
+2) 把 APP 幾個不好用的 UI 行為直接清掉，統一成更直覺的 TradingView 網頁版流程。
+
+A. Hobby / Shadow 成長匹配
+- Shadow 留存上限：6,000 → 12,000。
+- 通知績效歷史：1,200 → 3,000，可用 PERF_HISTORY_MAX_RECORDS 調整到 6,000。
+- 歷史回測 K 線 RAM Cache：15 分 → 60 分；只快取歷史，不降低即時判讀頻率。
+- 利用既有 Railway Volume 每日建立 gzip 學習帳本備份，預設保留 14 天。
+- 10 分鐘整理 runtime cache，避免 24x7 長期跑出記憶體膨脹。
+- 新增 /api/runtime-capacity，可看記憶體、資料量、Shadow records、backtest TTL。
+
+B. 延續 V2.6.6 成本優化
+- API / JS / CSS / JSON 壓縮與瀏覽器快取策略保留。
+- APP 在背景時不再浪費 8 秒 UI 輪詢流量；回到前景立即刷新。
+- 熬鷹後端核心輪詢與 Push 不因畫面背景而停止。
+
+C. 名稱直接開 TradingView 網頁版
+- 刪除「點名稱 → APP 內建圖表」操作路徑。
+- APP 內建 chartModal 從畫面 DOM 移除；舊圖表 CSS 也移除，只保留頁籤 sticky 行為。
+- 監控、觀察、今日、流向、建議等既有標的名稱，點擊後直接另開 TradingView Web。
+- 建議頁提示改成「按標的名稱直接開啟 TradingView 網頁版」。
+- 深回踩提示不再寫「點名稱開TV確認」這類多餘說明。
+
+D. 系統養成名稱也直接開 TV
+- 「篩選中」候選卡：點標的名稱直接另開 TradingView Web，不會誤觸展開/收合。
+- 情報檔案中的標的名稱也可直接開 TV。
+- 結構記憶目前判讀列表的標的名稱也可直接開 TV。
+- 手動作戰清單標的名稱同步統一成直接開 TV。
+
+E. 養成 UI 修正
+- 原本「正在發生」改成「篩選中」。
+- 「結構記憶」原本較複雜的圖章改成簡單菱形，風格跟篩選中的視覺語言一致。
+
+F. 手動模式顏色修正
+- B 級藍色保留。
+- 手動作戰卡片左側亮線降亮度、縮細，A / B 都改成較柔和的半透明強調，不再刺眼。
+
+完全不動的核心
+- 熬鷹核心訂單輪詢：仍約 3 秒。
+- APP 前景更新：仍約 8 秒。
+- TEST_SIGNAL_SCAN_MS：不降低頻率。
+- Binance / Bybit / OKX / Realtime WS：不關閉。
+- ABC Shadow、Structure Learning、stateLearning、Actual Trade、通知恢復鏈：全部保留。
+- HIGH / NORMAL / HARD BLOCKER / 結構失效門檻：全部不改。
+- Railway Volume：不刪、不格式化、不搬家。
+
+為什麼不把 8 vCPU / 8 GB RAM 故意吃滿
+Railway 按實際用量計費。V2.6.7 是把 Hobby 的空間用在「更長學習資料、快取、備份、穩定性」，而不是用無效運算把帳單燒高。
+
+更新方式
+1. 解壓 ZIP。
+2. ZIP 全部檔案上傳 GitHub repo 根目錄；同名 Replace，新檔直接新增。
+3. 不要刪 Railway Volume，不要重設 Variables。
+4. Railway 自動部署。
+5. Deploy log 應看到：RailwayEgress、HobbyProfile、UiPolish。
+
+部署後檢查
+- 點 BTCUSDT / ETHUSDT / 任何標的名稱：直接新分頁開 TradingView 網頁版。
+- APP 內不再跳出舊的系統圖表視窗。
+- 系統養成「正在發生」應顯示為「篩選中」。
+- 結構記憶左側應是簡單菱形。
+- 手動作戰卡片左側 A/B 強調線明顯變柔和。
+- /api/runtime-capacity 回傳 profile=HOBBY_V267。
+- 不影響通知、Shadow、ABC、實際建倉追蹤。

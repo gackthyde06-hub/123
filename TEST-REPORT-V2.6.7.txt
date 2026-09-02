@@ -1,0 +1,32 @@
+V2.6.7 TEST REPORT
+日期：2026-09-02
+
+Static / patch checks
+- prepare-ui.mjs: node --check PASS
+- railway-egress-v266-patch.mjs: node --check PASS
+- railway-hobby-v267-patch.mjs: node --check PASS
+- ui-polish-v267-patch.mjs: node --check PASS
+
+V2.6.7 UI patch fixture
+- first run: all 7 UI targets patched PASS
+- second run: changed=false (idempotent) PASS
+- patched app.js syntax: PASS
+- patched system-growth.js syntax: PASS
+- patched structure-learning-ui.js syntax: PASS
+- patched manual-mode-ui.js syntax: PASS
+- internal chart click interception removed PASS
+- chart modal DOM removed PASS
+- chart CSS removed while sticky page tabs preserved PASS
+- TradingView direct-link aria/title path PASS
+- System Growth candidate / intel TV links PASS
+- Structure Learning TV links + diamond icon PASS
+- 「正在發生」→「篩選中」 PASS
+- Manual A/B left accent dimmed PASS
+
+Core invariants
+- 3s core trader polling not modified
+- 8s foreground APP refresh not modified
+- notification thresholds not modified
+- Structure V2 thresholds not modified
+- ABC Shadow / state learning not disabled
+- Railway Volume path not changed or deleted
