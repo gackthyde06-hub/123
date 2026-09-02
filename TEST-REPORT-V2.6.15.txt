@@ -1,0 +1,22 @@
+V2.6.15 TEST REPORT
+
+PASS node --check:
+- start-safe-v2615.mjs
+- v2615-stability-fix.mjs
+- v2615-stability.js
+
+PASS synthetic runtime patch fixture:
+- sendPush server-side Shadow A/B dedup injection
+- manual Shadow loop shares same dedup map
+- observation API freshness 8h -> 5m
+- public index removes v2614-controls browser script
+- app cache key -> 102615
+- v2615-stability.js installed
+- patched server.js syntax PASS
+- patched sw.js syntax PASS
+- patched browser script syntax PASS
+
+Architecture check:
+- no 4-second UI hide/show interval in V2.6.15 controller
+- MutationObserver watches childList only (no attributes/class loop)
+- stale observation cleanup timer is 60 seconds only as a time-boundary fallback

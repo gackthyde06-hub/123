@@ -1,0 +1,17 @@
+V2.6.15 上傳方式
+
+把 ZIP 解壓後，以下檔案全部放 GitHub repo 根目錄：
+- package.json              Replace
+- start-safe-v2615.mjs      Add
+- v2614-final-fix.mjs       Replace
+- v2614-controls.js         Replace（保留供 v2614 相容層使用；V2.6.15 不再載入它到瀏覽器）
+- v2615-stability-fix.mjs   Add
+- v2615-stability.js        Add
+
+README / TEST REPORT 可不上傳。
+
+Railway Variables：不要改
+Railway Volume：不要改
+Railway Start Command：如果你以前有手動指定，改成 node start-safe-v2615.mjs；如果留空，package.json 會自動使用新版 start。
+
+部署成功後：iPhone PWA 完整滑掉/關閉，再重新打開一次，讓新版 index / Service Worker 接手。
