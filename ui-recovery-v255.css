@@ -1,0 +1,16 @@
+/* V2.5.5 emergency UI containment: growth can never trap the core trading UI. */
+.sg-panel[hidden],.sg-panel:not(.open){display:none!important;max-height:0!important;min-height:0!important;margin:0!important;padding-top:0!important;padding-bottom:0!important;overflow:hidden!important;pointer-events:none!important}
+.sg-panel.open{display:block!important;max-height:min(72vh,820px)!important;min-height:0!important;overflow:auto!important;overscroll-behavior:contain!important;pointer-events:auto!important;scrollbar-gutter:stable}
+.sg-panel.open>.sg-skeleton{height:auto!important;min-height:120px!important;max-height:180px!important}
+.sg-loading{min-height:0!important;max-height:34px!important}
+.sg-emergency-close{position:sticky;top:0;z-index:9999;width:100%;min-height:42px;margin:0 0 10px;padding:9px 14px;border:1px solid #6b5630;border-radius:11px;background:#16130e;color:#edc978;font-weight:900;font-size:12px;letter-spacing:.03em;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.28)}
+.sg-recovery-card{min-height:130px;display:grid;place-items:center;gap:8px;padding:18px;border:1px solid #4c3d25;border-radius:14px;background:#11100d;color:#d8c39b;text-align:center}
+.sg-recovery-card b{font-size:15px}.sg-recovery-card span{color:#8d857a;font-size:11px;line-height:1.5}.sg-recovery-card button{min-height:38px;padding:8px 14px;border:1px solid #6b5630;border-radius:10px;background:#17140e;color:#eac36e;font-weight:900}
+@media(max-width:760px){.sg-panel.open{max-height:68vh!important;border-radius:16px!important}.sg-emergency-close{min-height:44px;font-size:13px}}
+
+/* Core navigation always wins over the optional research panel. */
+.pageTabs{z-index:10050!important;pointer-events:auto!important;isolation:isolate!important}
+.pageTabs .pageTab{pointer-events:auto!important;position:relative!important;z-index:10051!important}
+#sgLoading,#sgPanel{position:relative!important;z-index:1!important}
+#sgPanel *{max-width:100%}
+body.sg-growth-locked{overflow:auto!important}
