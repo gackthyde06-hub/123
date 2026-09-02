@@ -1,0 +1,8 @@
+上傳 GitHub repo 根目錄：
+- package.json (Replace)
+- start-safe-v2614.mjs (Add)
+- v2614-final-fix.mjs (Add)
+- v2614-controls.js (Add)
+
+Railway Variables / Volume 不要動。
+部署成功後 iPhone PWA 完全關閉再重新開啟一次。
