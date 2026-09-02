@@ -1,0 +1,16 @@
+V2.6.9 更新方式
+
+1. 解壓 ZIP。
+2. 把以下功能檔丟到 GitHub repo 根目錄，同名按 Replace：
+   - package.json
+   - prepare-ui.mjs
+   - railway-egress-v266-patch.mjs
+   - railway-hobby-v267-patch.mjs
+   - ui-polish-v267-patch.mjs
+   - ui-polish-v268-patch.mjs
+   - ui-polish-v269-patch.mjs
+3. README / TEST-REPORT / 本說明可一起上傳，也可不傳。
+4. 等 Railway 自動部署完成。
+5. Railway Variables / Volume 不要改。
+
+V2.6.9 cache bust：app.js 10269；外掛 UI sg269。

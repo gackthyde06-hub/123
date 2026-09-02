@@ -1,0 +1,25 @@
+V2.6.9 TEST REPORT
+
+PASS
+- ui-polish-v269-patch.mjs node --check
+- prepare-ui.mjs node --check
+- V2.6.9 synthetic app/index fixture patch execution PASS
+- patched synthetic public/app.js node --check PASS
+- patch idempotency PASS (second run changed=false)
+- observation cards inject existing data-actual-trade workflow
+- actual-trade modal keeps opening snapshot when signal leaves current observation list
+- page lock state persists via localStorage
+- page lock blocks accidental horizontal swipe
+- manual page-tab click remains available and moves the lock to the selected page
+- notification deep links bypass the lock so monitor/test routes still open
+- page lock CSS is compact pill style with drawn lock icon; no emoji asset required
+- cache bust bumped to app 10269 / SG 269
+
+UNCHANGED
+- actual-trade POST/PATCH backend and TP/SP tracking semantics
+- HIGH / NORMAL / VALID notification thresholds
+- Structure V2 boundaries
+- Shadow / 影子戰術 learning thresholds
+- core trader polling / Push logic
+- Railway Hobby profile / egress optimization
+- Railway Volume / Variables
