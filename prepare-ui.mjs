@@ -12,6 +12,8 @@ import { patchRailwayHobbyV267 } from './railway-hobby-v267-patch.mjs';
 import { patchUiPolishV267 } from './ui-polish-v267-patch.mjs';
 import { patchUiPolishV268 } from './ui-polish-v268-patch.mjs';
 import { patchUiPolishV269 } from './ui-polish-v269-patch.mjs';
+import { patchActualMonitorV2610 } from './actual-monitor-v2610-patch.mjs';
+import { patchUiPolishV2610 } from './ui-polish-v2610-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 
@@ -62,24 +64,24 @@ const removers=[
   /<script[^>]+src=["']\/growth-abc-v264\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
 ];
 for(const re of removers)html=html.replace(re,'');
-html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=10269\"></script>');
+html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=102610\"></script>');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg269">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg269">',
-  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg269">',
-  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg269">',
-  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg269">',
-  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg269">',
-  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg269">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg2610">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg2610">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg2610">',
+  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg2610">',
+  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg2610">',
+  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg2610">',
+  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg2610">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg269"></script>',
-  '<script defer src="/premium-theme.js?v=sg269"></script>',
-  '<script defer src="/structure-engine-v2-ui.js?v=sg269"></script>',
-  '<script defer src="/structure-learning-ui.js?v=sg269"></script>',
-  '<script defer src="/manual-mode-ui.js?v=sg269"></script>',
-  '<script defer src="/growth-abc-v264.js?v=sg269"></script>',
+  '<script defer src="/system-growth.js?v=sg2610"></script>',
+  '<script defer src="/premium-theme.js?v=sg2610"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg2610"></script>',
+  '<script defer src="/structure-learning-ui.js?v=sg2610"></script>',
+  '<script defer src="/manual-mode-ui.js?v=sg2610"></script>',
+  '<script defer src="/growth-abc-v264.js?v=sg2610"></script>',
 ].join('\n');
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
@@ -92,4 +94,6 @@ const hobbyOpt=patchRailwayHobbyV267();
 const uiPolish=patchUiPolishV267();
 const uiRefine=patchUiPolishV268();
 const uiV269=patchUiPolishV269();
-console.log(`[ui:v269] clean rebase + TV return pin + shadow history + refined growth UI ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · RailwayEgress=${costOpt.changed?'optimized':'already-optimized'} · HobbyProfile=${hobbyOpt.changed?'optimized':'already-optimized'} · UiPolish267=${uiPolish.changed?'patched':'ready'} · UiRefine268=${uiRefine.changed?'patched':'ready'} · Ui269=${uiV269.changed?'patched':'ready'} · rescueLayers=OFF`);
+const actualMonitorV2610=patchActualMonitorV2610();
+const uiV2610=patchUiPolishV2610();
+console.log(`[ui:v2610] clean rebase + Actual Trade monitor pin ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · RailwayEgress=${costOpt.changed?'optimized':'already-optimized'} · HobbyProfile=${hobbyOpt.changed?'optimized':'already-optimized'} · Ui269=${uiV269.changed?'patched':'ready'} · ActualMonitor2610=${actualMonitorV2610.changed?'patched':'ready'} · Ui2610=${uiV2610.changed?'patched':'ready'} · rescueLayers=OFF`);

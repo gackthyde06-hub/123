@@ -1,0 +1,32 @@
+V2.6.10 TEST REPORT
+
+PASS
+- actual-monitor-v2610-patch.mjs node --check
+- ui-polish-v2610-patch.mjs node --check
+- prepare-ui.mjs node --check
+- all shipped .mjs syntax checks PASS
+- synthetic server patch execution PASS
+- synthetic app/index/manual-mode patch execution PASS
+- patched synthetic server.js node --check PASS
+- patched synthetic public/app.js node --check PASS
+- patched synthetic manual-mode-ui.js node --check PASS
+- patch idempotency PASS (second run changed=false)
+- /api/test-signals receives independent actualMonitor.active + actualMonitor.recent payload
+- active Actual Trades are independent from B grade / observation list membership
+- Monitor empty-state no longer hides the page when an Actual Trade exists
+- Actual Trade layer is injected immediately below Monitor header, above system signal cards
+- active card includes TradingView symbol, direction, entry/current, TP/SP, live estimated PnL, edit and end-tracking controls
+- resolved/manual-closed Actual Trades move to a 24-hour monitor history window (max 30)
+- history × is UI-only hide; performance/CSV/Volume record is not deleted
+- manual-mode Actual Trade save dispatches immediate main-app refresh event
+- cache bust bumped to app 102610 / SG 2610
+
+UNCHANGED
+- Actual Trade TP/SP first-touch resolution semantics
+- Actual Trade persistent ledger / Railway Volume
+- HIGH / NORMAL / VALID notification thresholds
+- Structure V2 boundaries
+- Shadow / 影子戰術 / ABC learning thresholds
+- core trader polling / Push logic
+- Railway Hobby profile / egress optimization
+- page lock and TradingView return-position behavior from V2.6.8/V2.6.9
