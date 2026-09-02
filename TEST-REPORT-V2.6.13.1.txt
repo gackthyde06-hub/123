@@ -1,0 +1,11 @@
+V2.6.13.1 HOTFIX 測試項目
+
+- start-safe-v26131.mjs node --check: PASS
+- prepare-ui.mjs node --check: PASS
+- actual-trade-hub-v2613.js node --check: PASS
+- actual-trade-hub-v2613-patch.mjs node --check: PASS
+- Fail-open fixture：prepare-ui 缺依賴/失敗後仍啟動 server.js: PASS
+- fallback hub JS/CSS 注入 public/index.html: PASS
+- ZIP integrity: PASS
+
+此 hotfix 只修啟動可靠性，不改交易判斷門檻或學習資料語意。
