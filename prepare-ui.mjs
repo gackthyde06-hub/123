@@ -5,7 +5,15 @@ import { patchResearchLayer } from './research-layer-patch.mjs';
 import { patchStructureEngineV2 } from './structure-engine-v2-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
-patchResearchLayer();
+let researchLayerReady = false;
+try {
+  patchResearchLayer();
+  researchLayerReady = true;
+} catch (err) {
+  // Research R1 is analytics-only. A brittle research anchor must never prevent the core app from booting.
+  // The structure engine is applied independently against the untouched server.js when R1 fails before commit.
+  console.error('[ui] Research R1 patch skipped:', String(err?.message || err));
+}
 patchStructureEngineV2();
 
 const publicDir=path.join(__dirname,'public');
@@ -31,17 +39,17 @@ const removers=[
 for(const re of removers)html=html.replace(re,'');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg250">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg250">',
-  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg250">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg251">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg251">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg251">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg250"></script>',
-  '<script defer src="/premium-theme.js?v=sg250"></script>',
-  '<script defer src="/structure-engine-v2-ui.js?v=sg250"></script>',
+  '<script defer src="/system-growth.js?v=sg251"></script>',
+  '<script defer src="/premium-theme.js?v=sg251"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg251"></script>',
 ].join('\n');
 
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log('[ui] premium integration v2.5.0 + Research R1 + Structure Engine V2 ready');
+console.log(`[ui] premium integration v2.5.1 + Structure Engine V2 ready · Research R1=${researchLayerReady?'ready':'skipped'}`);

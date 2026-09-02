@@ -1,0 +1,12 @@
+STRUCTURE ENGINE V2.5.1 DEPLOYMENT HOTFIX
+Date: 2026-09-02
+
+Fixes deployment coupling discovered from GitHub/Railway history:
+- Research R1 deployment had already failed before Structure V2.5 was uploaded.
+- V2.5 called Research R1 first, so an R1 anchor failure aborted the whole service before Structure V2 could start.
+- V2.5.1 makes Research R1 analytics fail-open: its error is logged but cannot stop the core app.
+- Structure Engine V2 remains fail-closed: if its required core anchors cannot be safely patched, startup still aborts rather than pretending the feature is active.
+- Cache tag bumped sg250 -> sg251.
+- No persistent data deletion/reset.
+
+Deploy all files to repo root, replacing prepare-ui.mjs.
