@@ -1,8 +1,8 @@
 (()=>{
   'use strict';
-  const VERSION='2.3.1';
+  const VERSION='2.3.1-stable-v256';
   const INTERACT_HOLD_MS=30*60*1000;
-  const OPEN_KEY='sg-open-v1';
+  const OPEN_KEY='sg-open-v256';
   const SNAP_PREFIX='sg-day-v1-';
   const HISTORY_KEY='sg-history-v1';
   const PROGRESS_KEY='sg-progress-v20';
@@ -473,7 +473,7 @@
     brand.classList.add('sg-brand');const btn=rootDoc.createElement('button');btn.type='button';btn.id='sgBrandToggle';btn.className='sg-brand-toggle';btn.setAttribute('aria-expanded','false');btn.innerHTML=`<span>系統養成</span><em id="sgBrandLevel" class="sg-inline-lv"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">—</span></em>`;brand.appendChild(btn);
     const loading=rootDoc.createElement('div');loading.id='sgLoading';loading.className='sg-loading';loading.setAttribute('aria-live','polite');const panel=rootDoc.createElement('section');panel.id='sgPanel';panel.className='sg-panel';panel.hidden=true;panel.setAttribute('aria-label','系統養成');panel.innerHTML='<div class="sg-skeleton">讀取養成資料中…</div>';
     const toast=rootDoc.createElement('div');toast.id='sgToast';toast.className='sg-toast';toast.setAttribute('role','status');toast.setAttribute('aria-live','polite');rootDoc.body.appendChild(toast);mountScrollRail();
-    top.insertAdjacentElement('afterend',loading);loading.insertAdjacentElement('afterend',panel);btn.addEventListener('click',()=>setOpen(!state.open));window.addEventListener('beforeunload',()=>captureDetailsState(panel));document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')return;captureDetailsState(panel)});let initial=false;try{const v=localStorage.getItem(OPEN_KEY);initial=v===null?true:v==='1'}catch{initial=true}setOpen(initial);
+    top.insertAdjacentElement('afterend',loading);loading.insertAdjacentElement('afterend',panel);btn.addEventListener('click',()=>setOpen(!state.open));window.addEventListener('beforeunload',()=>captureDetailsState(panel));document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='hidden')return;captureDetailsState(panel)});let initial=false;try{const v=localStorage.getItem(OPEN_KEY);initial=v==='1'}catch{initial=false}setOpen(initial);
   }
   if(rootDoc.readyState==='loading')rootDoc.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

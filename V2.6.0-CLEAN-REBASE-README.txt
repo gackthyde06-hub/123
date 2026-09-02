@@ -1,0 +1,31 @@
+V2.6.0 CLEAN REBASE — 2026-09-02
+
+Purpose
+- Restore the last known-good System Growth UI baseline from before the XAU incident.
+- Preserve Research R1, Structure Engine V2 S2.1.0, Structure Learning and current notification logic.
+- Remove all V2.5.3 / V2.5.4 / V2.5.5 frontend rescue/recovery layers from the runtime.
+
+Root cause fixed
+1. structure-engine-v2-ui.js observed the entire document and rewrote its own structure line.
+   Replacing old.outerHTML generated a childList mutation, which triggered applyCards again,
+   which replaced old.outerHTML again. This can create an endless MutationObserver/microtask loop
+   and starve taps, scrolling, rendering and other page scripts.
+2. /api/test-signals awaited a network-heavy scan before responding. System Growth waits for that
+   endpoint, so scan latency could hold the research UI in a syncing state.
+
+Fixes
+- Structure observer is scoped only to #sgPanel.
+- Observer disconnects during Structure UI writes, so it cannot observe itself.
+- Structure lines update only when their signature actually changes.
+- /api/test-signals returns the latest completed tracker snapshot immediately and schedules stale scans
+  in the background with setImmediate().
+- Restores exact pre-XAU System Growth / Premium UI assets as the baseline.
+- System Growth uses a new open-state key and starts closed on first V2.6 load; user can open it normally.
+- No global window.fetch monkeypatch.
+- No max-height recovery containment.
+- No pageTabs capture handlers.
+- No Volume reset/deletion and no persistent data reset.
+
+Upload every file in this ZIP to repository root and replace same-name files.
+Old runtime-resilience-patch.mjs / ui-recovery-v255-patch.mjs / rescue files may remain in the repository;
+prepare-ui.mjs no longer imports or serves them.

@@ -1,0 +1,21 @@
+V2.6.0 CLEAN REBASE TEST REPORT
+
+Static checks performed before packaging:
+- node --check system-growth.js
+- node --check premium-theme.js
+- node --check structure-engine-v2-ui.js
+- node --check research-layer-patch.mjs
+- node --check structure-engine-v2-patch.mjs
+- node --check test-signals-stability-patch.mjs
+- node --check prepare-ui.mjs
+
+Behavioral design checks:
+- No global MutationObserver on documentElement in Structure UI.
+- Structure observer disconnects before DOM writes and reconnects after.
+- Structure row writes are signature-deduplicated.
+- No window.fetch override is loaded.
+- No ui-recovery-v255.css is loaded.
+- No system-growth-rescue.js or system-growth-fetch-hotfix.js is loaded.
+- /api/test-signals route becomes non-blocking; completed snapshot is returned before background scan.
+- System Growth baseline is pre-XAU v2.3.1 assets, with only V2.6 open-state isolation/default-closed change.
+- Structure Engine patch remains S2.1.0 with the V2.5.2 CSV regex fix.
