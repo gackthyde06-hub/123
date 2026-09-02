@@ -16,6 +16,8 @@ import { patchActualMonitorV2610 } from './actual-monitor-v2610-patch.mjs';
 import { patchUiPolishV2610 } from './ui-polish-v2610-patch.mjs';
 import { patchNotificationPolicyV2611 } from './notification-policy-v2611-patch.mjs';
 import { patchUiPolishV2611 } from './ui-polish-v2611-patch.mjs';
+import { patchTradfiLearningV2612 } from './tradfi-learning-v2612-patch.mjs';
+import { patchUiPolishV2612 } from './ui-polish-v2612-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 
@@ -66,24 +68,24 @@ const removers=[
   /<script[^>]+src=["']\/growth-abc-v264\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
 ];
 for(const re of removers)html=html.replace(re,'');
-html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=102611\"></script>');
+html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=102612\"></script>');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg2611">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg2611">',
-  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg2611">',
-  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg2611">',
-  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg2611">',
-  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg2611">',
-  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg2611">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg2612">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg2612">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg2612">',
+  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg2612">',
+  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg2612">',
+  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg2612">',
+  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg2612">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg2611"></script>',
-  '<script defer src="/premium-theme.js?v=sg2611"></script>',
-  '<script defer src="/structure-engine-v2-ui.js?v=sg2611"></script>',
-  '<script defer src="/structure-learning-ui.js?v=sg2611"></script>',
-  '<script defer src="/manual-mode-ui.js?v=sg2611"></script>',
-  '<script defer src="/growth-abc-v264.js?v=sg2611"></script>',
+  '<script defer src="/system-growth.js?v=sg2612"></script>',
+  '<script defer src="/premium-theme.js?v=sg2612"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg2612"></script>',
+  '<script defer src="/structure-learning-ui.js?v=sg2612"></script>',
+  '<script defer src="/manual-mode-ui.js?v=sg2612"></script>',
+  '<script defer src="/growth-abc-v264.js?v=sg2612"></script>',
 ].join('\n');
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
@@ -100,4 +102,6 @@ const actualMonitorV2610=patchActualMonitorV2610();
 const uiV2610=patchUiPolishV2610();
 const notifyV2611=patchNotificationPolicyV2611();
 const uiV2611=patchUiPolishV2611();
-console.log(`[ui:v2611] clean rebase + Actual Trade monitor + quiet actionable notifications + stable TV return ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · RailwayEgress=${costOpt.changed?'optimized':'already-optimized'} · HobbyProfile=${hobbyOpt.changed?'optimized':'already-optimized'} · Ui269=${uiV269.changed?'patched':'ready'} · ActualMonitor2610=${actualMonitorV2610.changed?'patched':'ready'} · Ui2610=${uiV2610.changed?'patched':'ready'} · Notify2611=${notifyV2611.changed?'patched':'ready'} · Ui2611=${uiV2611.changed?'patched':'ready'} · rescueLayers=OFF`);
+const tradfiV2612=patchTradfiLearningV2612();
+const uiV2612=patchUiPolishV2612();
+console.log(`[ui:v2612] clean rebase + Actual Trade monitor + quiet actionable notifications + stable TV return ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · RailwayEgress=${costOpt.changed?'optimized':'already-optimized'} · HobbyProfile=${hobbyOpt.changed?'optimized':'already-optimized'} · Ui269=${uiV269.changed?'patched':'ready'} · ActualMonitor2610=${actualMonitorV2610.changed?'patched':'ready'} · Ui2610=${uiV2610.changed?'patched':'ready'} · Notify2611=${notifyV2611.changed?'patched':'ready'} · Ui2611=${uiV2611.changed?'patched':'ready'} · TradFi2612=${tradfiV2612.changed?'patched':'ready'} · Ui2612=${uiV2612.changed?'patched':'ready'} · rescueLayers=OFF`);

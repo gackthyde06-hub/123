@@ -1,0 +1,26 @@
+V2.6.12 TEST REPORT — 2026-09-02
+
+PASS  tradfi-learning-v2612-patch.mjs: node --check
+PASS  ui-polish-v2612-patch.mjs: node --check
+PASS  prepare-ui.mjs: node --check
+PASS  asset-profiles-v2612.json: JSON parse
+PASS  generated V2.6.12 server fixture: node --check
+PASS  generated V2.6.12 app.js fixture: node --check
+PASS  generated V2.6.12 manual-mode-ui.js fixture: node --check
+PASS  V2.6.12 patches are idempotent on already-applied generated fixtures
+PASS  generated server fixture contains dual asset market views + TradFi market context + cross-asset learning cap
+PASS  generated UI fixture contains right-side「展開」+ cached public-info layer + asset badges
+
+Verified design rules:
+- Crypto / TradFi candidate pools are separated for display and reserve candidate capacity for both.
+- HIGH / NORMAL path is shared; TradFi removes crypto-only impossible blockers while retaining market/price/data safety gates.
+- A/B/C manual pool and ABC Shadow include both markets.
+- State learning adds assetClass + session hierarchy; same-market evidence has full weight.
+- Cross-market learning requires larger sample and is capped at weak ±1 shadow contribution.
+- Actual Trade evidence stays within the same asset class.
+- Public-info lookup remains optional-on-expand and cached 6 hours.
+- Existing V2.6.11 notification whitelist stays in the package.
+
+Not performed in this sandbox:
+- No live Binance / Railway network smoke test was possible from the local container.
+- Live availability of any specific stock perpetual depends on Binance's current listed symbols; unsupported symbols simply do not enter the live ticker candidate pool.
