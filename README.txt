@@ -1,18 +1,14 @@
-V6.0 TV AUTO
+V2.5.3 養成頁卡住 Hotfix
 
-核心更新
-- TradingView Webhook 真正自動帶入，不再要求你在 App 手動輸入 TV 資料。
-- 來源可切換：高手目前倉位 / TradingView 自動訊號。
-- 新 TV 訊號抵達後，App 自動切到 TV、展開下單試算並帶入 symbol / side / entry。
-- Pine 若送 sl / tp1 / tp2 / tp3，會同步自動帶入。
-- 保證金與槓桿保留使用者自己決定，並即時計算總倉位、TP/SL U、保證金報酬%、RR。
-- 保留 V5.9.1 隱藏倉位防誤平與 V5.9.2 LIVE PNL。
+根因：system-growth.js 同時等待 /api/performance 與 /api/test-signals。
+當 /api/test-signals 掃描較慢時，整個養成頁會一直停在「讀取養成資料中」。
 
-TradingView 一次性設定
-1. 部署 ROOT + PUBLIC。
-2. App 打開「下單試算 > TradingView 自動帶入設定」。
-3. 把 Webhook URL 貼到 TradingView Alert 的 Webhook URL。
-4. Alert message 使用 App 顯示的 JSON。若你的 Pine 有 SL/TP，請另外傳 sl/tp1/tp2/tp3 欄位。
-5. 之後 Alert 每次觸發都會自動進 App。
+修正：
+1. 新增 system-growth-fetch-hotfix.js。
+2. /api/test-signals 最多等 4 秒；超時會 abort，原有 .catch(()=>null) 會接手。
+3. /api/performance 已正常時，養成頁可直接渲染，不再被候選訊號 API 拖死。
+4. 不修改 Structure V2、通知門檻、Shadow、Research、Volume 或交易判斷。
+5. cache tag 升到 sg253，避免手機/電腦吃舊 JS。
 
-注意：V6.0 仍為試算與訊號接收，不會送出 Binance 真實訂單。
+上傳：兩個 .js/.mjs 檔案放 GitHub repo 根目錄，同名 prepare-ui.mjs 覆蓋。
+README 可不傳。
