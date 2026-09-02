@@ -36,7 +36,7 @@ const abcShadow=patchShadowLearningV264();
 
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
-const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css','structure-learning-ui.js','structure-learning-ui.css','chart-ux-v262.css','manual-mode-ui.js','manual-mode-ui.css','growth-abc-v264.js','growth-abc-v264.css'];
+const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css','structure-learning-ui.js','structure-learning-ui.css','chart-ux-v262.css','manual-mode-ui.js','manual-mode-ui.css','growth-abc-v264.js','growth-abc-v264.css','actual-trade-hub-v2613.js','actual-trade-hub-v2613.css'];
 for(const name of files){
   const source=path.join(__dirname,name),target=path.join(publicDir,name);
   if(!fs.existsSync(source))throw new Error(`[ui:v269] missing ${name}`);
@@ -58,6 +58,7 @@ const removers=[
   /<link[^>]+href=["']\/manual-mode-ui\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/growth-abc-v264\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/ui-recovery-v255\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
+  /<link[^>]+href=["']\/actual-trade-hub-v2613\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<script[^>]+src=["']\/system-growth-fetch-hotfix\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/system-growth-rescue\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/system-growth\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
@@ -66,26 +67,29 @@ const removers=[
   /<script[^>]+src=["']\/structure-learning-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/manual-mode-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/growth-abc-v264\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
+  /<script[^>]+src=["']\/actual-trade-hub-v2613\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
 ];
 for(const re of removers)html=html.replace(re,'');
-html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=102612\"></script>');
+html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=102613\"></script>');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg2612">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg2612">',
-  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg2612">',
-  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg2612">',
-  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg2612">',
-  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg2612">',
-  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg2612">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg2613">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg2613">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg2613">',
+  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg2613">',
+  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg2613">',
+  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg2613">',
+  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg2613">',
+  '<link rel="stylesheet" href="/actual-trade-hub-v2613.css?v=sg2613">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg2612"></script>',
-  '<script defer src="/premium-theme.js?v=sg2612"></script>',
-  '<script defer src="/structure-engine-v2-ui.js?v=sg2612"></script>',
-  '<script defer src="/structure-learning-ui.js?v=sg2612"></script>',
-  '<script defer src="/manual-mode-ui.js?v=sg2612"></script>',
-  '<script defer src="/growth-abc-v264.js?v=sg2612"></script>',
+  '<script defer src="/system-growth.js?v=sg2613"></script>',
+  '<script defer src="/premium-theme.js?v=sg2613"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg2613"></script>',
+  '<script defer src="/structure-learning-ui.js?v=sg2613"></script>',
+  '<script defer src="/manual-mode-ui.js?v=sg2613"></script>',
+  '<script defer src="/growth-abc-v264.js?v=sg2613"></script>',
+  '<script defer src="/actual-trade-hub-v2613.js?v=sg2613"></script>',
 ].join('\n');
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
@@ -104,4 +108,4 @@ const notifyV2611=patchNotificationPolicyV2611();
 const uiV2611=patchUiPolishV2611();
 const tradfiV2612=patchTradfiLearningV2612();
 const uiV2612=patchUiPolishV2612();
-console.log(`[ui:v2612] clean rebase + Actual Trade monitor + quiet actionable notifications + stable TV return ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · RailwayEgress=${costOpt.changed?'optimized':'already-optimized'} · HobbyProfile=${hobbyOpt.changed?'optimized':'already-optimized'} · Ui269=${uiV269.changed?'patched':'ready'} · ActualMonitor2610=${actualMonitorV2610.changed?'patched':'ready'} · Ui2610=${uiV2610.changed?'patched':'ready'} · Notify2611=${notifyV2611.changed?'patched':'ready'} · Ui2611=${uiV2611.changed?'patched':'ready'} · TradFi2612=${tradfiV2612.changed?'patched':'ready'} · Ui2612=${uiV2612.changed?'patched':'ready'} · rescueLayers=OFF`);
+console.log(`[ui:v2613] clean rebase + Actual Trade Hub + compact ranking entry + backstage close ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · RailwayEgress=${costOpt.changed?'optimized':'already-optimized'} · HobbyProfile=${hobbyOpt.changed?'optimized':'already-optimized'} · Ui269=${uiV269.changed?'patched':'ready'} · ActualMonitor2610=${actualMonitorV2610.changed?'patched':'ready'} · Ui2610=${uiV2610.changed?'patched':'ready'} · Notify2611=${notifyV2611.changed?'patched':'ready'} · Ui2611=${uiV2611.changed?'patched':'ready'} · TradFi2612=${tradfiV2612.changed?'patched':'ready'} · Ui2612=${uiV2612.changed?'patched':'ready'} · rescueLayers=OFF`);

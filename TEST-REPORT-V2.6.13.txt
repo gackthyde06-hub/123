@@ -1,0 +1,26 @@
+V2.6.13 TEST REPORT — 2026-09-03
+
+PASS  actual-trade-hub-v2613.js: node --check
+PASS  prepare-ui.mjs: node --check
+PASS  new V2.6.13 CSS/JS are cache-busted as sg2613 / app 102613
+PASS  prepare-ui copies actual-trade-hub-v2613.js + actual-trade-hub-v2613.css into public/
+PASS  prepare-ui removes old duplicate V2.6.13 tags before reinjection (idempotent static tag handling)
+PASS  actual-trade hub reads existing /api/actual-trades ledger; no new DB or Volume format
+PASS  quick entry writes through existing POST /api/actual-trades
+PASS  close uses existing PATCH /api/actual-trades/:id action=close
+PASS  close does not delete backend record; it changes active tracking state only
+PASS  hub outer fold defaults closed; open state is preserved across foreground refreshes
+PASS  individual opened Actual Trade cards preserve open state across foreground refreshes
+PASS  duplicate active symbol+direction changes quick chip to disabled「已建倉」
+PASS  quick-entry default leverage = 3x and remembers the last quick-entry margin/leverage locally
+PASS  legacy large observation Actual Trade button is hidden to avoid duplicate controls
+
+Scope intentionally unchanged:
+- V2.6.12 Crypto / TradFi market-learning hierarchy
+- HIGH / NORMAL hard gates
+- ABC Shadow / Structure learning
+- trader OPEN / ADD / REDUCE / CLOSE notifications
+- Railway Volume contents
+
+Not performed locally:
+- No live Railway/Binance network smoke test from sandbox.

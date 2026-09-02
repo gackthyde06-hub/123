@@ -1,0 +1,13 @@
+V2.6.13 上傳方式
+
+1. 解壓 position-alert-v2613-actual-trade-hub-quick-entry-upload.zip
+2. ZIP 內全部檔案上傳到 GitHub repo 根目錄
+3. 同名檔案：Replace
+4. 新檔 actual-trade-hub-v2613.js / actual-trade-hub-v2613.css：Add
+5. Railway Variables 不動
+6. Railway Volume 不刪、不重建
+7. 等 Railway Deploy 完成
+8. iPhone / PWA 完全關閉後重新打開
+
+完成後：
+觀察頁上方會看到預設收起的「已建倉」；建議 / 觀察 / A-B-C 標的旁會看到小型「建倉」。
