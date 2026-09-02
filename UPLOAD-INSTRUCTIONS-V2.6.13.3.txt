@@ -1,0 +1,11 @@
+V2.6.13.3 上傳方式
+
+只需要把以下 5 個檔案丟到 GitHub repo 根目錄並 Replace / Add：
+- actual-trade-hub-v2613.js
+- actual-trade-hub-v2613.css
+- ui-polish-v26133-patch.mjs
+- prepare-ui.mjs
+- start-safe-v26131.mjs
+
+Railway Variables / Volume 不要動。
+Deploy Success 後，把 iPhone PWA 完整關閉再開一次。
