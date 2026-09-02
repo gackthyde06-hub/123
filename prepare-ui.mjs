@@ -6,6 +6,7 @@ import { patchStructureEngineV2 } from './structure-engine-v2-patch.mjs';
 import { patchTestSignalsStability } from './test-signals-stability-patch.mjs';
 import { patchChartUxV262 } from './chart-ux-v262-patch.mjs';
 import { patchManualModeV263 } from './manual-mode-backend-patch.mjs';
+import { patchShadowLearningV264 } from './shadow-learning-v264-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,18 +16,19 @@ const __dirname=path.dirname(fileURLToPath(import.meta.url));
 // 3) keep test-signal scans off the HTTP critical path;
 // 4) do not load any V2.5.3/2.5.4/2.5.5 rescue/recovery frontend layers.
 let researchLayerReady=false;
-try{patchResearchLayer();researchLayerReady=true}catch(err){console.error('[ui:v263] Research R1 patch skipped:',String(err?.message||err))}
+try{patchResearchLayer();researchLayerReady=true}catch(err){console.error('[ui:v264] Research R1 patch skipped:',String(err?.message||err))}
 patchStructureEngineV2();
 const stability=patchTestSignalsStability();
 const chartUx=patchChartUxV262();
 const manualMode=patchManualModeV263();
+const abcShadow=patchShadowLearningV264();
 
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
-const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css','structure-learning-ui.js','structure-learning-ui.css','chart-ux-v262.css','manual-mode-ui.js','manual-mode-ui.css'];
+const files=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css','structure-learning-ui.js','structure-learning-ui.css','chart-ux-v262.css','manual-mode-ui.js','manual-mode-ui.css','growth-abc-v264.js','growth-abc-v264.css'];
 for(const name of files){
   const source=path.join(__dirname,name),target=path.join(publicDir,name);
-  if(!fs.existsSync(source))throw new Error(`[ui:v263] missing ${name}`);
+  if(!fs.existsSync(source))throw new Error(`[ui:v264] missing ${name}`);
   fs.copyFileSync(source,target);
 }
 
@@ -43,6 +45,7 @@ const removers=[
   /<link[^>]+href=["']\/structure-learning-ui\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/chart-ux-v262\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/manual-mode-ui\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
+  /<link[^>]+href=["']\/growth-abc-v264\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/ui-recovery-v255\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<script[^>]+src=["']\/system-growth-fetch-hotfix\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/system-growth-rescue\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
@@ -51,26 +54,29 @@ const removers=[
   /<script[^>]+src=["']\/structure-engine-v2-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/structure-learning-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/manual-mode-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
+  /<script[^>]+src=["']\/growth-abc-v264\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
 ];
 for(const re of removers)html=html.replace(re,'');
-html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=10263\"></script>');
+html=html.replace(/<script\s+src=[\"']\/app\.js(?:\?[^\"']*)?[\"']><\/script>/i,'<script src=\"/app.js?v=10264\"></script>');
 
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg263">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg263">',
-  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg263">',
-  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg263">',
-  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg263">',
-  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg263">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg264">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg264">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg264">',
+  '<link rel="stylesheet" href="/structure-learning-ui.css?v=sg264">',
+  '<link rel="stylesheet" href="/chart-ux-v262.css?v=sg264">',
+  '<link rel="stylesheet" href="/manual-mode-ui.css?v=sg264">',
+  '<link rel="stylesheet" href="/growth-abc-v264.css?v=sg264">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth.js?v=sg263"></script>',
-  '<script defer src="/premium-theme.js?v=sg263"></script>',
-  '<script defer src="/structure-engine-v2-ui.js?v=sg263"></script>',
-  '<script defer src="/structure-learning-ui.js?v=sg263"></script>',
-  '<script defer src="/manual-mode-ui.js?v=sg263"></script>',
+  '<script defer src="/system-growth.js?v=sg264"></script>',
+  '<script defer src="/premium-theme.js?v=sg264"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg264"></script>',
+  '<script defer src="/structure-learning-ui.js?v=sg264"></script>',
+  '<script defer src="/manual-mode-ui.js?v=sg264"></script>',
+  '<script defer src="/growth-abc-v264.js?v=sg264"></script>',
 ].join('\n');
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log(`[ui:v263] clean rebase + structure learning + chart clarity + manual ops ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · rescueLayers=OFF`);
+console.log(`[ui:v264] clean rebase + structure learning + chart clarity + manual ops ready · Research R1=${researchLayerReady?'ready':'skipped'} · Structure=S2.1.0 · testSignals=${stability.changed?'nonblocking':'already-nonblocking'} · chartUx=${chartUx.changed?'patched':chartUx.reason||'ready'} · manual=${manualMode.changed?'patched':manualMode.reason||'ready'} · abcShadow=${abcShadow.changed?'patched':abcShadow.reason||'ready'} · rescueLayers=OFF`);

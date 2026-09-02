@@ -1,0 +1,58 @@
+V2.6.4 — SHADOW GROWTH / ABC AUTO LEARNING
+日期：2026-09-02
+
+這版重點
+1) A/B/C 全自動 Shadow
+- 不需要手動下單。
+- 後端每輪手動機會掃描都會把「具備可驗證 Entry / Stop / 1R Target」的 A/B/C 機會建立 Shadow 紀錄。
+- C 級也會留結果；資料過期/可信度過低仍可留研究紀錄，但不餵進正式調權，避免垃圾樣本污染模型。
+- 同一標的＋方向以 45 分鐘（沿用去相關設定）為市場 episode，避免每分鐘重複灌樣本。
+- 同 episode 若 A→B→A，保留 gradeTimeline，不重複製造有效樣本。
+
+2) 會真的進入既有學習鏈
+- ABC Shadow 使用既有 V10.2.2 Shadow ledger。
+- 結算後由既有 stateLearningIndex 去相關。
+- 既有 testSignalTier 本來就會讀 stateLearningAdjustment，因此成熟的 ABC Shadow 樣本會逐步影響通知分數。
+- 可以把「原本因分數不足沒通知」的模式往上修，也會把長期差的模式往下修。
+- HARD BLOCKER / DESTROYED 不會被學習硬救回來。
+- 樣本門檻仍保留；小樣本不亂放大權重。
+
+3) A/B/C 自己也會學
+- /api/manual-opportunities 新增 shadowLearning。
+- 分 A/B/C 顯示 Shadow sample / hit rate / PF / adjustment。
+- A/B/C 執行分加入成熟 ABC Shadow 的小幅加減分。
+- 手動真的下單仍另外記 Actual Trade；Shadow 與 Actual Trade 不混成同一種樣本。
+
+4) 養成頁遊戲化（純 UX，不改交易規則）
+- 新增「ABC 戰術養成」：A/B/C EXP、Shadow 樣本、命中、PF、學習加減分。
+- 新增回合制風格「正在發生」：正在回踩 / 結構受損 / 正在收復 / 深回踩機會 / 結構已破壞等。
+- 明確顯示「不下單也會留影」。
+- 不使用 MutationObserver、不覆寫 window.fetch、不攔截主分頁。
+
+5) 結構記憶視覺修正
+- 拿掉歪斜的文字菱形 glyph。
+- 改成 CSS 對稱結構記憶 seal，固定置中、不靠圖片尺寸。
+
+6) 頁面不再因背景更新亂跳
+- System Growth 由「死記 scrollY」改成可見元素 anchor。
+- 養成面板若在畫面上方，也會固定目前可見的主 APP 元素。
+- Structure Learning 動態插入面板也保留 viewport anchor。
+- API 同步增加 timeout，不能再永久卡「同步研究資料」。
+
+7) 手動模式展開狀態永久保留
+- 你展開的 A/B/C 卡不會因 20 秒刷新自動關閉。
+- 你打開的「記錄我的手動下單」不會自動收起。
+- 排名實績 details 也保留。
+- 成本 / TP / SP / 保證金 / 槓桿 / 數量草稿會保留，刷新不會清掉。
+- 正在輸入時，非強制背景刷新直接跳過，不搶焦點。
+- 刷新後用 viewport anchor，避免建議排名上下跳。
+
+更新方式
+- ZIP 內所有檔案上傳 GitHub repo 根目錄。
+- 同名 Replace。
+- 不刪 Railway Volume。
+- 不要刪 shadow / structure-learning / actual-trades 資料。
+
+學習原則
+- 全部「可驗證」機會都盡量留研究結果，但不是所有垃圾資料都能進正式調權。
+- Shadow 的目標是把通知由「條件完成」逐步收斂成「實際 OOS 表現較值得打」；是否真的形成 edge 仍看後續去相關樣本、Net PF 與 OOS。

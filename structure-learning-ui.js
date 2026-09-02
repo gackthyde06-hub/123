@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.6.1';
+  const VERSION='2.6.4';
   const REFRESH_MS=30_000;
   const BOOT_RETRY_MS=1_500;
   let snapshot={learning:null,signals:null,updatedAt:0};
@@ -22,6 +22,9 @@
     if(x<0)return `<b class="sl-adj minus">${x}</b><small>學習減分</small>`;
     return '<b class="sl-adj flat">0</b><small>學習中性</small>';
   }
+
+  function viewportPin(exclude=null){const node=document.elementFromPoint(Math.max(12,Math.min(window.innerWidth/2,220)),Math.min(120,window.innerHeight/3));if(!node||(exclude&&exclude.contains(node)))return null;const el=node.closest?.('.page,.pageTabs,.sg-panel,.rankCard,.perfHero')||node;return el?.isConnected?{node:el,top:el.getBoundingClientRect().top}:null}
+  function restoreViewportPin(pin){if(!pin?.node?.isConnected)return;requestAnimationFrame(()=>{if(!pin.node.isConnected)return;const delta=pin.node.getBoundingClientRect().top-pin.top;if(Math.abs(delta)>1&&Math.abs(delta)<window.innerHeight*1.5)window.scrollBy({top:delta,left:0,behavior:'auto'})})}
 
   async function fetchJson(path,timeout=4_500){
     const ctrl=typeof AbortController!=='undefined'?new AbortController():null;
@@ -91,28 +94,31 @@
 
   function renderGrowth(){
     const panel=document.getElementById('sgPanel');if(!panel||panel.hidden||!snapshot.learning)return;
-    let box=panel.querySelector('#slGrowthPanel');
+    let box=panel.querySelector('#slGrowthPanel'),mountPin=null;
     if(!box){
+      mountPin=viewportPin(panel);
       box=document.createElement('details');box.id='slGrowthPanel';box.className='sg-accordion sl-growth-panel';box.open=true;box.dataset.sgDetailKey='structure-learning';
       const live=panel.querySelector('#sgCandidateSection'),accordions=panel.querySelector('.sg-accordions');
       if(accordions)accordions.prepend(box);else if(live)live.insertAdjacentElement('afterend',box);else panel.appendChild(box);
     }
     const sig=JSON.stringify([snapshot.updatedAt,snapshot.learning?.summary,currentRows().map(x=>[x.symbol,x.direction,x.structureV2?.state,x.structureV2?.health,x.structureV2?.learning?.adjustment])]);
-    if(box.dataset.slSig===sig)return;box.dataset.slSig=sig;
-    box.innerHTML=`<summary><i class="sg-acc-icon sl-icon">◇</i><div><b>結構記憶</b><span>STRUCTURE MASTERY</span></div><em>${n(snapshot.learning?.summary?.effective)??0} SAMPLE</em></summary><div class="sg-detail-body sl-body">${summaryHtml('growth')}</div>`;
+    if(box.dataset.slSig===sig)return;const rect=box.getBoundingClientRect(),keepTop=rect.bottom>0&&rect.top<window.innerHeight?rect.top:null;box.dataset.slSig=sig;
+    box.innerHTML=`<summary><i class="sg-acc-icon sl-icon"><span class="sl-memory-seal" aria-hidden="true"></span></i><div><b>結構記憶</b><span>STRUCTURE MASTERY</span></div><em>${n(snapshot.learning?.summary?.effective)??0} SAMPLE</em></summary><div class="sg-detail-body sl-body">${summaryHtml('growth')}</div>`;
+    if(keepTop!=null)requestAnimationFrame(()=>{const delta=box.getBoundingClientRect().top-keepTop;if(Math.abs(delta)>1&&Math.abs(delta)<window.innerHeight)window.scrollBy({top:delta,left:0,behavior:'auto'})});else restoreViewportPin(mountPin);
   }
 
   function renderPerformance(){
     const page=document.getElementById('page-performance');if(!page||!snapshot.learning)return;
-    let box=page.querySelector('#slPerformancePanel');
+    let box=page.querySelector('#slPerformancePanel'),mountPin=null;
     if(!box){
+      mountPin=viewportPin(page);
       box=document.createElement('section');box.id='slPerformancePanel';box.className='sl-performance-panel';
       const hero=page.querySelector('.perfHero');
       if(hero)hero.insertAdjacentElement('afterend',box);else page.prepend(box);
     }
     const sig=JSON.stringify([snapshot.updatedAt,snapshot.learning?.summary,currentRows().map(x=>[x.symbol,x.direction,x.structureV2?.state,x.structureV2?.health,x.structureV2?.learning?.adjustment])]);
     if(box.dataset.slSig===sig)return;box.dataset.slSig=sig;
-    box.innerHTML=`${summaryHtml('performance')}<div class="sl-export"><a href="/api/structure-learning.csv">結構學習 CSV</a><span>影子績效看「交易訊號」；這裡另外看「結構判讀本身」是否真的有效。</span></div>`;
+    box.innerHTML=`${summaryHtml('performance')}<div class="sl-export"><a href="/api/structure-learning.csv">結構學習 CSV</a><span>影子績效看「交易訊號」；這裡另外看「結構判讀本身」是否真的有效。</span></div>`;restoreViewportPin(mountPin);
   }
 
   function renderAll(){try{renderGrowth();renderPerformance()}catch(e){console.warn('[structure-learning-ui] render skipped',e?.message||e)}}

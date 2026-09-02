@@ -1,0 +1,28 @@
+V2.6.4 VALIDATION REPORT
+2026-09-02
+
+PASS — node --check: all root JS/MJS
+PASS — shadow-learning-v264 patch applies to V2.6.3-generated server helper code
+PASS — shadow-learning-v264 patch idempotent (second run => already-applied)
+PASS — patched synthetic server node --check
+PASS — ABC runtime: first capture creates 1 record
+PASS — ABC runtime: same 45m episode does not duplicate; grade transition stored in gradeTimeline
+PASS — ABC runtime: 20 resolved positive samples activate bounded positive grade adjustment
+PASS — Manual UI has persistent openCards / openForms
+PASS — Manual UI persists form drafts
+PASS — Manual UI viewport-anchor restoration present
+PASS — System Growth no longer uses brittle window.scrollTo(top: oldY) after re-render
+PASS — System Growth has stable #sgAbcArena placeholder
+PASS — Structure Memory uses centered .sl-memory-seal
+PASS — New frontend layers do not override window.fetch
+PASS — No new MutationObserver in V2.6.4 frontend layers
+PASS — Incremental prepare-ui simulation: Research/Structure/Stability/Chart/Manual already applied + V2.6.4 ABC patch
+PASS — prepare-ui injects sg264 assets and app.js?v=10264
+PASS — generated public JS parse
+
+Safety / invariants
+- Structure Engine S2.1 logic not modified by V2.6.4.
+- Structure Learning thresholds not loosened.
+- Existing HIGH/NORMAL hard blockers not removed.
+- Railway Volume files are not deleted/reset by this package.
+- Actual Trade remains separate from automatic ABC Shadow.

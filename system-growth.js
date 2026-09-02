@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const VERSION='2.3.1-stable-v256';
+  const VERSION='2.3.1-stable-v264';
   const INTERACT_HOLD_MS=30*60*1000;
   const OPEN_KEY='sg-open-v256';
   const SNAP_PREFIX='sg-day-v1-';
@@ -55,6 +55,15 @@
       if(Object.prototype.hasOwnProperty.call(saved,k))el.open=!!saved[k];
     });
   }
+  function captureGrowthAnchor(root){
+    if(!root||root.hidden||!root.isConnected)return null;const rr=root.getBoundingClientRect();
+    if(rr.bottom<0){const node=rootDoc.elementFromPoint(Math.max(12,Math.min(window.innerWidth/2,220)),Math.min(120,window.innerHeight/3));if(node&&!root.contains(node)){const el=node.closest?.('.pageTabs,.page,.sectionBar,.rankCard')||node;return {node:el,top:el.getBoundingClientRect().top,external:true}}return null}
+    if(rr.top>window.innerHeight)return null;
+    const els=[...root.querySelectorAll('[data-sg-detail-key],[data-sg-candidate],#sgAbcArena,#sgCandidateSection,#sgLessonSection,.sg-explore,.sg-attributes-layout,.sg-stage,.sg-core-card')];let pick=null;
+    for(const el of els){const r=el.getBoundingClientRect();if(r.bottom<0||r.top>window.innerHeight)continue;if(r.top<=96)pick=el;else if(!pick){pick=el;break}}
+    if(!pick)return null;const r=pick.getBoundingClientRect(),k=detailKey(pick)||pick.id||pick.getAttribute('data-sg-candidate')||'';return {key:k,top:r.top};
+  }
+  function restoreGrowthAnchor(root,a){if(!a)return;requestAnimationFrame(()=>{let el=a.external&&a.node?.isConnected?a.node:null;if(!el&&a.key)for(const x of root.querySelectorAll('[data-sg-detail-key],[data-sg-candidate],#sgAbcArena,#sgCandidateSection,#sgLessonSection,.sg-explore,.sg-attributes-layout,.sg-stage,.sg-core-card')){if(detailKey(x)===a.key||x.id===a.key){el=x;break}}if(!el)return;const delta=el.getBoundingClientRect().top-a.top;if(Math.abs(delta)>1&&Math.abs(delta)<window.innerHeight*1.5)window.scrollBy({top:delta,left:0,behavior:'auto'})})}
   function getDayBase(){return storageGet(SNAP_PREFIX+todayKey(),null)}
   function setDayBase(v){try{if(!localStorage.getItem(SNAP_PREFIX+todayKey()))localStorage.setItem(SNAP_PREFIX+todayKey(),JSON.stringify(v))}catch{}}
   function getExplore(){return storageGet(EXPLORE_PREFIX+todayKey(),{lesson:false,candidate:false,journal:false})||{lesson:false,candidate:false,journal:false}}
@@ -343,7 +352,7 @@
   }
 
   function render(){
-    const panel=rootDoc.getElementById('sgPanel');if(!panel||!state.perf)return;captureDetailsState(panel);const m=getMetrics(),sh=m.sh,sum=m.sum,patterns=m.patterns,rows=m.rows;
+    const panel=rootDoc.getElementById('sgPanel');if(!panel||!state.perf)return;const growthAnchor=captureGrowthAnchor(panel);captureDetailsState(panel);const m=getMetrics(),sh=m.sh,sum=m.sum,patterns=m.patterns,rows=m.rows;
     if(!getDayBase())setDayBase({xp:m.xp.xp,effective:m.xp.effective,blocked:m.xp.blocked,notified:m.xp.notified,at:Date.now()});
     const base=getDayBase()||{xp:m.xp.xp,effective:m.xp.effective,blocked:m.xp.blocked,notified:m.xp.notified},dx=Math.max(0,m.xp.xp-Number(base.xp||0)),de=Math.max(0,m.xp.effective-Number(base.effective||0)),db=Math.max(0,m.xp.blocked-Number(base.blocked||0)),dn=Math.max(0,m.xp.notified-Number(base.notified||0));
     const skillReturn=strategyPatternCount(patterns,'回踩'),skillBreak=strategyPatternCount(patterns,'突破'),depthResearch=Math.max(0,patterns.filter(x=>String(x?.features?.depth||'—')!=='—').reduce((a,x)=>a+Number(x.sample||0),0)),stateResearch=patterns.reduce((a,x)=>a+Number(x.sample||0),0),level=m.level,stagePct=clamp((m.xp.effective-m.stage.from)/Math.max(1,m.stage.to-m.stage.from)*100),history=recordHistory(m),skillCounts=[skillReturn,skillBreak,m.xp.effective,stateResearch,depthResearch,m.xp.blocked];
@@ -367,6 +376,7 @@
         </section>
       </div>
       <div class="sg-attributes-layout"><section class="sg-radar-card"><div class="sg-card-title"><b>六維屬性</b><span>研究成熟度 · 非勝率</span></div>${radarSvg(m.attrs)}<div class="sg-radar-hint">成熟度 · 非勝率</div></section><div class="sg-quick"><div><span class="sg-quick-title">${glyph('sample',iconGradeFromProgress(clamp((Number(sh.sample||0)/150)*100)),'影子樣本')}</span><b>${num(sh.sample||0)}</b><small>已結算 ${num(sh.resolved||0)}</small></div><div><span class="sg-quick-title">${glyph('dedup',iconGradeFromProgress(clamp((Number(sh.learningEffectiveResolved||0)/100)*100)),'去相關有效')}</span><b>${num(sh.learningEffectiveResolved||0)}</b><small>${num(sh.learningDedupMinutes||45)} 分去相關</small></div><div><span class="sg-quick-title">${glyph('hit',iconGradeFromProgress(clamp(Number(sh.hitRate||0))),'影子命中')}</span><b>${pct(sh.hitRate,1)}</b><small>PF ${pf(sh.profitFactor)}${has(m.research?.overall?.netProfitFactor)?` · Net ${pf(m.research.overall.netProfitFactor)}`:''}</small></div><div><span class="sg-quick-title">${glyph('notify',iconGradeFromProgress(clamp((Number(sum.sample||0)/30)*100)),'真正通知')}</span><b>${num(sum.sample||0)}</b><small>${Number(sum.sample||0)>0?`已追蹤 ${num(sum.sample||0)} 筆`:'尚無已追蹤通知'}</small></div></div></div>
+      <section id="sgAbcArena" class="sg-abc-arena" aria-label="ABC 戰術養成"><div class="sg-abc-loading"><b>ABC 戰術養成</b><span>影子正在整理戰況…</span><i></i><i></i><i></i></div></section>
       ${explorationHtml()}
       <section id="sgLessonSection">${lessonHtml(m)}</section>
       <section class="sg-live" id="sgCandidateSection"><div class="sg-section-head"><div><b>正在發生</b><span>LIVE RESEARCH</span></div><span>${rows.length} 個觀察狀態</span></div>${candidateHtml(rows)}</section>
@@ -383,6 +393,8 @@
       </div><div class="sg-footer"><i>◇</i><b>Observe · Filter · Upgrade</b><i>◇</i></div>`;
     bindPanelEvents(panel);
     restoreDetailsState(panel);
+    restoreGrowthAnchor(panel,growthAnchor);
+    window.dispatchEvent(new CustomEvent('sg:rendered'));
     celebrateProgress(m,[skillReturn,skillBreak,m.xp.effective,stateResearch,depthResearch,m.xp.blocked]);
   }
 
@@ -443,21 +455,17 @@
   }
 
   function showToast(text){const t=rootDoc.getElementById('sgToast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
-  async function getJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(`${path} ${r.status}`);return r.json()}
+  async function getJson(path,timeout=6500){const c=typeof AbortController!=='undefined'?new AbortController():null,t=c?setTimeout(()=>c.abort(),timeout):null;try{const r=await fetch(path,{cache:'no-store',...(c?{signal:c.signal}:{})});if(!r.ok)throw new Error(`${path} ${r.status}`);return await r.json()}finally{if(t)clearTimeout(t)}}
   async function loadData(force=false){
     if(state.loading)return;
     if(force&&state.open&&Date.now()<Number(state.interactUntil||0))return;
     if(!force&&state.perf&&Date.now()-state.lastLoadedAt<30_000){render();return}
     state.loading=true;setStatus('同步研究資料…');
     try{
-      const [perf,signals]=await Promise.all([getJson('/api/performance'),getJson('/api/test-signals').catch(()=>null)]);
+      const [perf,signals]=await Promise.all([getJson('/api/performance',6500),getJson('/api/test-signals',4500).catch(()=>null)]);
       const key=renderKeyFor(perf,signals);
       state.perf=perf;state.signals=signals;state.lastLoadedAt=Date.now();
-      if(key!==state.renderKey){
-        const y=window.scrollY||0;
-        state.renderKey=key;render();
-        requestAnimationFrame(()=>{if(Math.abs((window.scrollY||0)-y)>2)window.scrollTo({top:y,behavior:'auto'})});
-      }
+      if(key!==state.renderKey){state.renderKey=key;render()}
       setStatus('');
     }catch(e){setStatus(`養成資料暫時不可用 · ${e?.message||'未知錯誤'}`)}finally{state.loading=false}
   }
