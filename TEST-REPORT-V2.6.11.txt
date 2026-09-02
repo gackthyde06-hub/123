@@ -1,0 +1,31 @@
+V2.6.11 TEST REPORT — 2026-09-02
+
+PASS  ui-polish-v2611-patch.mjs: node --check
+PASS  notification-policy-v2611-patch.mjs: node --check
+PASS  coin-profile-v2611.inc injected JS: node --check
+PASS  prepare-ui.mjs: node --check
+PASS  UI fixture patch: icon-only page lock + TV symbol/card return + local profile detail
+PASS  UI generated app.js syntax
+PASS  PF display fixture: 99 -> 無虧損
+PASS  notification server fixture: lifecycle entry-only guard
+PASS  notification SW fixture: actionable whitelist + deterministic routes
+PASS  notification patch idempotence
+PASS  UI patch idempotence
+
+Notification policy verified:
+- HIGH/NORMAL CONFIRMED: allowed
+- HIGH/NORMAL REENTRY confirmation: allowed
+- INVALID / DROPPED / REARM / CONTINUING / WEAKENING / RECOVERING / WIN / LOSS / REENTRY TOUCH/result: blocked before send
+- Trader OPEN/ADD/REDUCE/CLOSE: allowed
+- Trader PULLBACK/DEEP_PULLBACK/INVALIDATION and CONSENSUS: blocked
+- Daily brief: allowed
+- Generic/old queued status push: SW rejects
+- ABC A/B/C manual alert: server renames to ABC單, SW allows, tap routes to 建議 / 手動作戰清單
+
+No changes to:
+- HIGH/NORMAL scoring thresholds
+- Structure V2 hard blockers
+- ABC Shadow learning samples/statistics
+- Actual Trade TP/SP first-touch backend
+- Railway Volume data
+- Core order polling / realtime WS
