@@ -1,0 +1,26 @@
+V2.6.3 TEST REPORT
+
+PASS node --check manual-mode-ui.js
+PASS node --check manual-mode-backend-patch.mjs
+PASS node --check prepare-ui.mjs
+PASS generated manual backend include syntax
+PASS generated actualTradeAggregate include syntax
+PASS patch integration on synthetic V10.2.7 anchors
+PASS patched server syntax on synthetic fixture
+PASS patch idempotence (second run already-applied)
+PASS grade regression: healthy confirmed setup => A
+PASS grade regression: waiting/reclaiming setup => B
+PASS grade regression: DESTROYED => C
+PASS grade regression: first target already reached + reentry WAIT => cannot A
+PASS no MutationObserver in manual UI
+PASS no window.fetch override in manual UI
+PASS no page-tab interception
+PASS manual records reuse existing V10.2.6 actual-trade ledger
+PASS manual notification preferences stored separately under DATA_DIR
+
+Scope intentionally unchanged:
+- Structure V2 judgement logic
+- Structure Learning thresholds/weights
+- Shadow engine
+- existing HIGH/NORMAL/ALL notification logic
+- Railway Volume data

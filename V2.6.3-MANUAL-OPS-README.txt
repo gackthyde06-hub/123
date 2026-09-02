@@ -1,0 +1,38 @@
+V2.6.3 Manual Ops / 手動作戰清單
+
+目標
+- 在「建議排名」上方新增 A / B / C 手動執行優先級。
+- A/B/C 不是勝率；是把 建議排名 + 觀察 + Structure V2 + Shadow + 資料新鮮度 + TP2 RR 合成的手動執行層。
+- A：已完成進場確認、結構可用、資料新鮮、RR/資料品質過關，優先人工研究。
+- B：方向仍可研究，但等待確認 / 結構收復 / 條件未滿。
+- C：過期、無完整觀察、結構徹底破壞、RR 太差或其他硬風險，只觀察。
+
+手動下單紀錄
+- 候選可展開填：成本、TP1、TP2、SP1、SP2、保證金、槓桿、數量。
+- 沿用現有 /api/actual-trades 與 V10.2.6 實倉追蹤器，不另造第二套交易帳本。
+- 儲存時一併記錄：A/B/C、執行分、當時排名、Structure 狀態/健康度/學習分、Shadow 命中/PF、RR、資料新鮮度。
+- 後端繼續自動追蹤 TP / SP、MFE / MAE、估計 PnL、WIN / LOSS。
+
+實績統計
+- A / B / C 各自的實際手動命中率、PF、樣本數。
+- 排名 1–3 / 4–6 / 7+ 的實際手動命中率與 PnL。
+- 只用使用者真正記錄的手動交易結果，不拿模型估計勝率冒充實績。
+
+手動模式通知
+- 獨立開關：只 A / A+B / A+B+C。
+- Push 只提醒「候選」，明確標示非自動進場。
+- 同 symbol + direction + grade 90 分鐘去重。
+- 已有 ACTIVE 手動實倉的機會不重複通知。
+
+安全邏輯
+- DESTROYED 永遠 C。
+- DAMAGED 不可 A。
+- RECLAIMING 未完成進場確認不可 A。
+- OPPORTUNITY 必須有 reclaim / wick sweep 證據且已 CONFIRMED 才能 A。
+- 判讀 > 5 分鐘直接 C；> 2 分鐘無法進 A。
+- TP2 RR < 1 直接 C；A 要求 TP2 RR >= 1.5（若 RR 已建立）。
+- Shadow 強負面樣本會封鎖 A；Shadow 只作小幅佐證，不能救回壞結構。
+
+更新
+- 將此 ZIP 全部檔案放到 GitHub repo 根目錄，同名 Replace。
+- 不刪 Railway Volume。
