@@ -3,55 +3,50 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { patchResearchLayer } from './research-layer-patch.mjs';
 import { patchStructureEngineV2 } from './structure-engine-v2-patch.mjs';
+import { patchRuntimeResilience } from './runtime-resilience-patch.mjs';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
-let researchLayerReady = false;
-try {
+let researchLayerReady=false;
+try{
   patchResearchLayer();
-  researchLayerReady = true;
-} catch (err) {
-  // Research R1 is analytics-only. A brittle research anchor must never prevent the core app from booting.
-  // The structure engine is applied independently against the untouched server.js when R1 fails before commit.
-  console.error('[ui] Research R1 patch skipped:', String(err?.message || err));
+  researchLayerReady=true;
+}catch(err){
+  console.error('[ui] Research R1 patch skipped:',String(err?.message||err));
 }
 patchStructureEngineV2();
+const resilience=patchRuntimeResilience();
 
 const publicDir=path.join(__dirname,'public');
 const htmlPath=path.join(publicDir,'index.html');
-const files=['system-growth.css','system-growth.js','system-growth-fetch-hotfix.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css'];
-
+const files=['system-growth.css','system-growth.js','system-growth-rescue.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css'];
 for(const name of files){
-  const source=path.join(__dirname,name);
-  const target=path.join(publicDir,name);
+  const source=path.join(__dirname,name),target=path.join(publicDir,name);
   if(!fs.existsSync(source))throw new Error(`[ui] missing ${name}`);
   fs.copyFileSync(source,target);
 }
-
 let html=fs.readFileSync(htmlPath,'utf8');
 const removers=[
   /<link[^>]+href=["']\/system-growth\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/premium-theme\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
   /<link[^>]+href=["']\/structure-engine-v2\.css(?:\?[^"']*)?["'][^>]*>\s*/gi,
-  /<script[^>]+src=["']\/system-growth-fetch-hotfix\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
+  /<script[^>]+src=["']\/system-growth-rescue\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/system-growth\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/premium-theme\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
   /<script[^>]+src=["']\/structure-engine-v2-ui\.js(?:\?[^"']*)?["'][^>]*><\/script>\s*/gi,
 ];
 for(const re of removers)html=html.replace(re,'');
-
 const cssTags=[
-  '<link rel="stylesheet" href="/system-growth.css?v=sg253">',
-  '<link rel="stylesheet" href="/premium-theme.css?v=sg253">',
-  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg253">',
+  '<link rel="stylesheet" href="/system-growth.css?v=sg254">',
+  '<link rel="stylesheet" href="/premium-theme.css?v=sg254">',
+  '<link rel="stylesheet" href="/structure-engine-v2.css?v=sg254">',
 ].join('\n');
 const jsTags=[
-  '<script defer src="/system-growth-fetch-hotfix.js?v=sg253"></script>',
-  '<script defer src="/system-growth.js?v=sg253"></script>',
-  '<script defer src="/premium-theme.js?v=sg253"></script>',
-  '<script defer src="/structure-engine-v2-ui.js?v=sg253"></script>',
+  '<script defer src="/system-growth-rescue.js?v=sg254"></script>',
+  '<script defer src="/system-growth.js?v=sg254"></script>',
+  '<script defer src="/premium-theme.js?v=sg254"></script>',
+  '<script defer src="/structure-engine-v2-ui.js?v=sg254"></script>',
 ].join('\n');
-
 html=html.replace('</head>',`${cssTags}\n</head>`);
 html=html.replace('</body>',`${jsTags}\n</body>`);
 fs.writeFileSync(htmlPath,html,'utf8');
-console.log(`[ui] premium integration v2.5.3 + Structure Engine V2 ready · Research R1=${researchLayerReady?'ready':'skipped'}`);
+console.log(`[ui] V2.5.4 resilience ready · Research R1=${researchLayerReady?'ready':'skipped'} · server=${resilience.server?.changed?'patched':resilience.server?.reason||'fallback'} · growth=${resilience.growth?.changed?'patched':resilience.growth?.reason||'fallback'}`);
