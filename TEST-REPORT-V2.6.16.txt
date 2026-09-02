@@ -1,0 +1,44 @@
+V2.6.16 TEST REPORT
+
+PASS syntax:
+- start-safe-v2616.mjs
+- prepare-ui.mjs
+- notification-control-v2616-patch.mjs
+- ui-control-v2616-patch.mjs
+- runtime-stability-v2616-patch.mjs
+- actual-trade-hub-v2613.js
+
+PASS finalizer fixture:
+- notification control applies and second run is idempotent
+- UI control applies and second run is idempotent
+- public app/manual/SW syntax valid after patch
+- C filter absent
+- ALL filter absent
+- A/B + MANUAL/AUTO/BOTH controls present
+
+PASS runtime fixture:
+- market flow hard deadline inserted
+- ranked ideas hard deadline + stale/empty fallback inserted
+- manual opportunity ranked-ideas deadline inserted
+- old observation retention shortened for live UI
+- old v2614-controls / v2615-stability script tags removed
+- second run idempotent
+
+PASS combined fixture:
+- notification + UI + runtime finalizers apply together
+- patched server/app/manual/SW syntax valid
+- old controller scripts absent
+
+PASS prepare fixture:
+- historical modules deliberately missing do not abort preparation
+- mandatory V2.6.16 Notify/UI/Runtime finalizers still apply
+- output reports READY
+
+PASS Actual Trade Hub static invariants:
+- no MutationObserver
+- no external v2614Hidden dependency
+- first-run hidden state is persistent
+- OFF toggle always remains visible with active count
+- active records filtered only by backend status/result or explicit close cache
+
+Not claimed: live Railway/Binance end-to-end network test from this sandbox. Runtime has fail-safe deadlines specifically so upstream stalls cannot keep the UI in permanent loading state.
