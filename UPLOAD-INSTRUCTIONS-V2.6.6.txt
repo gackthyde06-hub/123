@@ -1,0 +1,13 @@
+V2.6.6 上傳方式
+
+把這 5 個檔案放到 GitHub repo 根目錄：
+- package.json（Replace）
+- prepare-ui.mjs（Replace）
+- railway-egress-v266-patch.mjs（New）
+- V2.6.6-RAILWAY-COST-OPTIMIZATION-README.txt（New）
+- TEST-REPORT-V2.6.6.txt（New）
+
+不要刪其他檔案。
+不要刪 Railway Volume。
+不要改 Railway Variables。
+Railway 若已綁 GitHub main，commit 後會自動部署。

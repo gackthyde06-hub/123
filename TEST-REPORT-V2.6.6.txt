@@ -1,0 +1,37 @@
+V2.6.6 TEST REPORT
+Date: 2026-09-02
+
+STATIC / SAFETY TARGETS
+- Preserve V2.6.5 UI / ABC learning line: YES
+- Do not change CORE_ORDER_POLL_MS=3000 default: YES (patch does not touch poll constants)
+- Preserve visible foreground refresh=8000ms: YES
+- Do not delete or migrate Railway Volume data: YES
+- Do not change HIGH/NORMAL/Structure thresholds: YES
+
+PATCH TARGETS
+- server.js: add compression import + middleware
+- server.js: replace public no-store static policy with ETag/Last-Modified + bounded cache policy
+- server.js: GET /api uses private no-cache revalidation policy
+- public/app.js: fetch no-store -> no-cache
+- public/app.js: keep 8s visible refresh; pause only when document.hidden; instant refresh on foreground
+- system-growth.js: pause 60s fetch while hidden; refresh on foreground
+- prepare-ui.mjs: cost patch runs last; cache-bust 10266 / sg266
+- package.json: compression dependency added
+
+EXECUTED LOCALLY
+- node --check railway-egress-v266-patch.mjs: PASS
+- node --check prepare-ui.mjs: PASS
+- JSON parse package.json: PASS
+- synthetic current-server static block patch: PASS
+- synthetic current-app 8s timer patch: PASS
+- patch idempotency second run: PASS
+
+LIVE VALIDATION REQUIRED AFTER RAILWAY DEPLOY
+- npm dependency install on Railway
+- HTTP Content-Encoding response header on large JSON/static requests
+- Browser cache response headers
+- iPhone Web Push delivery
+- Railway Usage Egress slope after several hours/day
+
+NOTE
+This build intentionally optimizes transfer behavior rather than slowing the core 3-second notification poll. Actual cost reduction depends on how long the app stays open, which pages are active, and the size/change rate of API payloads.

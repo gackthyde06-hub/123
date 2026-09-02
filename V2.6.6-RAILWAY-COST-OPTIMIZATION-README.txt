@@ -1,0 +1,65 @@
+V2.6.6 — RAILWAY COST / EGRESS OPTIMIZATION
+日期：2026-09-02
+基底：V2.6.5 MOBILE READABILITY + ABC SHADOW CAPTURE FIX，保留目前 repo 內既有後端功能。
+
+這版只處理 Railway 成本與流量，不改交易判斷門檻、不改 HIGH/NORMAL 通知門檻、不改 Structure V2、不清 Railway Volume。
+
+為什麼要修
+- Railway Usage 顯示目前最大單項成本是 Network Egress。
+- 現行 server.js 對 public 靜態檔明確設定 etag:false、lastModified:false、Cache-Control:no-store，等於瀏覽器每次需要時都不能有效重用檔案。
+- 前端多個動態 API 也使用 fetch cache:no-store。
+- 監控/觀察頁維持 8 秒更新是必要的，但背景分頁沒有必要持續把整包 JSON 傳給瀏覽器。
+
+V2.6.6 修正
+1. HTTP 壓縮
+- 新增 compression 套件。
+- 大於 1KB 的 JSON / JS / CSS 以 gzip/deflate 壓縮傳輸。
+- 壓縮 level 4：優先降低 Egress，同時避免把 CPU 成本拉太高。
+
+2. 靜態檔真正啟用瀏覽器快取
+- ETag / Last-Modified 恢復。
+- app icon / trader 圖 / SVG：7 天快取。
+- JS / CSS：1 小時快取 + stale-while-revalidate。
+- index.html / sw.js / manifest：每次重驗證，避免更新卡在舊版。
+- app.js cache-bust 升到 10266；System Growth 資產升到 sg266。
+
+3. API 從 no-store 改成 no-cache
+- no-cache 不是用舊資料；它代表使用前必須向伺服器重驗證。
+- 內容沒變時可以走條件式驗證，避免不必要的完整下載。
+
+4. 背景分頁停止 8 秒大包資料下載
+- 原本前景 8 秒刷新完全保留。
+- document.hidden 時不再執行頁面 API refresh。
+- 回到頁面立刻刷新，不用等下一個 8 秒週期。
+- Web Push、Railway 後端輪詢、熬鷹核心 3 秒訂單輪詢完全不受影響。
+
+5. 系統養成頁背景節流
+- 養成面板的 60 秒同步在背景分頁暫停。
+- 回到前景立即補同步。
+
+沒有改的東西
+- CORE_ORDER_POLL_MS 預設仍 3000ms。
+- 前端可見狀態刷新仍 8000ms。
+- TEST_SIGNAL_SCAN_MS、Realtime WS、Binance/Bybit/OKX 判讀來源不關閉。
+- ABC Shadow / state learning / actual trade / monitor recovery 全保留。
+- Railway Volume 不刪、不重建。
+
+預期效果
+- JSON 類資料通常可因壓縮大幅縮小；實際節省比例依當時 payload 而定，不能保證固定百分比。
+- 若平常常把 PWA/網頁放背景，背景節流會再明顯減少 Egress。
+- 靜態大圖與大型 CSS/JS 不再每次重抓。
+- CPU 可能因壓縮略增，但現有帳單中 Egress 明顯高於 CPU，因此這個交換較划算。
+
+更新方式
+1. 解壓 ZIP。
+2. 把 ZIP 內全部檔案上傳 GitHub repo 根目錄，同名檔按 Replace；railway-egress-v266-patch.mjs 是新增檔。
+3. 不要刪 Railway Volume / Variables。
+4. Railway 會自動重新部署。
+5. Deploy log 應看到：RailwayEgress=optimized（第一次）或 already-optimized（重啟/重跑）。
+
+部署後檢查
+- 首頁、監控、觀察、績效都能正常打開。
+- 監控/觀察可見時仍約 8 秒更新。
+- 切到其他瀏覽器分頁 1 分鐘再回來，應立即補刷新。
+- iPhone Push 不需重新開關；若本來正常，這版不改 Push 訂閱資料。
+- Railway Usage 的 Egress 要看「部署後新增斜率」，不要拿已經累積的 19.97GB 當作沒有下降。
