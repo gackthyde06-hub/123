@@ -1,0 +1,44 @@
+V2.6.5 — MOBILE READABILITY + ABC SHADOW CAPTURE FIX
+日期：2026-09-02
+
+這版只做指定修正，不改 Structure V2 判斷門檻、不放寬 HIGH/NORMAL 通知硬門檻、不刪任何 Railway Volume 資料。
+
+1) 建議頁 B 級改成養成頁同一套藍色
+- B 卡片邊框 / 左側強調線改藍色。
+- B 徽章改 #101823 深藍底 + #86aee2 藍字。
+- B 篩選按鈕選中時改藍色，不再套金色/綠色。
+- B 級 Shadow 統計格同步改藍色。
+- 做空方向標籤仍維持綠色，因此「B級」與「做空」不再混淆。
+
+2) 手機字體可讀性
+- 手動作戰清單標題、說明、ABC 分頁、狀態、統計、卡片細節、支持/風險、手動下單欄位全面放大手機字級。
+- 養成頁 ABC 戰術養成的小字同步放大。
+- 不改原本版型密度與卡片結構。
+
+3) ABC Shadow 0 SAMPLE 問題修正
+檢查發現 V2.6.4 真正的資料缺口：
+- B/C 候選尚未正式確認時，常常還沒有 target1R / TP1。
+- 舊的 abcShadowLevelsValid() 強制要求 target 必須存在。
+- 因此畫面可以有 8 個 B、4 個 C，但 Shadow capture 會因 skippedNoLevels 全部略過，造成 ABC 仍是 0 SAMPLE。
+
+V2.6.5 修正：
+- ABC 研究影子優先用「當下實際 current price」作研究進場，不再假設你已成交在尚未觸及的建議區中點，降低假成交偏誤。
+- Stop 必須仍在正確風險方向；不合法就直接跳過，不造假樣本。
+- 若正式 TP1 尚未建立或已不適合當下研究進場，僅對「Shadow 研究帳本」推導等距 1R Target。
+- 這個推導 Target 不會寫回你的手動建議 TP、不會改通知 TP、不會讓 B/C 自動變成 A。
+- CSV 新增 abcTargetDerived / abcEntryPriceSource / abcReferenceEntryPrice，之後可稽核來源。
+- 建議頁 ABC Shadow footer 新增：本輪新增 / 更新 / 推導1R / 無可驗證點位，可直接看 capture 是否真的在運作。
+
+4) 學習鏈確認
+- ABC 紀錄仍寫入既有 V10.2.2 Shadow ledger，source 保留 ABC_AUTO_V264 以延續既有 cohort，不切斷舊資料。
+- 同標的＋方向 45 分鐘 episode 去重；A→B→A 只更新 gradeTimeline，不灌重複樣本。
+- resolved 且 learningEligible 的 ABC Shadow 會進既有 stateLearning 去相關鏈。
+- ABC 等級自身 adjustment 預設至少 20 筆 resolved eligible 樣本才啟動；小樣本維持 0 分，不亂加權。
+- HARD BLOCKER / DESTROYED / 通知安全閘門沒有被學習繞過。
+- Actual Trade 仍與 Shadow 分開。
+
+更新方式
+- ZIP 全部檔案上傳 GitHub repo 根目錄，同名 Replace。
+- 不要刪 Railway Volume。
+- 部署完成後，建議頁 ABC Shadow footer 應開始顯示本輪 capture 數字。
+- 原本的 690 等既有 Shadow 樣本不會被硬改成 ABC 標籤；ABC cohort 從功能上線後逐步累積，這是正確做法。

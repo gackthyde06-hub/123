@@ -1,0 +1,33 @@
+V2.6.5 VALIDATION REPORT
+2026-09-02
+
+PASS — node --check: 13 個 root JS/MJS 全部通過。
+PASS — V2.6.5 Shadow patch 可從乾淨 V2.6.3-style manual server 套用。
+PASS — V2.6.5 Shadow patch 可直接升級已存在 V2.6.4 marker 的 generated server，不重複插入函式。
+PASS — patch idempotent：第二次執行回傳 already-applied。
+PASS — generated server node --check。
+PASS — full prepare-ui 模擬：Research/Structure/Stability/Chart/Manual 保留，ABC V2.6.4 -> V2.6.5 升級成功。
+PASS — prepare-ui cache bust 更新為 sg265 / app.js?v=10265。
+
+ABC Shadow runtime regression
+PASS — LONG B 級、無 TP1：使用 observed currentPrice 建立 Shadow。
+PASS — 無 TP1 時由 entry ↔ stop 距離推導研究專用 1R target，targetR = 1.0。
+PASS — SHORT 無 TP1 同樣正確推導反方向 1R。
+PASS — Stop 位於錯誤方向時拒絕建立樣本。
+PASS — 同 45 分鐘 episode 不重複建立；grade transition 寫入 gradeTimeline。
+PASS — 20 筆 resolved eligible 樣本可啟動 bounded adjustment；小樣本仍為 0。
+PASS — audit 新增 derivedTargets / currentPriceEntries / referenceEntries / skippedNoLevels。
+
+UI regression
+PASS — Manual B 卡片、B badge、B filter、B Shadow stat 全改為養成頁 B 藍色系 (#86aee2 / #101823 / rgba(88,135,197,...))。
+PASS — 做空 badge 維持綠色，B 級與 SHORT 視覺分離。
+PASS — Manual mobile typography 已放大，不改 layout structure。
+PASS — Growth ABC mobile small text 已放大，不改 FF/JRPG layout。
+PASS — manual UI localStorage key 保持 v264，因此既有展開狀態與草稿不會因本版改名而消失。
+
+Safety invariants
+- Structure Engine S2.1 threshold 未修改。
+- Structure Learning threshold 未修改。
+- HIGH/NORMAL hard blockers 未移除或放寬。
+- 研究推導 1R 不會覆寫手動 TP/通知 TP。
+- Railway Volume 不會被此套件刪除或重設。

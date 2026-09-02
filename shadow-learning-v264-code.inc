@@ -1,4 +1,4 @@
-/* ABC_SHADOW_LEARNING_V264_20260902
+/* ABC_SHADOW_LEARNING_V265_20260902
  * Purpose: every valid A/B/C opportunity is shadow-tracked even when the user never trades it.
  * The records live in the existing V10.2.2 shadow ledger so the already-audited state-learning
  * engine can learn from them after the normal de-correlation gate. Hard blockers are untouched.
@@ -27,23 +27,29 @@ function abcShadowLearningForTracker(t,direction,regime,strategyId){
 function abcShadowLearningSummary(){
   const all=shadowPerformance.filter(abcShadowTagged),resolved=all.filter(x=>x.status==='RESOLVED'),eligible=resolved.filter(x=>x.learningEligible!==false),byGrade=['A','B','C'].map(key=>{const rows=eligible.filter(x=>abcShadowGrade(x.manualGradeAtEntry)===key),stats=abcShadowStats(rows);return {key,...stats,adjustment:abcShadowAdjustmentFromStats(stats)}});
   const overall=abcShadowStats(eligible),active=all.filter(x=>x.status==='ACTIVE').length;
-  return {version:'V2.6.4',source:ABC_SHADOW_SOURCE,sample:all.length,active,resolved:resolved.length,learningEligibleResolved:eligible.length,minSample:ABC_SHADOW_MIN_GRADE_SAMPLE,maxBonus:ABC_SHADOW_MAX_BONUS,episodeMinutes:Math.round(ABC_SHADOW_EPISODE_MS/60000),overall,byGrade};
+  return {version:'V2.6.5',source:ABC_SHADOW_SOURCE,sample:all.length,active,resolved:resolved.length,learningEligibleResolved:eligible.length,minSample:ABC_SHADOW_MIN_GRADE_SAMPLE,maxBonus:ABC_SHADOW_MAX_BONUS,episodeMinutes:Math.round(ABC_SHADOW_EPISODE_MS/60000),overall,byGrade};
 }
 function abcShadowEpisodeRecord(row,now=Date.now()){
   const symbol=cleanFuturesSymbol(row?.symbol),direction=row?.direction==='SHORT'?'SHORT':'LONG';
   if(!symbol)return null;
   return shadowPerformance.find(x=>abcShadowTagged(x)&&x.symbol===symbol&&x.direction===direction&&Math.abs(now-new Date(x.shadowAt||0).getTime())<ABC_SHADOW_EPISODE_MS)||null;
 }
-function abcShadowLevelsValid(row){
-  const e=manualFinite(row?.entry?.price),s=manualFinite(row?.entry?.stop),tg=manualFinite(row?.entry?.target),dir=row?.direction==='SHORT'?-1:1;
-  return e>0&&s>0&&tg>0&&dir*(tg-e)>0&&dir*(s-e)<0&&Math.abs(e-s)>0;
+function abcShadowLevels(row){
+  const referenceEntry=manualFinite(row?.entry?.price),liveEntry=manualFinite(row?.entry?.currentPrice),stop=manualFinite(row?.entry?.stop),suppliedTarget=manualFinite(row?.entry?.target),dir=row?.direction==='SHORT'?-1:1;
+  const useLive=liveEntry>0,entry=useLive?liveEntry:referenceEntry;
+  if(!(entry>0&&stop>0&&dir*(stop-entry)<0))return null;
+  const risk=Math.abs(entry-stop);if(!(risk>0))return null;
+  const suppliedValid=suppliedTarget>0&&dir*(suppliedTarget-entry)>0;
+  const target=suppliedValid?suppliedTarget:entry+dir*risk;
+  return {entry,stop,target,risk,targetDerived:!suppliedValid,referenceEntry,entrySource:useLive?'CURRENT_PRICE':'REFERENCE_ENTRY'};
 }
+function abcShadowLevelsValid(row){return Boolean(abcShadowLevels(row))}
 function abcShadowCapture(rows){
-  const now=Date.now(),audit={seen:0,created:0,updated:0,skippedNoTracker:0,skippedNoLevels:0,learningEligible:0};
+  const now=Date.now(),audit={seen:0,created:0,updated:0,skippedNoTracker:0,skippedNoLevels:0,learningEligible:0,derivedTargets:0,currentPriceEntries:0,referenceEntries:0};
   for(const row of rows||[]){
     audit.seen++;
     const t=row?.signalKey?testSignalTrackers.get(row.signalKey):null;if(!t){audit.skippedNoTracker++;continue}
-    if(!abcShadowLevelsValid(row)){audit.skippedNoLevels++;continue}
+    const levels=abcShadowLevels(row);if(!levels){audit.skippedNoLevels++;continue}
     const existing=abcShadowEpisodeRecord(row,now);
     if(existing){
       const grade=abcShadowGrade(row.grade),old=abcShadowGrade(existing.manualGradeCurrent||existing.manualGradeAtEntry);
@@ -51,11 +57,11 @@ function abcShadowCapture(rows){
       existing.manualGradeCurrent=grade;existing.manualExecutionScoreCurrent=Number(row.executionScore||0);existing.manualRankCurrent=Number(row.rank||0)||null;existing.structureStateCurrent=String(row.structure?.state||'UNKNOWN');existing.structureHealthCurrent=manualFinite(row.structure?.health);existing.abcLastSeenAt=new Date(now).toISOString();
       audit.updated++;continue;
     }
-    const entry=Number(row.entry.price),stop=Number(row.entry.stop),target=Number(row.entry.target),risk=Math.abs(entry-stop);if(!(risk>0))continue;
+    const {entry,stop,target,risk,targetDerived,referenceEntry,entrySource}=levels;if(targetDerived)audit.derivedTargets++;if(entrySource==='CURRENT_PRICE')audit.currentPriceEntries++;else audit.referenceEntries++;
     const features=stateLearningFeatures(t),keys=stateLearningKeys(features),learning=stateLearningAdjustment(t),grade=abcShadowGrade(row.grade),learningEligible=row.freshness!=='STALE'&&Number(row.dataHealth?.coverage||0)>=55&&Number(row.dataHealth?.confidence||0)>=50;
     const id=`abc-shadow-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
     const rec={id,version:'V10.2.2',shadowSource:ABC_SHADOW_SOURCE,signalKey:t.key,symbol:t.symbol,direction:t.direction,phase:'ABC_GRADE',shadowAt:new Date(now).toISOString(),entryPrice:entry,stop,target,riskDistance:risk,targetR:Number((testSignalDirection(t.direction)*(target-entry)/risk).toFixed(3)),strategyId:features.strategyId,strategyLabel:features.strategyLabel,marketRegime:features.regime,stateFeatures:features,stateKeys:keys,stateLabel:`ABC ${grade}｜${features.strategyLabel}｜${features.regime}｜${features.direction}`,rawScore:Number(row.executionScore||0),adjustedScore:Number(row.executionScore||0),learningAdjustmentAtEntry:Number(learning.adjustment||0),tierAtEntry:String(row.notificationTier||'VALID'),learningEligible,shadowProgress:manualFinite(row.observationProgress),blockReasons:Array.isArray(row.risks)?row.risks.slice(0,8):[],notified:Boolean(t.lastEntryNotificationAt||t.notificationSentAt),notificationId:t.lastEntryNotificationId||null,
-      manualGradeAtEntry:grade,manualGradeCurrent:grade,manualExecutionScoreAtEntry:Number(row.executionScore||0),manualExecutionScoreCurrent:Number(row.executionScore||0),manualRankAtEntry:Number(row.rank||0)||null,manualRankCurrent:Number(row.rank||0)||null,structureStateAtEntry:String(row.structure?.state||'UNKNOWN'),structureStateCurrent:String(row.structure?.state||'UNKNOWN'),structureHealthAtEntry:manualFinite(row.structure?.health),structureHealthCurrent:manualFinite(row.structure?.health),structureLearningAdjustmentAtEntry:manualFinite(row.structure?.learningAdjustment),abcCreatedWithoutManualTrade:true,abcLastSeenAt:new Date(now).toISOString(),gradeTimeline:[],
+      manualGradeAtEntry:grade,manualGradeCurrent:grade,manualExecutionScoreAtEntry:Number(row.executionScore||0),manualExecutionScoreCurrent:Number(row.executionScore||0),manualRankAtEntry:Number(row.rank||0)||null,manualRankCurrent:Number(row.rank||0)||null,structureStateAtEntry:String(row.structure?.state||'UNKNOWN'),structureStateCurrent:String(row.structure?.state||'UNKNOWN'),structureHealthAtEntry:manualFinite(row.structure?.health),structureHealthCurrent:manualFinite(row.structure?.health),structureLearningAdjustmentAtEntry:manualFinite(row.structure?.learningAdjustment),abcCreatedWithoutManualTrade:true,abcTargetDerived:targetDerived,abcEntryPriceSource:entrySource,abcReferenceEntryPrice:referenceEntry,abcLastSeenAt:new Date(now).toISOString(),gradeTimeline:[],
       status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:entry,lastPriceAt:new Date(now).toISOString(),lastSource:'abc-shadow-entry',costBps:PERF_ROUND_TRIP_COST_BPS};
     shadowPerformance.unshift(rec);shadowActiveSymbols.add(cleanFuturesSymbol(rec.symbol));scheduleShadowPerformanceSave();shadowOnPrice(rec.symbol,entry,now,'abc-shadow-entry');audit.created++;if(learningEligible)audit.learningEligible++;
   }
