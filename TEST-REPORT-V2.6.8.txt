@@ -1,0 +1,31 @@
+V2.6.8 TEST REPORT
+
+PASS
+- ui-polish-v268-patch.mjs node --check
+- prepare-ui.mjs node --check
+- V2.6.8 patch synthetic fixture execution PASS
+- patched server.js syntax PASS
+- patched public/app.js syntax PASS
+- patched system-growth.js syntax PASS
+- patched growth-abc-v264.js syntax PASS
+- patched structure-learning-ui.js syntax PASS
+- patched manual-mode-ui.js syntax PASS
+- TV return state: page + scrollY + clicked TradingView anchor top/index retained
+- return restore retries through delayed background refresh; user touch/wheel cancels auto restore
+- ABC 戰術養成 -> 影子戰術
+- 影子戰術「正在發生」->「篩選中」
+- 結構記憶 -> plain ◇, no frame/background
+- Manual A/B/C SAMPLE -> expandable recent symbol details
+- Manual History -> lazy endpoint, 30 rows / 360 min
+- Per-grade detail -> 12 rows / 360 min
+- UI expiry does not delete Shadow/model learning ledger
+- B left highlight reduced to 2px / low alpha
+- Cache bust bumped to app 10268 / SG 268
+
+UNCHANGED
+- HIGH / NORMAL / VALID notification thresholds
+- Structure V2 decision boundaries
+- ABC Shadow learning thresholds
+- core trader polling / Push logic
+- actual trade tracking
+- Railway Volume / Variables

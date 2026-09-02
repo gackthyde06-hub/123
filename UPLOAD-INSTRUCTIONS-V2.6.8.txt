@@ -1,0 +1,15 @@
+V2.6.8 更新方式
+
+1. 解壓 ZIP。
+2. 把 ZIP 內所有功能檔丟到 GitHub repo 根目錄，同名檔按 Replace：
+   - package.json
+   - prepare-ui.mjs
+   - railway-egress-v266-patch.mjs
+   - railway-hobby-v267-patch.mjs
+   - ui-polish-v267-patch.mjs
+   - ui-polish-v268-patch.mjs
+3. README / TEST-REPORT / 本說明檔可一起上傳，也可不傳；不影響程式。
+4. Railway 等自動部署完成。
+5. Railway Variables / Volume 不用改。
+
+更新後瀏覽器若還看到舊 UI，先正常重整一次即可；V2.6.8 已把 app.js 與外掛 UI query version 升到 10268 / sg268。
