@@ -1,0 +1,10 @@
+/* V2.6.29 final UI contract: one visible growth renderer + stable A/B manual observation UI. */
+#sgPanel:has(> #sgStatusV2625) > :not(#sgStatusV2625){display:none!important}
+#sgStatusV2625{display:block!important;overflow-anchor:auto;contain:layout style}
+#manualOpsPanel{overflow-anchor:auto;min-height:220px}
+#manualOpsPanel .manual-grade-summary.v26271-buckets{align-items:stretch}
+#manualOpsPanel .manual-grade-summary.v26271-buckets button{transition:none!important;animation:none!important}
+#manualOpsPanel .manual-list>.manual-card{animation:none!important;transition:none!important}
+#manualOpsPanel .manual-age{position:relative}
+html.tvReturnStableV2617 #manualOpsPanel *,html.tvReturnStableV2617 #sgStatusV2625 *{transition:none!important;animation:none!important}
+@media (prefers-reduced-motion:reduce){#manualOpsPanel *,#sgStatusV2625 *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}

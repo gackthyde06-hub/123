@@ -1,0 +1,22 @@
+V2.6.29 — FINAL UI CONTRACT
+
+Fixes
+1. System Growth UI no longer fights with legacy system-growth.js.
+   - legacy renderer stops once #sgStatusV2625 is mounted.
+   - old growth children are hidden; V2.6.25/V2.6.26 character-status UI is the only visible growth UI.
+2. A/B manual observation is explicit and default.
+   - first entry defaults once to A_SUGGEST.
+   - labels: A · 手動觀察 / B · 手動觀察.
+   - auto-notify remains separate.
+   - existing rows keep stable order across automatic refreshes; new rows append without shuffling existing cards.
+3. UI stability becomes a required deployment contract.
+   - V2.6.17 stability marker must exist or is recovered.
+   - V2.6.27.1 A/B marker must exist or is recovered.
+   - final V2.6.29 patch failure is FATAL; Railway cannot report a healthy deployment while silently rolling back these required UI features.
+4. Growth status assets are copied and injected deterministically at the final stage.
+
+Expected Railway summary includes:
+final UI contract:ok
+
+Do not change Railway Variables or Volume.
+Start command remains: node start-safe.mjs

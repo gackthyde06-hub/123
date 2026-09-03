@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.28';
+const VERSION = 'V2.6.29';
 const WATCH = [
   'server.js',
   'public/app.js',
@@ -13,6 +13,9 @@ const WATCH = [
   'public/manual-mode-ui.css',
   'public/mentor-ui-v2622.js',
   'public/growth-status-v2625.js',
+  'public/growth-status-v2626.css',
+  'public/system-growth.js',
+  'public/ui-final-v2629.css',
 ];
 const JS_CHECK = [
   'server.js',
@@ -20,6 +23,7 @@ const JS_CHECK = [
   'public/manual-mode-ui.js',
   'public/mentor-ui-v2622.js',
   'public/growth-status-v2625.js',
+  'public/system-growth.js',
 ];
 
 function abs(rel){ return path.join(ROOT, rel); }
@@ -72,7 +76,6 @@ function safeRun(file,label,timeout=30_000){
 export async function boot(){
   log(`stable launcher · node ${process.version} · cwd ${ROOT}`);
   const results=[];
-  // Base generator and every UI/learning enhancement are isolated. A stale regex anchor can no longer take production offline.
   results.push(['prepare-ui', safeRun('prepare-ui.mjs','base prepare',65_000)]);
   for(const [file,label,timeout] of [
     ['workspace-v2619-patch.mjs','actual-trade workspace',22_000],
@@ -85,12 +88,18 @@ export async function boot(){
     ['advisory-buckets-v26271-patch.mjs','A/B auto + suggestion buckets',18_000],
   ]) results.push([label,safeRun(file,label,timeout)]);
 
+  // V2.6.29: UI behavior is a required contract, not a best-effort cosmetic patch.
+  // It runs LAST, after every historical layer, so later patches cannot undo stability/A-B/growth UI.
+  const finalUi=safeRun('final-ui-v2629-patch.mjs','final UI contract',28_000);
+  results.push(['final UI contract',finalUi]);
+  if(finalUi.skipped||!finalUi.ok) throw new Error('FATAL V2.6.29 final UI contract did not apply; refusing silent UI rollback');
+
   const server=abs('server.js');
   if(!fs.existsSync(server)) throw new Error('FATAL server.js missing after rollback-safe boot');
   if(!syntaxOk('server.js')) throw new Error('FATAL server.js syntax invalid');
   const summary=results.map(([n,r])=>`${n}:${r.skipped?'skip':r.ok?'ok':'rollback'}`).join(' · ');
   log(`SUMMARY ${summary}`);
-  if(process.env.V2628_PREFLIGHT_ONLY==='1'){ log('PREFLIGHT PASS'); return {preflight:true,summary}; }
+  if(process.env.V2628_PREFLIGHT_ONLY==='1' || process.env.V2629_PREFLIGHT_ONLY==='1'){ log('PREFLIGHT PASS'); return {preflight:true,summary}; }
 
   const child=spawn(process.execPath,[server],{cwd:ROOT,stdio:'inherit',env:process.env});
   for(const sig of ['SIGTERM','SIGINT']) process.on(sig,()=>{try{child.kill(sig)}catch{}});

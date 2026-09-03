@@ -1,0 +1,15 @@
+[boot:V2.6.29] stable launcher · node v22.16.0 · cwd /mnt/data/v2629-fixture
+[boot:V2.6.29] SKIP base prepare (prepare-ui.mjs missing)
+[boot:V2.6.29] SKIP actual-trade workspace (workspace-v2619-patch.mjs missing)
+[boot:V2.6.29] SKIP workspace lock icon (lock-icon-v2620-patch.mjs missing)
+[boot:V2.6.29] SKIP institutional shadow (institutional-shadow-v2621-patch.mjs missing)
+[boot:V2.6.29] SKIP independent page lock (workspace-lock-v2621-patch.mjs missing)
+[boot:V2.6.29] SKIP mentor edge / OOS (mentor-edge-v2622-patch.mjs missing)
+[boot:V2.6.29] SKIP mentor UI (mentor-ui-v2622-patch.mjs missing)
+[boot:V2.6.29] SKIP system growth UI (growth-status-v2626-patch.mjs missing)
+[boot:V2.6.29] SKIP A/B auto + suggestion buckets (advisory-buckets-v26271-patch.mjs missing)
+[boot:V2.6.29] RUN final UI contract
+[v2629-final] READY { legacyGrowth: false, growthStatus: true, manual: false, index: true }
+[boot:V2.6.29] OK final UI contract
+[boot:V2.6.29] SUMMARY prepare-ui:skip · actual-trade workspace:skip · workspace lock icon:skip · institutional shadow:skip · independent page lock:skip · mentor edge / OOS:skip · mentor UI:skip · system growth UI:skip · A/B auto + suggestion buckets:skip · final UI contract:ok
+[boot:V2.6.29] PREFLIGHT PASS
