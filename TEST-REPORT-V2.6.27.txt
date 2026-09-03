@@ -1,0 +1,9 @@
+PASS — node --check start-safe-v2627.mjs
+PASS — node --check advisory-buckets-v2627-patch.mjs
+PASS — reused V2.6.26 / V2.6.22 source syntax
+PASS — fixture patch generated A_AUTO / A_SUGGEST / B_AUTO / B_SUGGEST
+PASS — patched manual-mode-ui.js node --check
+PASS — patch idempotence
+PASS — automatic notification thresholds unchanged
+PASS — suggestion rows exclude BLOCKED / institutional hard-block rows
+PASS — C remains backend learning data but is not exposed in the new A/B front-end buckets

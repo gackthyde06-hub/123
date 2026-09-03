@@ -1,0 +1,3 @@
+將整包檔案上傳到 GitHub repo 根目錄；package.json Replace，其餘 Add/Replace。
+若 Railway Start Command 有手填，改成 node start-safe-v2626.mjs
+Railway Variables / Volume 不要動。
