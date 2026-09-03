@@ -1,0 +1,17 @@
+V2.6.19 測試報告
+PASS - workspace-v2619-patch.mjs Node syntax
+PASS - start-safe-v2619.mjs Node syntax
+PASS - synthetic V2.6.17 generated-app fixture patch
+PASS - patched fixture public/app.js Node syntax
+PASS - independent page-lock markers present
+PASS - actual-trade fold replacement present
+PASS - cache bust 102619 present
+PASS - idempotence: second patch run changed=false
+PASS - ZIP CRC/integrity
+
+設計檢查
+- 鎖定不停止 API fetch / backend learning；只阻止當前頁可見 DOM 重排。
+- 建議、監控、觀察三個 localStorage 狀態獨立。
+- 解鎖時套用最新 pending data。
+- 不使用 MutationObserver。
+- 不改通知、Shadow 門檻、交易員規則、TP/SP、Actual Trade 後端資料。
