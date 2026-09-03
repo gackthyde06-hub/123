@@ -1,0 +1,11 @@
+V2.6.20 TEST REPORT
+- PASS: node --check lock-icon-v2620-patch.mjs
+- PASS: node --check start-safe-v2620.mjs
+- PASS: V2.6.19 generated fixture -> V2.6.20 patch
+- PASS: patched app.js node syntax
+- PASS: second patch is idempotent
+- PASS: visible lock contains SVG only (no visible explanatory b/small labels)
+- PASS: independent ideas / monitor / test lock state logic retained
+- PASS: V2.6.19 actual-trade fold code retained
+- PASS: cache bust app.js?v=102620 / sg2620
+- PASS: ZIP integrity

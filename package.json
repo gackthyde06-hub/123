@@ -4,18 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node start-safe-v2619.mjs",
+    "start": "node start-safe-v2620.mjs",
     "dev": "node prepare-ui.mjs && node --watch server.js",
     "vapid": "web-push generate-vapid-keys",
     "test": "UNIT_TEST=1 node test_v100.mjs"
   },
-  "engines": {
-    "node": ">=22"
-  },
-  "dependencies": {
-    "compression": "^1.7.4",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.1",
-    "web-push": "^3.6.7"
-  }
+  "engines": {"node": ">=22"},
+  "dependencies": {"compression": "^1.7.4","dotenv": "^16.4.5","express": "^4.21.1","web-push": "^3.6.7"}
 }
