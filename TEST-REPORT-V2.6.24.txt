@@ -1,0 +1,27 @@
+V2.6.24 TEST REPORT
+
+PASS
+- node --check growth-status-v2624.js
+- node --check growth-status-v2624-patch.mjs
+- node --check start-safe-v2624.mjs
+- patch integration against V2.6.23-generated index.html
+- patch idempotence: second run changed=false
+- V2.6.23 growth-rpg JS/CSS tags removed from index to prevent old decorative layer from running simultaneously
+- new v2624 JS contains no PNG/WebP asset references; all icons use one inline SVG family
+- no mentor/導師 copy in the new status UI
+- responsive layout guards:
+  * summary 2x2 on phone
+  * attributes 3x2 on phone
+  * daily/log panels stack on phone
+  * unlock rows use explicit grid rows/columns; no implicit fourth column
+- old V2.6.23 floating/absolute artwork is disabled and not included in this upload package
+- ZIP integrity check completed after packaging
+
+NOT CHANGED
+- trading thresholds
+- A/B notification logic
+- Shadow learning backend
+- Forward OOS logic
+- Actual Trade tracking
+- Railway Variables
+- Railway Volume

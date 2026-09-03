@@ -1,0 +1,6 @@
+V2.6.24 上傳方式
+1. 解壓後全部上傳 GitHub repo 根目錄，同名 Replace、新檔 Add。
+2. Railway Variables / Volume 不要改。
+3. Railway 若 Start Command 有手動指定，改成：node start-safe-v2624.mjs
+4. Deploy Success 後，iPhone PWA 從背景完全關閉再重開。
+5. 正常情況下會載入 growth-status-v2624.css?v=2624 與 growth-status-v2624.js?v=2624。

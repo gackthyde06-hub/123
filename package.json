@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node start-safe-v2623.mjs",
+    "start": "node start-safe-v2624.mjs",
     "dev": "node prepare-ui.mjs && node --watch server.js",
     "vapid": "web-push generate-vapid-keys",
     "test": "UNIT_TEST=1 node test_v100.mjs"
