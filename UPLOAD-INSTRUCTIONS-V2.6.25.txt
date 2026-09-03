@@ -1,0 +1,6 @@
+V2.6.25 上傳方式
+1. 解壓後全部檔案上傳到 GitHub repo 根目錄。
+2. 同名檔案 Replace，新檔 Add。
+3. Railway Variables / Volume 不要動。
+4. 若 Railway Start Command 有手填，改為：node start-safe-v2625.mjs
+5. Deploy Success 後，iPhone PWA 從背景完全關掉再重新開。

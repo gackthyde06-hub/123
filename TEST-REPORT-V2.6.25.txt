@@ -1,0 +1,16 @@
+V2.6.25 TEST REPORT
+
+PASS
+- node --check growth-status-v2625.js
+- node --check growth-status-v2625-patch.mjs
+- node --check start-safe-v2625.mjs
+- V2.6.24 generated fixture upgraded to V2.6.25 successfully
+- second V2.6.25 patch application is idempotent (changed:false)
+- generated index loads only growth-status-v2625.css/js; old V2.6.24 growth refs removed
+- expandable Character Status learning panels present
+- expandable Main Quest learning evidence panels present
+- open state is persisted through localStorage and restored after data refresh
+- legacy V2.6.23 image decorations / V2.6.24 UI are hidden by V2.6.25
+- mobile typography and one-column expandable Character Status layout verified statically
+
+No trading thresholds, Shadow learning backend rules, notification rules, actual-trade logic, Railway Variables or Volume behavior were changed by this UI patch.
