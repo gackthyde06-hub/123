@@ -1,0 +1,9 @@
+V2.6.28 上傳方式
+
+1. 把 ZIP 內所有檔案丟 GitHub repo 根目錄，同名 Replace、新檔 Add。
+2. Railway Variables / Volume 不要動。
+3. Railway Dashboard 如果 Start Command 有手填：只改這一次為
+   node start-safe.mjs
+   之後不要再跟版本改檔名。
+4. 如果你沒手填 Start Command，package.json 已經固定 npm start -> node start-safe.mjs。
+5. Deploy 後 log 應看到 [boot:V2.6.28] SUMMARY ...；某一 patch 顯示 rollback 不會讓服務死亡。
