@@ -1,0 +1,27 @@
+V2.6.32 verification
+
+PASS node --check advisory-buckets-v2632-patch.mjs
+PASS node --check growth-final-v2632-patch.mjs
+PASS node --check build-production-v2631.mjs
+
+PASS advisory fixture based on the real UI_CONTROL_V2616 manual shape:
+- V2616 gradeText wording accepted
+- V2616 render state replaced by A/B buckets
+- A_SUGGEST / B_SUGGEST created
+- A · 手動觀察 / B · 手動觀察 created
+- stableBucketRowsV2632 created
+- first-use migration defaults to A_SUGGEST
+- resulting manual-mode-ui.js passes node --check
+
+PASS growth fixture:
+- legacy system-growth renderer guard injected
+- growth-status V2.6.25 renderer marked as the sole visible renderer
+- index assets injected with v=2632
+- resulting JS passes node --check
+
+PASS complete synthetic build pipeline:
+base prepare -> workspace -> lock -> institutional -> workspace lock -> mentor edge -> mentor UI -> V2632 advisory -> V2632 growth final -> syntax/invariant checks
+Result: BUILD CONTRACT PASS in fixture.
+
+Important regression avoided:
+V2.6.32 never invokes advisory-buckets-v26271-patch.mjs, so the exact Railway error "grade helpers anchor missing" cannot occur through that obsolete patch path.
