@@ -1,0 +1,41 @@
+V2.6.30 — BOOT FAST FIX / VERIFIED
+
+Live diagnosis
+- GitHub commit checked: 62d079f6b7e5deda0a575906d41931ed15f640cb
+- Railway status changed from pending to failure.
+- Pending created: 2026-09-03T16:52:30Z
+- Failure created: 2026-09-03T16:58:11Z
+- Elapsed before failure: 5m41s.
+- V2.6.29 start-safe.mjs ran a full JS runtime syntax validation after EVERY patch layer and also reran growth/advisory before the final contract.
+- That design delays server spawn/health readiness and can exhaust Railway startup time.
+
+V2.6.30 changes
+1. Removes repeated full JS_CHECK after every historical patch.
+2. Performs exactly one complete runtime syntax validation after all mutations.
+3. Removes redundant growth-status and advisory patch executions from the historical loop; final-ui-v2629 already installs/verifies them.
+4. Keeps actual-trade workspace, lock icon, institutional shadow, independent lock, mentor edge and mentor UI layers.
+5. Keeps final UI contract FATAL: no silent old-UI fallback.
+6. Adds per-layer elapsed logs + BOOT READY timing.
+7. Start command remains: node start-safe.mjs.
+
+Local verification performed
+PASS node --check start-safe.mjs
+PASS node --check final-ui-v2629-patch.mjs
+PASS cold fixture final contract
+  - legacy growth guard injected
+  - new growth status UI injected
+  - A/B manual UI injected
+  - A · 手動觀察 present
+  - B · 手動觀察 present
+  - stableBucketRowsV2629 present
+  - growth assets injected into index.html
+PASS second preflight (idempotence)
+PASS required-file failure test: missing final CSS exits non-zero instead of serving partial UI
+
+Measured fixture startup
+- first preflight: 0.62s BOOT READY (0.64s wall)
+- second/idempotent preflight: 0.58s BOOT READY (0.60s wall)
+- deliberate final-contract failure: 0.47s and exit 1
+
+Note
+The fixture excludes the repository's prepare-ui workload, so production will take longer than 0.62s. The important structural fix is that V2.6.30 no longer multiplies full runtime checks across every layer and no longer duplicates the growth/advisory stages.

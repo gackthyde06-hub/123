@@ -4,7 +4,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.29';
+const VERSION = 'V2.6.30';
+const BOOT_AT = Date.now();
 const WATCH = [
   'server.js',
   'public/app.js',
@@ -26,9 +27,10 @@ const JS_CHECK = [
   'public/system-growth.js',
 ];
 
-function abs(rel){ return path.join(ROOT, rel); }
-function log(msg){ console.log(`[boot:${VERSION}] ${msg}`); }
-function warn(msg){ console.warn(`[boot:${VERSION}] ${msg}`); }
+const abs = rel => path.join(ROOT, rel);
+const elapsed = () => `${((Date.now()-BOOT_AT)/1000).toFixed(2)}s`;
+function log(msg){ console.log(`[boot:${VERSION} +${elapsed()}] ${msg}`); }
+function warn(msg){ console.warn(`[boot:${VERSION} +${elapsed()}] ${msg}`); }
 
 function snapshot(){
   const map = new Map();
@@ -46,68 +48,84 @@ function restore(snap){
   }
 }
 function syntaxOk(rel){
-  const p=abs(rel); if(!fs.existsSync(p)) return true;
-  const r=spawnSync(process.execPath,['--check',p],{cwd:ROOT,encoding:'utf8',timeout:12_000});
-  if(r.status!==0){ warn(`syntax FAIL ${rel}: ${String(r.stderr||r.stdout||'').trim().split('\n').slice(0,2).join(' | ')}`); return false; }
+  const p = abs(rel);
+  if (!fs.existsSync(p)) return true;
+  const r = spawnSync(process.execPath,['--check',p],{cwd:ROOT,encoding:'utf8',timeout:10_000});
+  if (r.status !== 0 || r.error) {
+    warn(`syntax FAIL ${rel}: ${String(r.stderr||r.stdout||r.error?.message||'').trim().split('\n').slice(0,2).join(' | ')}`);
+    return false;
+  }
   return true;
 }
-function validateRuntime(){ return JS_CHECK.every(syntaxOk); }
+function validateRuntimeOnce(){
+  const bad = JS_CHECK.filter(rel => !syntaxOk(rel));
+  if (bad.length) throw new Error(`FATAL runtime syntax validation failed: ${bad.join(', ')}`);
+}
 
-function safeRun(file,label,timeout=30_000){
-  const p=abs(file);
-  if(!fs.existsSync(p)){ log(`SKIP ${label} (${file} missing)`); return {ok:true,skipped:true}; }
-  const snap=snapshot();
+// V2.6.30: historical layers already do their own file/syntax guards.
+// Do NOT run 6 full node --check passes after every layer. That was the V2.6.29 startup stall.
+function safeRun(file,label,timeout=20_000){
+  const p = abs(file);
+  if (!fs.existsSync(p)) { log(`SKIP ${label} (${file} missing)`); return {ok:true,skipped:true}; }
+  const snap = snapshot();
+  const t0 = Date.now();
   log(`RUN ${label}`);
-  const r=spawnSync(process.execPath,[p],{cwd:ROOT,stdio:'inherit',timeout,env:process.env});
-  if(r.status!==0 || r.error){
+  const r = spawnSync(process.execPath,[p],{cwd:ROOT,stdio:'inherit',timeout,env:process.env});
+  if (r.status !== 0 || r.error) {
     restore(snap);
-    warn(`ROLLBACK ${label} (${r.error?.code||r.status||'unknown'})`);
+    warn(`ROLLBACK ${label} after ${((Date.now()-t0)/1000).toFixed(2)}s (${r.error?.code||r.status||'unknown'})`);
     return {ok:false,rolledBack:true};
   }
-  if(!validateRuntime()){
-    restore(snap);
-    warn(`ROLLBACK ${label} (post-patch syntax guard)`);
-    return {ok:false,rolledBack:true};
-  }
-  log(`OK ${label}`);
+  log(`OK ${label} (${((Date.now()-t0)/1000).toFixed(2)}s)`);
   return {ok:true};
 }
 
 export async function boot(){
-  log(`stable launcher · node ${process.version} · cwd ${ROOT}`);
+  log(`fast stable launcher · node ${process.version} · cwd ${ROOT}`);
   const results=[];
-  results.push(['prepare-ui', safeRun('prepare-ui.mjs','base prepare',65_000)]);
-  for(const [file,label,timeout] of [
-    ['workspace-v2619-patch.mjs','actual-trade workspace',22_000],
-    ['lock-icon-v2620-patch.mjs','workspace lock icon',14_000],
-    ['institutional-shadow-v2621-patch.mjs','institutional shadow',24_000],
-    ['workspace-lock-v2621-patch.mjs','independent page lock',18_000],
-    ['mentor-edge-v2622-patch.mjs','mentor edge / OOS',24_000],
-    ['mentor-ui-v2622-patch.mjs','mentor UI',16_000],
-    ['growth-status-v2626-patch.mjs','system growth UI',16_000],
-    ['advisory-buckets-v26271-patch.mjs','A/B auto + suggestion buckets',18_000],
+
+  // Base generator owns the old V2.6.17 control/stability layer.
+  results.push(['prepare-ui', safeRun('prepare-ui.mjs','base prepare',45_000)]);
+
+  // Only layers NOT already guaranteed by final-ui-v2629 are run here.
+  // growth-status + advisory are intentionally removed from this list because the final contract
+  // already installs/verifies them. Running them twice caused needless startup work.
+  for (const [file,label,timeout] of [
+    ['workspace-v2619-patch.mjs','actual-trade workspace',14_000],
+    ['lock-icon-v2620-patch.mjs','workspace lock icon',10_000],
+    ['institutional-shadow-v2621-patch.mjs','institutional shadow',14_000],
+    ['workspace-lock-v2621-patch.mjs','independent page lock',10_000],
+    ['mentor-edge-v2622-patch.mjs','mentor edge / OOS',14_000],
+    ['mentor-ui-v2622-patch.mjs','mentor UI',10_000],
   ]) results.push([label,safeRun(file,label,timeout)]);
 
-  // V2.6.29: UI behavior is a required contract, not a best-effort cosmetic patch.
-  // It runs LAST, after every historical layer, so later patches cannot undo stability/A-B/growth UI.
-  const finalUi=safeRun('final-ui-v2629-patch.mjs','final UI contract',28_000);
+  // Required final behavior. No silent rollback here.
+  const finalUi = safeRun('final-ui-v2629-patch.mjs','final UI contract',20_000);
   results.push(['final UI contract',finalUi]);
-  if(finalUi.skipped||!finalUi.ok) throw new Error('FATAL V2.6.29 final UI contract did not apply; refusing silent UI rollback');
+  if (finalUi.skipped || !finalUi.ok) throw new Error('FATAL final UI contract did not apply; refusing partial UI');
 
-  const server=abs('server.js');
-  if(!fs.existsSync(server)) throw new Error('FATAL server.js missing after rollback-safe boot');
-  if(!syntaxOk('server.js')) throw new Error('FATAL server.js syntax invalid');
-  const summary=results.map(([n,r])=>`${n}:${r.skipped?'skip':r.ok?'ok':'rollback'}`).join(' · ');
+  const server = abs('server.js');
+  if (!fs.existsSync(server)) throw new Error('FATAL server.js missing after prepare');
+
+  // Exactly ONE complete runtime validation, after all mutations are finished.
+  validateRuntimeOnce();
+
+  const summary = results.map(([n,r])=>`${n}:${r.skipped?'skip':r.ok?'ok':'rollback'}`).join(' · ');
   log(`SUMMARY ${summary}`);
-  if(process.env.V2628_PREFLIGHT_ONLY==='1' || process.env.V2629_PREFLIGHT_ONLY==='1'){ log('PREFLIGHT PASS'); return {preflight:true,summary}; }
+  log(`BOOT READY in ${elapsed()}`);
+  if (process.env.V2628_PREFLIGHT_ONLY==='1' || process.env.V2629_PREFLIGHT_ONLY==='1' || process.env.V2630_PREFLIGHT_ONLY==='1') {
+    log('PREFLIGHT PASS');
+    return {preflight:true,summary};
+  }
 
-  const child=spawn(process.execPath,[server],{cwd:ROOT,stdio:'inherit',env:process.env});
-  for(const sig of ['SIGTERM','SIGINT']) process.on(sig,()=>{try{child.kill(sig)}catch{}});
+  const child = spawn(process.execPath,[server],{cwd:ROOT,stdio:'inherit',env:process.env});
+  for (const sig of ['SIGTERM','SIGINT']) process.on(sig,()=>{try{child.kill(sig)}catch{}});
   child.on('error',e=>{console.error(`[boot:${VERSION}] server spawn failed`,e);process.exit(1)});
   child.on('exit',(code,signal)=>{ if(signal) warn(`server exited by ${signal}`); process.exit(Number.isInteger(code)?code:1); });
   return {child,summary};
 }
 
-if(import.meta.url===`file://${process.argv[1]}`){
-  try { await boot(); } catch(e){ console.error(`[boot:${VERSION}] ${e?.stack||e}`); process.exit(1); }
+if (import.meta.url===`file://${process.argv[1]}`) {
+  try { await boot(); }
+  catch(e) { console.error(`[boot:${VERSION}] ${e?.stack||e}`); process.exit(1); }
 }
