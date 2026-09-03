@@ -1,0 +1,25 @@
+V2.6.21 TEST REPORT
+
+PASS
+- node --check institutional-shadow-v2621-patch.mjs
+- node --check institutional-shadow-v2621-code.inc（以 .js 暫存副本驗證）
+- node --check workspace-lock-v2621-patch.mjs
+- node --check start-safe-v2621.mjs
+- Institutional Shadow synthetic generated-server fixture: patch apply + generated server node --check
+- Institutional Shadow idempotence: second apply returns changed:false
+- V2.6.20 workspace fixture: V2.6.21 lock patch apply + generated app node --check
+- Workspace lock idempotence
+- Actual Trade Hub fixture: lock-aware render/sync patch + node --check
+- Manual-mode fixture: lock-aware refresh/unlock patch + node --check
+- Calibration JSON parse
+- ZIP integrity
+
+DATA CALIBRATION
+- Shadow rows: 1140
+- Resolved: 1127
+- Learning-eligible resolved: 328
+- Decisive learning-eligible: 287 (163 WIN / 124 LOSS)
+- Notification-performance rows: 1 — deliberately NOT used to aggressively tune notification hit-rate thresholds.
+
+IMPORTANT
+This version improves statistical discipline and execution filtering; it cannot guarantee profitable trades. Future exports should be re-analysed after more real A/B notifications and mentor metadata accumulate.

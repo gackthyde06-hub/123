@@ -1,0 +1,8 @@
+1. 解壓縮。
+2. 全部檔案丟到 GitHub repo 根目錄 gackthyde06-hub/123。
+3. package.json 同名 Replace；其餘新檔 Add/Replace。
+4. Railway Variables / Volume 不要改、不要刪。
+5. 等 Railway Deploy Success。
+6. iPhone PWA 從背景完全關閉，再重新開啟一次。
+7. 若 Railway Start Command 有手動指定，改成：node start-safe-v2621.mjs
+   如果 Start Command 原本留空，不用動。

@@ -1,0 +1,101 @@
+{
+  "version": "V2.6.21",
+  "sourceFiles": [
+    "shadow-performance-v1022-research-2026-09-03(1).csv",
+    "signal-performance-v10-2026-09-03(1).csv"
+  ],
+  "shadowRows": 1140,
+  "shadowResolved": 1127,
+  "learningEligibleResolved": 328,
+  "notificationRows": 1,
+  "overall": {
+    "sample": 328,
+    "decisive": 287,
+    "wins": 163,
+    "losses": 124,
+    "hitRatePct": 56.8,
+    "grossProfitFactor": 1.36,
+    "netProfitFactor": 0.68,
+    "netExpectancyR": -0.197
+  },
+  "byStrategy": {
+    "區間極值反轉": {
+      "sample": 3,
+      "decisive": 1,
+      "wins": 0,
+      "losses": 1,
+      "hitRatePct": 0.0,
+      "grossProfitFactor": 0.0,
+      "netProfitFactor": 0.0,
+      "netExpectancyR": -0.992
+    },
+    "強勢動能續攻": {
+      "sample": 119,
+      "decisive": 102,
+      "wins": 54,
+      "losses": 48,
+      "hitRatePct": 52.9,
+      "grossProfitFactor": 1.24,
+      "netProfitFactor": 0.52,
+      "netExpectancyR": -0.395
+    },
+    "流動性掃盤反轉": {
+      "sample": 113,
+      "decisive": 95,
+      "wins": 63,
+      "losses": 32,
+      "hitRatePct": 66.3,
+      "grossProfitFactor": 2.0,
+      "netProfitFactor": 1.16,
+      "netExpectancyR": 0.066
+    },
+    "突破回測": {
+      "sample": 48,
+      "decisive": 48,
+      "wins": 21,
+      "losses": 27,
+      "hitRatePct": 43.8,
+      "grossProfitFactor": 0.78,
+      "netProfitFactor": 0.43,
+      "netExpectancyR": -0.419
+    },
+    "順勢回踩": {
+      "sample": 45,
+      "decisive": 41,
+      "wins": 25,
+      "losses": 16,
+      "hitRatePct": 61.0,
+      "grossProfitFactor": 1.5,
+      "netProfitFactor": 0.9,
+      "netExpectancyR": -0.045
+    }
+  },
+  "byTier": {
+    "BLOCKED": {
+      "sample": 201,
+      "decisive": 163,
+      "wins": 101,
+      "losses": 62,
+      "hitRatePct": 62.0,
+      "grossProfitFactor": 1.63,
+      "netProfitFactor": 0.78,
+      "netExpectancyR": -0.128
+    },
+    "VALID": {
+      "sample": 127,
+      "decisive": 124,
+      "wins": 62,
+      "losses": 62,
+      "hitRatePct": 50.0,
+      "grossProfitFactor": 1.06,
+      "netProfitFactor": 0.56,
+      "netExpectancyR": -0.307
+    }
+  },
+  "notes": [
+    "通知實績只有 1 筆，不用它調通知勝率門檻。",
+    "Edge 使用淨成本後 Shadow、去相關、樣本門檻；完成度與方向優勢分離。",
+    "A 需要 Edge、成本效率、執行確認與硬風險閘門同時通過；B 可等待但仍需正向 Edge。",
+    "C/Blocked 仍可做方向研究，但 readiness blocker 不會被學成方向負面。"
+  ]
+}
