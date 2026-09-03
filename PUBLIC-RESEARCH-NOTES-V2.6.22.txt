@@ -1,0 +1,25 @@
+V2.6.22 PUBLIC RESEARCH NOTES
+
+The implementation takes methodology from public research, not direct trade calls from papers:
+
+1. Bysik & Slepaczuk (2026), Machine Learning-Based Bitcoin Trading Under Transaction Costs: Evidence From Walk-Forward Forecasting
+   - Walk-forward evaluation.
+   - Gross predictive performance can disappear after ~10 bps trading costs.
+   - Cost-aware execution / abstention can be more important than simply adding model complexity.
+
+2. Bailey & Lopez de Prado, The Deflated Sharpe Ratio (2014)
+   - Multiple testing and selection bias inflate apparently strong backtests.
+   - A strategy needs a higher evidence bar when many alternatives have been tried.
+
+3. Nefedov (2026), How Much Sharpe is Illusory? Quantifying Backtest Overfitting in Crypto Factor Strategies
+   - Nested walk-forward + transaction costs + multiple-testing correction can collapse apparently strong crypto factors.
+
+4. Olagoke (2026), Trials-adjusted Out-of-Sample Gating for LLM-proposed Trading Strategies
+   - Freeze the strategy/model artifact, verify with strict OOS data, use trials-adjusted acceptance and robustness sweeps.
+
+5. Guo (2026), When Not to Trade: Leakage-Aware Selective Machine Learning for Factor Rotation
+   - Treat abstention / no-trade as a valid model output when confidence is insufficient.
+
+6. Current 2026 perpetual-futures microstructure work
+   - Funding, order flow and basis can be informative conditionally, but effects may be regime-dependent and can disappear after costs/multiple-testing corrections.
+   - V2.6.22 therefore keeps them as conditional state evidence rather than hardcoded universal alpha.

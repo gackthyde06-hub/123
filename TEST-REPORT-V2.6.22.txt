@@ -1,0 +1,35 @@
+V2.6.22 TEST REPORT
+
+PASS
+- node --check:
+  institutional-shadow-v2621-patch.mjs
+  lock-icon-v2620-patch.mjs
+  mentor-edge-v2622-patch.mjs
+  mentor-ui-v2622-patch.mjs
+  mentor-ui-v2622.js
+  start-safe-v2622.mjs
+  workspace-lock-v2621-patch.mjs
+  workspace-v2619-patch.mjs
+- package.json / shadow-calibration-v2621.json / shadow-calibration-v2622.json JSON parse
+- synthetic V2.6.21 backend fixture -> V2.6.22 mentor patch
+- generated server.js syntax
+- /api/shadow-mentor endpoint present
+- institutionalMentorEdgeV2622 single function definition
+- Mentor Confidence / Forward status Shadow audit fields present
+- backend patch idempotence
+- mentor UI fixture install
+- mentor-ui / manual-mode syntax
+- UI patch idempotence / no duplicate asset tags
+- lock relocation code targets .brandTitle.sg-brand (top System Growth / Lv.xx row)
+- no MutationObserver introduced by V2.6.22
+- high-win-rate High-Edge watch uses existing actual-trade data attributes
+
+Calibration used
+- 1140 raw Shadow rows
+- 328 learning-eligible resolved
+- 306 effective after 45m de-correlation and canonical asset mapping
+
+Not claimed / not locally possible
+- No live Railway/Binance network smoke test was performed in the offline build container.
+- Live PWA rendering depends on the exact deployed current repo after Railway runs the patch chain.
+- No claim of guaranteed profitability or guaranteed future Edge is made.

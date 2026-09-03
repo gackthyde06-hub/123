@@ -1,0 +1,21 @@
+V2.6.22 上傳
+
+1. 解壓 ZIP。
+2. 將 ZIP 內所有檔案上傳到 GitHub repo gackthyde06-hub/123 根目錄。
+3. 同名檔案 Replace；新檔 Add。
+4. Railway Variables 不要改。
+5. Railway Volume 不要刪 / 不要 Reset。
+6. 等 Railway Deploy Success。
+7. iPhone PWA 從背景完整關閉，再重新開啟一次。
+
+若 Railway Start Command 以前有手動指定：
+node start-safe-v2622.mjs
+
+若 Start Command 原本空白：不用改，package.json 會使用 start-safe-v2622.mjs。
+
+部署後快速檢查
+- 建議 / 監控 / 觀察：最上方「系統養成 / Lv.xx」同一排最右側只有一顆小鎖。
+- 三頁可各自鎖住，鎖住後卡片排序/展開/建倉輸入不應因背景刷新跳動。
+- 手動頁：A / B 之外出現「高勝率 · 高 Edge 觀察」。
+- 手動頁：出現「影子訓練」成熟度 / Net PF / Forward / 穩定窗。
+- /api/shadow-mentor 可回傳 ok:true 的唯讀訓練狀態。

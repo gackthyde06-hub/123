@@ -1,0 +1,376 @@
+{
+  "version": "V2.6.22",
+  "source": "shadow-performance-v1022-research-2026-09-03(1).csv",
+  "rawRows": 1140,
+  "learningEligibleResolved": 328,
+  "dedupEffective": 306,
+  "overall": {
+    "sample": 306,
+    "decisive": 265,
+    "wins": 146,
+    "losses": 119,
+    "hitRatePct": 55.1,
+    "netProfitFactor": 0.64,
+    "netExpectancyR": -0.233
+  },
+  "assetClass": {
+    "COMMODITY": {
+      "sample": 3,
+      "decisive": 3,
+      "wins": 1,
+      "losses": 2,
+      "hitRatePct": 33.3,
+      "netProfitFactor": 0.0,
+      "netExpectancyR": -1.947
+    },
+    "CRYPTO": {
+      "sample": 193,
+      "decisive": 174,
+      "wins": 87,
+      "losses": 87,
+      "hitRatePct": 50.0,
+      "netProfitFactor": 0.62,
+      "netExpectancyR": -0.269
+    },
+    "TRADFI": {
+      "sample": 110,
+      "decisive": 88,
+      "wins": 58,
+      "losses": 30,
+      "hitRatePct": 65.9,
+      "netProfitFactor": 0.76,
+      "netExpectancyR": -0.123
+    }
+  },
+  "strategy": {
+    "區間極值反轉": {
+      "sample": 3,
+      "decisive": 1,
+      "wins": 0,
+      "losses": 1,
+      "hitRatePct": 0.0,
+      "netProfitFactor": 0.0,
+      "netExpectancyR": -0.992,
+      "folds": [
+        {
+          "sample": 1,
+          "decisive": 1,
+          "wins": 0,
+          "losses": 1,
+          "hitRatePct": 0.0,
+          "netProfitFactor": 0.0,
+          "netExpectancyR": -1.12,
+          "positive": false
+        },
+        {
+          "sample": 1,
+          "decisive": 0,
+          "wins": 0,
+          "losses": 0,
+          "hitRatePct": null,
+          "netProfitFactor": 0.0,
+          "netExpectancyR": -0.867,
+          "positive": false
+        },
+        {
+          "sample": 1,
+          "decisive": 0,
+          "wins": 0,
+          "losses": 0,
+          "hitRatePct": null,
+          "netProfitFactor": 0.0,
+          "netExpectancyR": -0.99,
+          "positive": false
+        }
+      ],
+      "concentration": {
+        "topSymbols": [
+          {
+            "symbol": "SNDKUSDT",
+            "sample": 1
+          },
+          {
+            "symbol": "SNXXUSDT",
+            "sample": 1
+          }
+        ],
+        "top2SampleShare": 0.667,
+        "leaveTop2": {
+          "sample": 1,
+          "decisive": 1,
+          "wins": 0,
+          "losses": 1,
+          "hitRatePct": 0.0,
+          "netProfitFactor": 0.0,
+          "netExpectancyR": -1.12
+        }
+      }
+    },
+    "強勢動能續攻": {
+      "sample": 110,
+      "decisive": 93,
+      "wins": 46,
+      "losses": 47,
+      "hitRatePct": 49.5,
+      "netProfitFactor": 0.46,
+      "netExpectancyR": -0.479,
+      "folds": [
+        {
+          "sample": 36,
+          "decisive": 35,
+          "wins": 14,
+          "losses": 21,
+          "hitRatePct": 40.0,
+          "netProfitFactor": 0.43,
+          "netExpectancyR": -0.425,
+          "positive": false
+        },
+        {
+          "sample": 37,
+          "decisive": 37,
+          "wins": 22,
+          "losses": 15,
+          "hitRatePct": 59.5,
+          "netProfitFactor": 0.97,
+          "netExpectancyR": -0.017,
+          "positive": false
+        },
+        {
+          "sample": 37,
+          "decisive": 21,
+          "wins": 10,
+          "losses": 11,
+          "hitRatePct": 47.6,
+          "netProfitFactor": 0.24,
+          "netExpectancyR": -0.994,
+          "positive": false
+        }
+      ],
+      "concentration": {
+        "topSymbols": [
+          {
+            "symbol": "ARBUSDT",
+            "sample": 20
+          },
+          {
+            "symbol": "EGLDUSDT",
+            "sample": 18
+          }
+        ],
+        "top2SampleShare": 0.345,
+        "leaveTop2": {
+          "sample": 72,
+          "decisive": 71,
+          "wins": 32,
+          "losses": 39,
+          "hitRatePct": 45.1,
+          "netProfitFactor": 0.46,
+          "netExpectancyR": -0.427
+        }
+      }
+    },
+    "流動性掃盤反轉": {
+      "sample": 107,
+      "decisive": 89,
+      "wins": 59,
+      "losses": 30,
+      "hitRatePct": 66.3,
+      "netProfitFactor": 1.16,
+      "netExpectancyR": 0.064,
+      "folds": [
+        {
+          "sample": 35,
+          "decisive": 35,
+          "wins": 17,
+          "losses": 18,
+          "hitRatePct": 48.6,
+          "netProfitFactor": 0.69,
+          "netExpectancyR": -0.182,
+          "positive": false
+        },
+        {
+          "sample": 36,
+          "decisive": 26,
+          "wins": 16,
+          "losses": 10,
+          "hitRatePct": 61.5,
+          "netProfitFactor": 0.75,
+          "netExpectancyR": -0.108,
+          "positive": false
+        },
+        {
+          "sample": 36,
+          "decisive": 28,
+          "wins": 26,
+          "losses": 2,
+          "hitRatePct": 92.9,
+          "netProfitFactor": 3.62,
+          "netExpectancyR": 0.474,
+          "positive": true
+        }
+      ],
+      "concentration": {
+        "topSymbols": [
+          {
+            "symbol": "METAUSDT",
+            "sample": 26
+          },
+          {
+            "symbol": "TSLAUSDT",
+            "sample": 17
+          }
+        ],
+        "top2SampleShare": 0.402,
+        "leaveTop2": {
+          "sample": 64,
+          "decisive": 58,
+          "wins": 30,
+          "losses": 28,
+          "hitRatePct": 51.7,
+          "netProfitFactor": 0.74,
+          "netExpectancyR": -0.143
+        }
+      }
+    },
+    "突破回測": {
+      "sample": 46,
+      "decisive": 46,
+      "wins": 20,
+      "losses": 26,
+      "hitRatePct": 43.5,
+      "netProfitFactor": 0.43,
+      "netExpectancyR": -0.43,
+      "folds": [
+        {
+          "sample": 15,
+          "decisive": 15,
+          "wins": 7,
+          "losses": 8,
+          "hitRatePct": 46.7,
+          "netProfitFactor": 0.61,
+          "netExpectancyR": -0.245,
+          "positive": false
+        },
+        {
+          "sample": 15,
+          "decisive": 15,
+          "wins": 8,
+          "losses": 7,
+          "hitRatePct": 53.3,
+          "netProfitFactor": 0.72,
+          "netExpectancyR": -0.158,
+          "positive": false
+        },
+        {
+          "sample": 16,
+          "decisive": 16,
+          "wins": 5,
+          "losses": 11,
+          "hitRatePct": 31.2,
+          "netProfitFactor": 0.16,
+          "netExpectancyR": -0.858,
+          "positive": false
+        }
+      ],
+      "concentration": {
+        "topSymbols": [
+          {
+            "symbol": "ZKCUSDT",
+            "sample": 4
+          },
+          {
+            "symbol": "4USDT",
+            "sample": 3
+          }
+        ],
+        "top2SampleShare": 0.152,
+        "leaveTop2": {
+          "sample": 39,
+          "decisive": 39,
+          "wins": 18,
+          "losses": 21,
+          "hitRatePct": 46.2,
+          "netProfitFactor": 0.45,
+          "netExpectancyR": -0.405
+        }
+      }
+    },
+    "順勢回踩": {
+      "sample": 40,
+      "decisive": 36,
+      "wins": 21,
+      "losses": 15,
+      "hitRatePct": 58.3,
+      "netProfitFactor": 0.86,
+      "netExpectancyR": -0.068,
+      "folds": [
+        {
+          "sample": 13,
+          "decisive": 13,
+          "wins": 6,
+          "losses": 7,
+          "hitRatePct": 46.2,
+          "netProfitFactor": 0.61,
+          "netExpectancyR": -0.246,
+          "positive": false
+        },
+        {
+          "sample": 13,
+          "decisive": 9,
+          "wins": 7,
+          "losses": 2,
+          "hitRatePct": 77.8,
+          "netProfitFactor": 1.83,
+          "netExpectancyR": 0.228,
+          "positive": true
+        },
+        {
+          "sample": 14,
+          "decisive": 14,
+          "wins": 8,
+          "losses": 6,
+          "hitRatePct": 57.1,
+          "netProfitFactor": 0.68,
+          "netExpectancyR": -0.176,
+          "positive": false
+        }
+      ],
+      "concentration": {
+        "topSymbols": [
+          {
+            "symbol": "CRCLUSDT",
+            "sample": 6
+          },
+          {
+            "symbol": "MUUSDT",
+            "sample": 3
+          }
+        ],
+        "top2SampleShare": 0.225,
+        "leaveTop2": {
+          "sample": 31,
+          "decisive": 27,
+          "wins": 16,
+          "losses": 11,
+          "hitRatePct": 59.3,
+          "netProfitFactor": 0.93,
+          "netExpectancyR": -0.029
+        }
+      }
+    }
+  },
+  "observations": [
+    "Current aggregate net edge is still negative after costs; V2.6.22 therefore uses selective deployment rather than global promotion.",
+    "Liquidity-sweep reversal has positive aggregate Net PF, but chronological folds are unstable and its edge is concentrated; A promotion now receives stability/concentration haircuts.",
+    "Momentum continuation and breakout-retest remain negative net-of-cost in this sample and cannot be rescued by raw completion score alone.",
+    "Post-V2.6.22 data is kept in a persistent Forward cohort and does not immediately feed back into training weights."
+  ],
+  "researchDesign": [
+    "net-of-cost economic gate",
+    "frozen training cohort + forward out-of-sample verifier",
+    "chronological 3-fold stability check",
+    "top-symbol concentration / leave-top-two robustness haircut",
+    "multiple-testing haircut",
+    "selective abstention / no-trade when evidence is insufficient"
+  ]
+}
