@@ -1,0 +1,11 @@
+PASS — package JSON parse
+PASS — start-safe-v26271.mjs node --check
+PASS — advisory-buckets-v26271-patch.mjs node --check
+PASS — fixture includes current V2.6.22 mentor note and patched successfully
+PASS — patched manual-mode-ui.js node --check
+PASS — A_AUTO / A_SUGGEST / B_AUTO / B_SUGGEST invariants present
+PASS — near-threshold suggestion gate present
+PASS — BLOCKED / institutional hardBlock excluded
+PASS — current HIGH/NORMAL auto-notify logic unchanged
+PASS — second patch run idempotent
+PASS — stylesheet is single-load and old V2627 stylesheet removed

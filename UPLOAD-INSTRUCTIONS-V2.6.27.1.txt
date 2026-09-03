@@ -1,0 +1,10 @@
+只需把這包 6 個檔案丟 GitHub 根目錄：
+1. package.json — Replace
+2. start-safe-v26271.mjs — Add
+3. advisory-buckets-v26271-patch.mjs — Add
+4. advisory-buckets-v26271.css — Add
+5. README-V2.6.27.1.txt — 可一起 Add
+6. TEST-REPORT-V2.6.27.1.txt — 可一起 Add
+
+Railway Variables / Volume 不要動。
+若 Railway Start Command 有手填：node start-safe-v26271.mjs
