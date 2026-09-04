@@ -8,13 +8,13 @@ async function run(label,file,fn,{required=false}={}){
   try{
     const p=path.join(__dirname,file);
     if(!fs.existsSync(p)){results.push(`${label}=missing`);if(required)throw new Error(`${label} required patch missing: ${file}`);return null}
-    const mod=await import(`./${file}?v2669=${Date.now()}-${Math.random()}`);
+    const mod=await import(`./${file}?v2672=${Date.now()}-${Math.random()}`);
     const f=mod?.[fn];
     if(typeof f!=='function'){results.push(`${label}=no-export`);if(required)throw new Error(`${label} required export missing: ${fn}`);return null}
     const out=await f();results.push(`${label}=${out?.changed===false?'ready':'ok'}`);return out||{changed:false};
-  }catch(e){console.error(`[v2669] ${label} FAILED:`,String(e?.stack||e?.message||e));results.push(`${label}=FAIL`);if(required)throw e;return null}
+  }catch(e){console.error(`[v2672] ${label} FAILED:`,String(e?.stack||e?.message||e));results.push(`${label}=FAIL`);if(required)throw e;return null}
 }
-function copyAsset(name){try{const src=path.join(__dirname,name),dst=path.join(__dirname,'public',name);if(!fs.existsSync(src))return false;fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(src,dst);return true}catch(e){console.warn(`[v2669] copy ${name}:`,String(e?.message||e));return false}}
+function copyAsset(name){try{const src=path.join(__dirname,name),dst=path.join(__dirname,'public',name);if(!fs.existsSync(src))return false;fs.mkdirSync(path.dirname(dst),{recursive:true});fs.copyFileSync(src,dst);return true}catch(e){console.warn(`[v2672] copy ${name}:`,String(e?.message||e));return false}}
 function installAssets(){
   const publicDir=path.join(__dirname,'public'),htmlPath=path.join(publicDir,'index.html');fs.mkdirSync(publicDir,{recursive:true});
   const assets=['system-growth.css','system-growth.js','premium-theme.css','premium-theme.js','sg-crystal-bg.svg','structure-engine-v2-ui.js','structure-engine-v2.css','structure-learning-ui.js','structure-learning-ui.css','chart-ux-v262.css','manual-mode-ui.js','manual-mode-ui.css','growth-abc-v264.js','growth-abc-v264.css','actual-trade-hub-v2613.js','actual-trade-hub-v2613.css'];
@@ -23,9 +23,9 @@ function installAssets(){
   for(const n of names)h=h.replace(new RegExp(`<link[^>]+href=["']/${n.replaceAll('.','\\.')}(?:\\?[^"']*)?["'][^>]*>\\s*`,'gi'),'');
   const scripts=['system-growth.js','premium-theme.js','structure-engine-v2-ui.js','structure-learning-ui.js','manual-mode-ui.js','growth-abc-v264.js','actual-trade-hub-v2613.js'];
   for(const n of scripts)h=h.replace(new RegExp(`<script[^>]+src=["']/${n.replaceAll('.','\\.')}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,'gi'),'');
-  h=h.replace(/<script\s+src=["']\/app\.js(?:\?[^"']*)?["']><\/script>/i,'<script src="/app.js?v=102669"></script>');
-  const css=names.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<link rel="stylesheet" href="/${n}?v=sg2669">`).join('\n');
-  const js=scripts.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<script defer src="/${n}?v=sg2669"></script>`).join('\n');
+  h=h.replace(/<script\s+src=["']\/app\.js(?:\?[^"']*)?["']><\/script>/i,'<script src="/app.js?v=102672"></script>');
+  const css=names.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<link rel="stylesheet" href="/${n}?v=sg2672">`).join('\n');
+  const js=scripts.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<script defer src="/${n}?v=sg2672"></script>`).join('\n');
   h=h.replace('</head>',`${css}\n</head>`).replace('</body>',`${js}\n</body>`);fs.writeFileSync(htmlPath,h,'utf8');
 }
 
@@ -42,7 +42,7 @@ const candidateNarrative=await run('CandidateNarrative','candidate-narrative-v26
 const candidateLifecycle=await run('CandidateLifecycle','candidate-lifecycle-v2667-patch.mjs','patchCandidateLifecycleV2667',{required:true});
 const candidateMarketwide=await run('CandidateMarketwide','candidate-marketwide-v2669-patch.mjs','patchCandidateMarketwideV2669',{required:true});
 const candidateRecallFix=await run('CandidateRecallFix','candidate-recall-fix-v2670-patch.mjs','patchCandidateRecallFixV2670',{required:true});
-const candidateOps=await run('CandidateOps','candidate-ops-v2671-patch.mjs','patchCandidateOpsV2671',{required:true});
+const candidateOps=await run('CandidateOps2672','candidate-ops-v2672-fix.mjs','patchCandidateOpsV2672',{required:true});
 
 installAssets();
 
@@ -63,5 +63,5 @@ const runtime=await run('Runtime2616','runtime-stability-v2616-patch.mjs','patch
 const stable=await run('UiStability2617','ui-stability-v2617-patch.mjs','patchUiStabilityV2617',{required:true});
 const integrity=await run('Integrity2668','integrity-preflight-v2668.mjs','runIntegrityPreflightV2668',{required:true});
 
-if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!notify||!ui||!runtime||!stable||!integrity)throw new Error('V2.6.71 required stack incomplete; refusing partial deployment');
-console.log('[v2671] READY · '+results.join(' · '));
+if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!notify||!ui||!runtime||!stable||!integrity)throw new Error('V2.6.72 required stack incomplete; refusing partial deployment');
+console.log('[v2672] READY · '+results.join(' · '));
