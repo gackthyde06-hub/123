@@ -63,6 +63,7 @@ const runtime=await run('Runtime2616','runtime-stability-v2616-patch.mjs','patch
 const stable=await run('UiStability2617','ui-stability-v2617-patch.mjs','patchUiStabilityV2617',{required:true});
 const integrity=await run('Integrity2668','integrity-preflight-v2668.mjs','runIntegrityPreflightV2668',{required:true});
 const customNotify=await run('CandidateUiNotify2673','candidate-ui-notify-v2673-patch.mjs','patchCandidateUiNotifyV2673',{required:true});
+const candidateHeader=await run('CandidateHeader2674','candidate-header-layout-v2674-patch.mjs','patchCandidateHeaderLayoutV2674',{required:true});
 
-if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!notify||!ui||!runtime||!stable||!integrity||!customNotify)throw new Error('V2.6.73 required stack incomplete; refusing partial deployment');
-console.log('[v2673] READY · '+results.join(' · '));
+if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!notify||!ui||!runtime||!stable||!integrity||!customNotify||!candidateHeader)throw new Error('V2.6.74 required stack incomplete; refusing partial deployment');
+console.log('[v2674] READY · '+results.join(' · '));
