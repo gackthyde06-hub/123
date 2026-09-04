@@ -42,6 +42,7 @@ const candidateNarrative=await run('CandidateNarrative','candidate-narrative-v26
 const candidateLifecycle=await run('CandidateLifecycle','candidate-lifecycle-v2667-patch.mjs','patchCandidateLifecycleV2667',{required:true});
 const candidateMarketwide=await run('CandidateMarketwide','candidate-marketwide-v2669-patch.mjs','patchCandidateMarketwideV2669',{required:true});
 const candidateRecallFix=await run('CandidateRecallFix','candidate-recall-fix-v2670-patch.mjs','patchCandidateRecallFixV2670',{required:true});
+const candidateOps=await run('CandidateOps','candidate-ops-v2671-patch.mjs','patchCandidateOpsV2671',{required:true});
 
 installAssets();
 
@@ -62,5 +63,5 @@ const runtime=await run('Runtime2616','runtime-stability-v2616-patch.mjs','patch
 const stable=await run('UiStability2617','ui-stability-v2617-patch.mjs','patchUiStabilityV2617',{required:true});
 const integrity=await run('Integrity2668','integrity-preflight-v2668.mjs','runIntegrityPreflightV2668',{required:true});
 
-if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!notify||!ui||!runtime||!stable||!integrity)throw new Error('V2.6.70 required stack incomplete; refusing partial deployment');
-console.log('[v2670] READY · '+results.join(' · '));
+if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!notify||!ui||!runtime||!stable||!integrity)throw new Error('V2.6.71 required stack incomplete; refusing partial deployment');
+console.log('[v2671] READY · '+results.join(' · '));
