@@ -1,50 +1,30 @@
-V2.6.65 — PUSH RECOVERY / REAL END-TO-END TEST
+V2.6.65 — Candidate Recall / A-B Gate Optimization
+日期：2026-09-04
 
-只 Replace：
-- notification-control-v2616-patch.mjs
+這版處理的核心問題：
+1. 正式 A/B 仍維持絕對門檻，不為了湊通知亂放寬。
+2. 候選改成「安全硬過濾後的相對排名」，最多 5 筆。
+3. 修正 A/B 被 BLOCKED 後既不顯示 A/B、又不能進候選的消失漏洞。
+4. BLOCKED 拆成：
+   - 硬淘汰：低量、價差、ADL、Funding 擁擠、BTC/ETH 大盤逆向、跨交易所逆向、清算行情弱山寨、結構 DESTROYED、RR<1、極差 Shadow。
+   - 軟等待：離回踩區太遠、單一時間框逆向、轉弱、資料等待刷新、tracker 尚未完成。
+5. 候選不自動通知；軟阻擋解除、回到正式 A/B 才進通知。
+6. 修正手動通知 loop：BLOCKED / hardBlock 不再被錯誤推送；掃描由前8筆擴到完整12筆，避免候選卡住後面的正式 A/B。
+7. /api/manual-opportunities 新增 pipeline 診斷；候選為 0 時頁面會顯示「深析 → 排名 → 安全 → A/B → 候選」與主要淘汰原因。
+8. 候選分數加入 Shadow PF/命中、Structure learning、24h 流動性、量比、taker、大戶比等證據。
 
-不要動：
-- manual-mode-backend-patch.mjs
-- growth-status-v2626-patch.mjs
-- advisory
-- shadow-learning
-- notification-policy-v2611-patch.mjs
-- package.json
-- start-safe.mjs
-- Railway 設定
+部署：
+把 ZIP 內兩個 .mjs 放到 repo 根目錄：
+- candidate-recall-v2665-patch.mjs（新增）
+- prepare-ui.mjs（覆蓋）
 
-【找到的兩個 bug】
-1. 舊 /api/test-push 使用 test-* tag，但 V2616 Service Worker 最後白名單只允許 trader-* 與 shadow-* A/B。
-   結果：server 送了，手機 Service Worker 自己丟掉。
-2. App 同步 iPhone 通知時會 existing || subscribe，完全不檢查既有 PushSubscription 的 applicationServerKey。
-   如果 Railway VAPID key 曾變過，舊 subscription 已經不能用；重新按同步也不會修。
-   而舊 /api/test-push 不看 sendPush 結果，sent=0 也回 ok:true。
+其他檔案不要動：
+- manual-mode-backend-patch.mjs 不用換
+- server.js 不用手改
+- start-safe.mjs 不用改
+- advisory-buckets-v26271-patch.mjs 不用改
+- growth-status-v2626-patch.mjs 不用改
 
-【V2.6.65】
-- 測試 push 使用 notify-test-* / shadow-test-*，Service Worker 明確允許。
-- 測試只 bypass「通知內容政策」，不會寫績效、不會寫 Shadow 樣本、不會當正式 A/B。
-- /api/test-push / test-pullback / test-signal-push 會檢查真正 sent 數。
-- sent=0 直接 HTTP 503，不再假裝成功。
-- App 測試前先確認：
-  Service Worker / Permission / VAPID applicationServerKey / Subscription / server subscribe record。
-- 如果 VAPID 不同，自動 unsubscribe 舊 subscription，再用目前 cfg.vapidPublicKey 重訂。
-- 第一次測試失敗會強制重訂一次，再測第二次。
-- 已允許通知且已有 subscription 的裝置，開頁面時會背景檢查 VAPID mismatch 並自動修。
-- Service Worker 加 skipWaiting + clients.claim，更新後不必一直卡舊白名單。
-- 新增 GET /api/push-health，只回數量與狀態，不洩漏 endpoint/private key。
-
-【正式通知完全保留】
-- 熬鷹 OPEN / ADD / REDUCE / CLOSE
-- 正式 Shadow A / B
-- 手動 Shadow A / B
-- 45 分鐘同標的去重
-- 候選 C 不自動通知
-- 使用者原本 Shadow 通知開關仍有效
-
-【學習】
-完全沒修改：
-- shadow-learning
-- signal performance
-- actual-trades
-- candidate learning
-- performance ledger
+Railway build 時：
+prepare-ui → ManualAB V2.6.64 → CandidateRecall V2.6.65
+若 V2.6.65 無法套用，prepare-ui 會拒絕 partial UI，而不是默默跳過。

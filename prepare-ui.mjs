@@ -37,6 +37,7 @@ await run('Structure','structure-engine-v2-patch.mjs','patchStructureEngineV2');
 await run('SignalStability','test-signals-stability-patch.mjs','patchTestSignalsStability');
 await run('Chart','chart-ux-v262-patch.mjs','patchChartUxV262');
 await run('ManualAB','manual-mode-backend-patch.mjs','patchManualModeV263');
+const candidateRecall=await run('CandidateRecall','candidate-recall-v2665-patch.mjs','patchCandidateRecallV2665');
 await run('ShadowLearning','shadow-learning-v264-patch.mjs','patchShadowLearningV264');
 await run('TradFi','tradfi-learning-v2612-patch.mjs','patchTradfiLearningV2612');
 installAssets();
@@ -58,5 +59,5 @@ const notify=await run('Notify2616','notification-control-v2616-patch.mjs','patc
 const ui=await run('Ui2616','ui-control-v2616-patch.mjs','patchUiControlV2616');
 const runtime=await run('Runtime2616','runtime-stability-v2616-patch.mjs','patchRuntimeStabilityV2616');
 const stable=await run('UiStability2617','ui-stability-v2617-patch.mjs','patchUiStabilityV2617');
-if(!notify||!ui||!runtime||!stable)throw new Error('V2.6.17 final control layer did not apply; refusing partial UI');
-console.log('[v2617] READY '+results.join(' · '));
+if(!candidateRecall||!notify||!ui||!runtime||!stable)throw new Error('V2.6.65 required control layer did not apply; refusing partial UI');
+console.log('[v2665] READY '+results.join(' · '));
