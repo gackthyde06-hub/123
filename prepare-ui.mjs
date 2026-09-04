@@ -24,8 +24,8 @@ function installAssets(){
   const scripts=['system-growth.js','premium-theme.js','structure-engine-v2-ui.js','structure-learning-ui.js','manual-mode-ui.js','growth-abc-v264.js','actual-trade-hub-v2613.js'];
   for(const n of scripts)h=h.replace(new RegExp(`<script[^>]+src=["']/${n.replaceAll('.','\\.')}(?:\\?[^"']*)?["'][^>]*><\\/script>\\s*`,'gi'),'');
   h=h.replace(/<script\s+src=["']\/app\.js(?:\?[^"']*)?["']><\/script>/i,'<script src="/app.js?v=102673"></script>');
-  const css=names.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<link rel="stylesheet" href="/${n}?v=sg2673">`).join('\n');
-  const js=scripts.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<script defer src="/${n}?v=sg2673"></script>`).join('\n');
+  const css=names.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<link rel="stylesheet" href="/${n}?v=${n==='actual-trade-hub-v2613.css'?'sg2677':'sg2673'}">`).join('\n');
+  const js=scripts.filter(n=>fs.existsSync(path.join(publicDir,n))).map(n=>`<script defer src="/${n}?v=${n==='actual-trade-hub-v2613.js'?'sg2677':'sg2673'}"></script>`).join('\n');
   h=h.replace('</head>',`${css}\n</head>`).replace('</body>',`${js}\n</body>`);fs.writeFileSync(htmlPath,h,'utf8');
 }
 
@@ -43,6 +43,7 @@ const candidateLifecycle=await run('CandidateLifecycle','candidate-lifecycle-v26
 const candidateMarketwide=await run('CandidateMarketwide','candidate-marketwide-v2669-patch.mjs','patchCandidateMarketwideV2669',{required:true});
 const candidateRecallFix=await run('CandidateRecallFix','candidate-recall-fix-v2670-patch.mjs','patchCandidateRecallFixV2670',{required:true});
 const candidateOps=await run('CandidateOps2672','candidate-ops-v2672-fix.mjs','patchCandidateOpsV2672',{required:true});
+const actualTradeEdit=await run('ActualTradeEdit2677','actual-trade-edit-v2677-patch.mjs','patchActualTradeEditV2677',{required:true});
 
 installAssets();
 
@@ -66,5 +67,5 @@ const customNotify=await run('CandidateUiNotify2673','candidate-ui-notify-v2673-
 const candidateHeader=await run('CandidateHeader2674','candidate-header-layout-v2674-patch.mjs','patchCandidateHeaderLayoutV2674',{required:true});
 const candidateNarrativeLayout=await run('CandidateNarrativeLayout2676','candidate-narrative-layout-v2676-patch.mjs','patchCandidateNarrativeLayoutV2676',{required:true});
 
-if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!notify||!ui||!runtime||!stable||!integrity||!customNotify||!candidateHeader||!candidateNarrativeLayout)throw new Error('V2.6.76 required stack incomplete; refusing partial deployment');
-console.log('[v2676] READY · '+results.join(' · '));
+if(!manualAB||!shadowLearning||!tradfi||!candidateRecall||!candidateNarrative||!candidateLifecycle||!candidateMarketwide||!candidateRecallFix||!candidateOps||!actualTradeEdit||!notify||!ui||!runtime||!stable||!integrity||!customNotify||!candidateHeader||!candidateNarrativeLayout)throw new Error('V2.6.77 required stack incomplete; refusing partial deployment');
+console.log('[v2677] READY · '+results.join(' · '));
