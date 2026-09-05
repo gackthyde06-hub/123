@@ -4,7 +4,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.82';
+const VERSION = 'V2.6.83';
 const PREFLIGHT_ONLY = process.argv.includes('--preflight');
 
 const REQUIRED_FILES = [
@@ -30,6 +30,7 @@ const JS_CHECK = [
 ];
 const SERVER_MARKERS = [
   'WORTH_WATCH_V2682_20260905',
+  'WORTH_WATCH_STICKY_V2683_20260905',
   'SHADOW_BOOTCAMP_V2681_20260905',
   '/api/worth-watch-v2682',
   '/api/manual-opportunities',

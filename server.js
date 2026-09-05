@@ -6550,10 +6550,23 @@ async function manualOpportunityResponseV2681Base(force=false){
  * B = 值得打開圖看，由使用者自己扣扳機；不是自動進場確認。
  * A 維持 V2.6.81 嚴格正式確認。Shadow/Bootcamp 對 B 改為負面否決器，不再要求先證明 +0.10R / PF1.15 才准使用者看圖。
  */
+/* WORTH_WATCH_STICKY_V2683_20260905
+ * B 防抖生命週期：新 B 至少鎖定 20 分鐘；軟性轉弱保留為 B，不因排名/分數單次波動瞬間消失。
+ * 鎖定後需 3 次、且至少跨 5 分鐘的非入選確認才降級；硬風險/DESTROYED/嚴重資料過期/實際建倉則立即退出。
+ */
 const WORTH_WATCH_AUDIT_FILE_V2682=path.join(DATA_DIR,'worth-watch-audit-v2682.json');
+const WORTH_WATCH_STICKY_FILE_V2683=path.join(DATA_DIR,'worth-watch-sticky-v2683.json');
+const WORTH_WATCH_STICKY_LOCK_MS_V2683=Math.max(5*60_000,Number(process.env.WORTH_WATCH_STICKY_LOCK_MS||20*60_000));
+const WORTH_WATCH_STICKY_GRACE_MS_V2683=Math.max(2*60_000,Number(process.env.WORTH_WATCH_STICKY_GRACE_MS||5*60_000));
+const WORTH_WATCH_STICKY_MISS_LIMIT_V2683=Math.max(2,Math.min(5,Number(process.env.WORTH_WATCH_STICKY_MISS_LIMIT||3)));
+const WORTH_WATCH_STICKY_MISS_SAMPLE_MS_V2683=Math.max(30_000,Number(process.env.WORTH_WATCH_STICKY_MISS_SAMPLE_MS||45_000));
+const WORTH_WATCH_STICKY_STALE_HARD_MS_V2683=Math.max(4*60_000,Number(process.env.WORTH_WATCH_STICKY_STALE_HARD_MS||5*60_000));
 let worthWatchLastSnapshotV2682={generatedAt:null,eligible:0,selected:0,selectedRows:[],rejected:[]};
 let worthWatchAuditSigV2682='';
+let worthWatchStickyStateV2683=(()=>{const x=loadJson(WORTH_WATCH_STICKY_FILE_V2683,{version:'V2.6.83',rows:{}});return x&&typeof x==='object'&&!Array.isArray(x)?{version:'V2.6.83',rows:x.rows&&typeof x.rows==='object'&&!Array.isArray(x.rows)?x.rows:{}}:{version:'V2.6.83',rows:{}}})();
 function worthWatchKeyV2682(x){return [String(x?.symbol||''),String(x?.direction||'')].join('|')}
+function worthWatchStickySaveV2683(){worthWatchStickyStateV2683.version='V2.6.83';worthWatchStickyStateV2683.updatedAt=new Date().toISOString();saveJson(WORTH_WATCH_STICKY_FILE_V2683,worthWatchStickyStateV2683)}
+function worthWatchDecisionSnapshotV2683(d){return d?{mode:d.mode,score:Number(d.score||0),band:d.band,blockers:(d.blockers||[]).slice(0,8),notes:(d.notes||[]).slice(0,6),metrics:d.metrics||{}}:null}
 function worthWatchBootcampV2682(row){
   try{
     const key=testSignalKey(row?.symbol,row?.direction),t=testSignalTrackers.get(key);if(!t)return null;
@@ -6562,23 +6575,70 @@ function worthWatchBootcampV2682(row){
 }
 function worthWatchAuditWriteV2682(snapshot){
   try{
-    const sig=JSON.stringify([snapshot?.selectedRows?.map(x=>[x.symbol,x.direction,x.score,x.mode]),snapshot?.eligible,snapshot?.selected]);
+    const sig=JSON.stringify([snapshot?.selectedRows?.map(x=>[x.symbol,x.direction,x.score,x.mode,x.lifecycle]),snapshot?.eligible,snapshot?.selected]);
     if(sig===worthWatchAuditSigV2682)return;worthWatchAuditSigV2682=sig;
     const old=loadJson(WORTH_WATCH_AUDIT_FILE_V2682,{events:[]}),out=old&&typeof old==='object'?old:{events:[]};
-    out.version='V2.6.82';out.updatedAt=new Date().toISOString();out.lastSnapshot=snapshot;out.events=Array.isArray(out.events)?out.events:[];
+    out.version='V2.6.83';out.updatedAt=new Date().toISOString();out.lastSnapshot=snapshot;out.events=Array.isArray(out.events)?out.events:[];
     out.events.unshift({at:out.updatedAt,eligible:snapshot.eligible,selected:snapshot.selected,selectedRows:snapshot.selectedRows});out.events=out.events.slice(0,200);saveJson(WORTH_WATCH_AUDIT_FILE_V2682,out);
-  }catch(e){console.warn('[v2682] worth-watch audit',String(e?.message||e))}
+  }catch(e){console.warn('[v2683] worth-watch audit',String(e?.message||e))}
 }
-function worthWatchPromoteRowV2682(row,decision){
-  const toA=Array.isArray(row?.formalGap?.toA)?row.formalGap.toA:[];
+function worthWatchPromoteRowV2682(row,decision,lifecycle=null){
+  const toA=Array.isArray(row?.formalGap?.toA)?row.formalGap.toA:[],lc=lifecycle&&typeof lifecycle==='object'?lifecycle:null;
+  const lcReason=lc?.status==='WEAKENING'?'B級鎖定｜轉弱觀察':lc?.status==='GRACE'?'B級鎖定｜降級確認 '+Number(lc.missCount||0)+'/'+WORTH_WATCH_STICKY_MISS_LIMIT_V2683:lc?.status==='LOCKED'?'B級鎖定｜排名/分數防抖':'B級值得看｜'+Number(decision?.score||0).toFixed(1)+'分';
   return {...row,
     grade:'B',candidate:false,originalCandidate:true,originalCandidateBand:row.candidateBand||null,
     notificationTier:'NORMAL',
-    worthWatch:{version:'V2.6.82',mode:'WORTH_WATCH',selectionMode:decision.mode,score:decision.score,notes:decision.notes,metrics:decision.metrics},
-    reasons:['B級值得看｜'+Number(decision.score||0).toFixed(1)+'分',...(decision.notes||[]),...(row.reasons||[])].filter(Boolean).slice(0,8),
-    risks:['B級＝值得打開圖，不是進場確認；由你看盤後決定是否扣扳機',...(row.risks||[])].filter(Boolean).slice(0,8),
-    formalGap:{...(row.formalGap||{}),toB:['已升 B｜值得看；不要求策略 ready 才讓你看到'],toA}
+    worthWatch:{version:'V2.6.83',mode:'WORTH_WATCH',selectionMode:decision?.mode||lc?.selectionMode||'STICKY',score:Number(decision?.score??lc?.score??0),notes:decision?.notes||[],metrics:decision?.metrics||{},lifecycle:lc},
+    reasons:[lcReason,...(decision?.notes||[]),...(row.reasons||[])].filter(Boolean).slice(0,8),
+    risks:['B級＝值得打開圖，不是進場確認；由你看盤後決定是否扣扳機',...(lc?.status==='WEAKENING'||lc?.status==='GRACE'?['目前為 B 防抖保留，不代表條件仍完全符合新 B 門檻']:[]),...(row.risks||[])].filter(Boolean).slice(0,8),
+    formalGap:{...(row.formalGap||{}),toB:['已升 B｜值得看；20 分鐘防抖，軟性轉弱不會瞬間消失'],toA}
   };
+}
+function worthWatchHardExitV2683(row){
+  if(!row)return {hard:false,reasons:['本輪未出現在候選資料']};
+  if(row?.trade?.status==='ACTIVE')return {hard:true,reasons:['已有實際建倉追蹤']};
+  const grade=String(row?.grade||'').toUpperCase();
+  if(row?.candidate!==true&&['A','B'].includes(grade))return {hard:true,reasons:['已轉為正式 '+grade+' 級']};
+  const cls=manualCandidateBlockClassV2665(row,manualCandidateScoreV2664(row));
+  if(cls.hard.length)return {hard:true,reasons:cls.hard.slice(0,5)};
+  if(String(row?.structure?.state||'').toUpperCase()==='DESTROYED')return {hard:true,reasons:['結構徹底破壞']};
+  if(Number(row?.freshnessAgeMs||0)>WORTH_WATCH_STICKY_STALE_HARD_MS_V2683)return {hard:true,reasons:['即時判讀超過5分鐘']};
+  const cov=manualFinite(row?.dataHealth?.coverage),conf=manualFinite(row?.dataHealth?.confidence);
+  if(cov!=null&&cov<45)return {hard:true,reasons:['資料完整度嚴重不足']};
+  if(conf!=null&&conf<45)return {hard:true,reasons:['資料可信度嚴重不足']};
+  return {hard:false,reasons:[]};
+}
+function worthWatchStickyLifecycleV2683(rows0,evaluated,selected,now=Date.now()){
+  const max=Math.max(1,Number(WORTH_WATCH_DEFAULTS_V2682.maxVisibleB)||3),rowByKey=new Map(rows0.map(r=>[worthWatchKeyV2682(r),r])),evalByKey=new Map(evaluated.map(x=>[worthWatchKeyV2682(x.row),x])),rawSelectedKeys=new Set(selected.map(x=>worthWatchKeyV2682(x.row))),stateRows=worthWatchStickyStateV2683.rows||{},active=[];let dirty=false;
+  const prior=Object.values(stateRows).filter(x=>x&&x.active===true).sort((a,b)=>Number(a.startedAt||0)-Number(b.startedAt||0));
+  for(const st of prior){
+    const key=String(st.key||''),row=rowByKey.get(key),ev=evalByKey.get(key),hard=worthWatchHardExitV2683(row);
+    if(hard.hard){delete stateRows[key];dirty=true;continue}
+    if(!row||row?.candidate!==true)continue;
+    const selectedNow=rawSelectedKeys.has(key),decision=ev?.decision||null;
+    if(selectedNow){st.lastEligibleAt=now;st.missCount=0;st.firstMissAt=null;st.lastMissAt=null;st.status='ACTIVE';st.lastDecision=worthWatchDecisionSnapshotV2683(decision);dirty=true;active.push({key,row,decision:decision||st.lastDecision,state:st});continue}
+    if(now<Number(st.lockUntil||0)){
+      st.status=decision?.eligible===true?'LOCKED':'WEAKENING';if(decision)st.lastDecision=worthWatchDecisionSnapshotV2683(decision);dirty=true;active.push({key,row,decision:decision||st.lastDecision,state:st});continue
+    }
+    if(!st.firstMissAt)st.firstMissAt=now;
+    if(!st.lastMissAt||now-Number(st.lastMissAt)>=WORTH_WATCH_STICKY_MISS_SAMPLE_MS_V2683){st.missCount=Number(st.missCount||0)+1;st.lastMissAt=now;dirty=true}
+    const missAge=now-Number(st.firstMissAt||now);
+    if(Number(st.missCount||0)>=WORTH_WATCH_STICKY_MISS_LIMIT_V2683&&missAge>=WORTH_WATCH_STICKY_GRACE_MS_V2683){delete stateRows[key];dirty=true;continue}
+    st.status='GRACE';if(decision)st.lastDecision=worthWatchDecisionSnapshotV2683(decision);active.push({key,row,decision:decision||st.lastDecision,state:st});
+  }
+  const activeKeys=new Set(active.map(x=>x.key));
+  for(const x of selected){
+    if(active.length>=max)break;
+    const key=worthWatchKeyV2682(x.row);if(activeKeys.has(key))continue;
+    const row=rowByKey.get(key);if(!row||worthWatchHardExitV2683(row).hard)continue;
+    const st={key,symbol:row.symbol,direction:row.direction,active:true,status:'ACTIVE',startedAt:now,lastEligibleAt:now,lockUntil:now+WORTH_WATCH_STICKY_LOCK_MS_V2683,missCount:0,firstMissAt:null,lastMissAt:null,selectionMode:x.decision.mode,score:Number(x.decision.score||0),lastDecision:worthWatchDecisionSnapshotV2683(x.decision)};
+    stateRows[key]=st;active.push({key,row,decision:x.decision,state:st});activeKeys.add(key);dirty=true;
+  }
+  active.splice(max);
+  const keep=new Set(active.map(x=>x.key));
+  for(const [key,st] of Object.entries(stateRows))if(st?.active===true&&!keep.has(key)&&rowByKey.has(key)&&Number(st.startedAt||0)>0&&now-Number(st.startedAt)>24*60*60_000){delete stateRows[key];dirty=true}
+  worthWatchStickyStateV2683.rows=stateRows;if(dirty)worthWatchStickySaveV2683();
+  return active;
 }
 
 async function manualOpportunityResponse(force=false){
@@ -6589,14 +6649,14 @@ async function manualOpportunityResponse(force=false){
     const bootcamp=worthWatchBootcampV2682(row),decision=evaluateWorthWatchV2682(row,bootcamp);
     evaluated.push({row,decision,bootcamp});
   }
-  const selected=selectWorthWatchV2682(evaluated,{max:WORTH_WATCH_DEFAULTS_V2682.maxVisibleB}),selectedByKey=new Map(selected.map(x=>[worthWatchKeyV2682(x.row),x.decision]));
-  const rows=rows0.map(row=>{const d=selectedByKey.get(worthWatchKeyV2682(row));return d&&row?.candidate===true?worthWatchPromoteRowV2682(row,d):row});
+  const rawSelected=selectWorthWatchV2682(evaluated,{max:WORTH_WATCH_DEFAULTS_V2682.maxVisibleB}),sticky=worthWatchStickyLifecycleV2683(rows0,evaluated,rawSelected),selectedByKey=new Map(sticky.map(x=>[x.key,x]));
+  const rows=rows0.map(row=>{const x=selectedByKey.get(worthWatchKeyV2682(row));return x&&row?.candidate===true?worthWatchPromoteRowV2682(row,x.decision,{status:x.state.status,startedAt:x.state.startedAt,lockUntil:x.state.lockUntil,missCount:Number(x.state.missCount||0),selectionMode:x.state.selectionMode,score:Number(x.decision?.score??x.state.score??0)}):row});
   const countA=rows.filter(x=>String(x?.grade||'')==='A'&&x?.candidate!==true).length,countB=rows.filter(x=>String(x?.grade||'')==='B'&&x?.candidate!==true).length,countCandidate=rows.filter(x=>x?.candidate===true).length;
-  const selectedRows=selected.map(x=>({symbol:x.row.symbol,direction:x.row.direction,score:x.decision.score,mode:x.decision.mode,band:x.decision.band,structure:x.decision.metrics.structureState,health:x.decision.metrics.structureHealth,progress:x.decision.metrics.progress}));
+  const selectedRows=sticky.map(x=>({symbol:x.row.symbol,direction:x.row.direction,score:Number(x.decision?.score??x.state.score??0),mode:x.decision?.mode||x.state.selectionMode,band:x.decision?.band||x.row.candidateBand,structure:x.decision?.metrics?.structureState||x.row.structure?.state,health:x.decision?.metrics?.structureHealth??x.row.structure?.health,progress:x.decision?.metrics?.progress??x.row.observationProgress,lifecycle:x.state.status,lockUntil:x.state.lockUntil,missCount:Number(x.state.missCount||0)}));
   const rejected=evaluated.filter(x=>!x.decision.eligible).sort((a,b)=>Number(b.decision.score||0)-Number(a.decision.score||0)).slice(0,8).map(x=>({symbol:x.row.symbol,direction:x.row.direction,band:x.decision.band,score:x.decision.score,blockers:x.decision.blockers.slice(0,4)}));
-  worthWatchLastSnapshotV2682={generatedAt:new Date().toISOString(),eligible:evaluated.filter(x=>x.decision.eligible).length,selected:selected.length,selectedRows,rejected};worthWatchAuditWriteV2682(worthWatchLastSnapshotV2682);
-  const pipeline={...(base?.pipeline||{}),formalA:countA,formalB:countB,candidate:countCandidate,worthWatchEligible:worthWatchLastSnapshotV2682.eligible,worthWatchSelected:selected.length};
-  return {...base,version:'V2.6.82',methodology:'V2.6.82：A 維持嚴格正式確認；B 改為 Shadow 從候選中挑出的「值得看」。B 必須通過硬風控、資料、新鮮度與 Structure 存活/收復檢查；策略尚未 ready 不再單獨阻止 B。Bootcamp 對 B 只否決有足夠樣本且明顯負期望/低 PF 的型態。B 是開圖通知，由使用者自行看盤扣扳機，不是自動進場。',counts:{...(base?.counts||{}),A:countA,B:countB,candidate:countCandidate},pipeline,worthWatch:{version:'V2.6.82',...worthWatchLastSnapshotV2682},rows};
+  worthWatchLastSnapshotV2682={generatedAt:new Date().toISOString(),eligible:evaluated.filter(x=>x.decision.eligible).length,selected:sticky.length,rawSelected:rawSelected.length,selectedRows,rejected,sticky:{version:'V2.6.83',lockMinutes:Math.round(WORTH_WATCH_STICKY_LOCK_MS_V2683/60_000),graceMinutes:Math.round(WORTH_WATCH_STICKY_GRACE_MS_V2683/60_000),missLimit:WORTH_WATCH_STICKY_MISS_LIMIT_V2683}};worthWatchAuditWriteV2682(worthWatchLastSnapshotV2682);
+  const pipeline={...(base?.pipeline||{}),formalA:countA,formalB:countB,candidate:countCandidate,worthWatchEligible:worthWatchLastSnapshotV2682.eligible,worthWatchSelected:sticky.length};
+  return {...base,version:'V2.6.83',methodology:'V2.6.83：A 維持嚴格正式確認；B 維持 V2.6.82 值得看門檻，新增 20 分鐘 Sticky 防抖。排名、分數、完成度或一般轉弱不會讓已通知 B 瞬間消失；鎖定後需 3 次且至少 5 分鐘持續未入選才降級。結構 DESTROYED、硬風控、嚴重資料過期或已實際建倉仍立即退出。',counts:{...(base?.counts||{}),A:countA,B:countB,candidate:countCandidate},pipeline,worthWatch:{version:'V2.6.83',...worthWatchLastSnapshotV2682},rows};
 }
 
 
@@ -6748,7 +6808,7 @@ app.post('/api/manual-candidate-dismiss',(req,res)=>{
 app.get('/api/worth-watch-v2682',(_req,res)=>{
   try{
     const audit=loadJson(WORTH_WATCH_AUDIT_FILE_V2682,{events:[]});
-    res.json({ok:true,version:'V2.6.82',definition:'B=值得打開圖，由使用者自己扣扳機；A=高完成度正式確認',thresholds:WORTH_WATCH_DEFAULTS_V2682,current:worthWatchLastSnapshotV2682,recent:(audit?.events||[]).slice(0,50)});
+    res.json({ok:true,version:'V2.6.83',definition:'B=值得打開圖，由使用者自己扣扳機；新 B 20 分鐘防抖，軟性轉弱不會瞬間消失；A=高完成度正式確認',thresholds:WORTH_WATCH_DEFAULTS_V2682,sticky:{lockMinutes:Math.round(WORTH_WATCH_STICKY_LOCK_MS_V2683/60_000),graceMinutes:Math.round(WORTH_WATCH_STICKY_GRACE_MS_V2683/60_000),missLimit:WORTH_WATCH_STICKY_MISS_LIMIT_V2683},current:worthWatchLastSnapshotV2682,recent:(audit?.events||[]).slice(0,50)});
   }catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}
 });
 app.get('/api/manual-opportunities',async(req,res)=>{try{res.json(await manualOpportunityResponse(String(req.query?.force||'')==='1'))}catch(e){res.status(503).json({ok:false,error:String(e?.message||e)})}});
