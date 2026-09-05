@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "node start-safe.mjs",
+    "serve": "node server.js",
     "dev": "node --watch server.js",
+    "preflight": "node start-safe.mjs --preflight",
     "vapid": "web-push generate-vapid-keys",
-    "test": "UNIT_TEST=1 node test_v100.mjs"
+    "test": "node test-runner.mjs",
+    "test:worth-watch": "node test-worth-watch-v2682.mjs",
+    "test:all": "npm run preflight && npm test && npm run test:worth-watch"
   },
   "engines": {
     "node": ">=22"

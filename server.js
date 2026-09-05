@@ -263,6 +263,14 @@ const RESEARCH_LAYER_MARKER = 'SHADOW_RESEARCH_LAYER_V1_20260901';
 app.use(compression({ threshold: 1024, level: 4 }));
 app.use(express.json({ limit: '128kb' }));
 
+// V2.6.82 production hardening: runtime state/secrets must never be reachable through /public.
+// DATA_DIR may contain these files legitimately; only static exposure is blocked.
+const PUBLIC_RUNTIME_DENY_V2682 = new Set(['/vapid.json','/subscriptions.json','/events.json','/events-v5.json']);
+app.use((req,res,next)=>{
+  if(req.method==='GET' && PUBLIC_RUNTIME_DENY_V2682.has(String(req.path||'').toLowerCase())) return res.status(404).end();
+  next();
+});
+
 // API data must stay fresh, but "no-cache" permits conditional revalidation instead of forcing
 // the entire payload to be transferred again when it has not changed.
 app.use((req, res, next) => {
@@ -273,6 +281,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
+  dotfiles: 'deny',
   etag: true,
   lastModified: true,
   setHeaders(res, filePath) {

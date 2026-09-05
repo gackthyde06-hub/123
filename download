@@ -1,0 +1,37 @@
+node_modules/
+.env
+.env.*
+!env.example
+*.log
+.DS_Store
+Thumbs.db
+
+# Runtime state / secrets (Railway DATA_DIR / Volume owns these)
+vapid.json
+subscriptions.json
+events.json
+events-v5.json
+state-v5.json
+seen-v5.json
+consensus-v5.json
+stats-v57.json
+reference-v59.json
+screen-v65.json
+consensus-episodes-v65.json
+pullback-trackers-v65.json
+daily-brief-v73.json
+test-signals-v78.json
+test-signal-history-v78.json
+signal-performance-v10.json
+shadow-performance-v1022.json
+actual-trades-v1026.json
+research-audit-v1031.json
+shadow-bootcamp-audit-v2681.json
+worth-watch-audit-v2682.json
+backups-v267/
+
+# Never publish runtime state from static assets either
+public/vapid.json
+public/subscriptions.json
+public/events.json
+public/events-v5.json
