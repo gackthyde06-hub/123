@@ -1,0 +1,10 @@
+V2.6.81 DATA / MODEL VALIDATION NOTES
+
+The supplied Shadow export was used to redesign the learner, not to hard-code winning symbols.
+The short export window does not justify claiming a guaranteed profitable ML model. Historical walk-forward checks showed that simply lowering A/B thresholds or trusting the old score/mentor ranking would select poor trades. The release therefore refuses to force A/B volume and requires positive net-of-cost evidence before promotion.
+
+Key design consequence:
+- Fewer signals is acceptable when expected net edge is not demonstrated.
+- New resolved Shadow outcomes continuously change Challenger estimates.
+- A/B can appear once current pattern evidence satisfies the promotion gates without safety invalidation.
+- Old 'testSignalEnabled' can no longer silently suppress an otherwise formal A/B push.
