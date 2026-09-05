@@ -1,9 +1,29 @@
+// INSTITUTIONAL_MENTOR_EDGE_V2622
+// INSTITUTIONAL_SHADOW_EDGE_V2621
+// V2682_PRODUCTION_FINALIZE_20260905
+// WORTH_WATCH_V2682_20260905
+// SHADOW_BOOTCAMP_V2681_20260905
+// CANDIDATE_UI_NOTIFY_CUSTOM_V2673_20260904
+// RUNTIME_STABILITY_V2616
+// PUSH_RECOVERY_V2665_20260904
+// NOTIFICATION_CONTROL_V2616
+// NOTIFICATION_POLICY_V2611: high/normal entry + ABC + trader orders + daily brief only.
+// CANDIDATE_OPS_HISTORY_TRADE_V2671_20260904
+// CANDIDATE_REAL_RECALL_FIX_V2670_20260904
+// MARKETWIDE_CANDIDATE_RECALL_V2669_20260904
+// CANDIDATE_LIFECYCLE_V2667_20260904
+// MANUAL_CANDIDATE_RECALL_V2665_20260904
+// TRADFI_LEARNING_V2612_20260902
+// MANUAL_RECOVERY_STABLE_V2664_20260904
 import 'dotenv/config';
 import express from 'express';
+import compression from 'compression';
 import webpush from 'web-push';
 import fs from 'node:fs';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
+import { evaluateWorthWatchV2682, selectWorthWatchV2682, WORTH_WATCH_DEFAULTS_V2682 } from './worth-watch-v2682-core.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -103,8 +123,8 @@ const MARKET_FLOW_TIMEOUT_MS = Math.max(12000, Number(process.env.MARKET_FLOW_TI
 const MARKET_FLOW_STALE_MS = Math.max(60_000, Number(process.env.MARKET_FLOW_STALE_MS || 10 * 60 * 1000));
 const IDEA_CACHE_MS = Math.max(30_000, Number(process.env.IDEA_CACHE_MS || 60_000));
 const IDEA_STALE_MS = Math.max(5 * 60_000, Number(process.env.IDEA_STALE_MS || 20 * 60 * 1000));
-const IDEA_SYMBOLS = Math.max(12, Math.min(32, Number(process.env.IDEA_SYMBOLS || 24)));
-const RADAR_MAX_SYMBOLS = Math.max(50, Math.min(180, Number(process.env.RADAR_MAX_SYMBOLS || 100)));
+const IDEA_SYMBOLS = Math.max(24, Math.min(48, Number(process.env.IDEA_SYMBOLS || 40)));
+const RADAR_MAX_SYMBOLS = Math.max(120, Math.min(500, Number(process.env.RADAR_MAX_SYMBOLS || 300)));
 const REALTIME_MAX_SYMBOLS = Math.max(12, Math.min(32, Number(process.env.REALTIME_MAX_SYMBOLS || 24)));
 const REALTIME_DEPTH_SYMBOLS = Math.max(8, Math.min(16, Number(process.env.REALTIME_DEPTH_SYMBOLS || 12)));
 const ENABLE_REALTIME_WS = String(process.env.ENABLE_REALTIME_WS || '1') !== '0';
@@ -121,14 +141,18 @@ const SHADOW_MIN_SCORE = Math.max(55, Math.min(85, Number(process.env.SHADOW_MIN
 const SHADOW_MIN_PROGRESS = Math.max(70, Math.min(95, Number(process.env.SHADOW_MIN_PROGRESS || 80)));
 const SHADOW_MIN_COVERAGE = Math.max(55, Math.min(90, Number(process.env.SHADOW_MIN_COVERAGE || 65)));
 const SHADOW_MIN_CONFIDENCE = Math.max(50, Math.min(90, Number(process.env.SHADOW_MIN_CONFIDENCE || 58)));
-const SHADOW_MAX_RECORDS = Math.max(1200, Math.min(12000, Number(process.env.SHADOW_MAX_RECORDS || 6000)));
+const SHADOW_MAX_RECORDS = Math.max(1200, Math.min(12000, Number(process.env.SHADOW_MAX_RECORDS || 12000)));
+const PERF_HISTORY_MAX_RECORDS = Math.max(1200, Math.min(6000, Number(process.env.PERF_HISTORY_MAX_RECORDS || 3000)));
+const BACKTEST_CACHE_MS = Math.max(15*60*1000, Math.min(4*60*60*1000, Number(process.env.BACKTEST_CACHE_MS || 60*60*1000)));
+const HOBBY_BACKUP_INTERVAL_MS = Math.max(60*60*1000, Number(process.env.HOBBY_BACKUP_INTERVAL_MS || 6*60*60*1000));
+const HOBBY_BACKUP_KEEP_DAYS = Math.max(3, Math.min(30, Number(process.env.HOBBY_BACKUP_KEEP_DAYS || 14)));
 const SHADOW_REARM_MS = Math.max(10*60*1000, Math.min(90*60*1000, Number(process.env.SHADOW_REARM_MS || 30*60*1000)));
 const STATE_LEARNING_DEDUP_MS = Math.max(15*60*1000, Math.min(4*60*60*1000, Number(process.env.STATE_LEARNING_DEDUP_MS || 45*60*1000)));
 const SYSTEM_MONITOR_TTL_MS = Math.max(60*60*1000, Math.min(12*60*60*1000, Number(process.env.SYSTEM_MONITOR_TTL_MS || PERF_MAX_HORIZON_MS)));
 const STATE_LEARNING_MIN_SAMPLE = Math.max(10, Math.min(50, Number(process.env.STATE_LEARNING_MIN_SAMPLE || 20)));
 const STATE_LEARNING_MAX_BONUS = Math.max(2, Math.min(8, Number(process.env.STATE_LEARNING_MAX_BONUS || 6)));
 const REGIME_LIQUIDATION_5M_USD = Math.max(1_000_000, Number(process.env.REGIME_LIQUIDATION_5M_USD || 15_000_000));
-const TEST_SIGNAL_MAX = Math.max(4, Math.min(12, Number(process.env.TEST_SIGNAL_MAX || 12)));
+const TEST_SIGNAL_MAX = Math.max(12, Math.min(24, Number(process.env.TEST_SIGNAL_MAX || 20)));
 const TEST_SIGNAL_IDEA_TTL_MS = Math.max(10 * 60 * 1000, Number(process.env.TEST_SIGNAL_IDEA_TTL_MS || 25 * 60 * 1000));
 const TEST_SIGNAL_OUTCOME_MS = Math.max(60 * 60 * 1000, Number(process.env.TEST_SIGNAL_OUTCOME_MS || 90 * 60 * 1000));
 const TEST_SIGNAL_CONFIRM_SCORE = Math.max(60, Math.min(92, Number(process.env.TEST_SIGNAL_CONFIRM_SCORE || 76)));
@@ -164,7 +188,7 @@ const RUNTIME_SERVICE = String(process.env.RAILWAY_SERVICE_NAME || '').trim();
 const BUILD_VERSION = 'V10.2.7';
 const DAILY_BRIEF_PUSH_WINDOW_MIN = 25;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-luna';
-const SYMBOL_ANALYSIS_CACHE_MS = Math.max(30 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 2 * 60 * 60 * 1000));
+const SYMBOL_ANALYSIS_CACHE_MS = Math.max(2 * 60 * 60 * 1000, Number(process.env.SYMBOL_ANALYSIS_CACHE_MS || 6 * 60 * 60 * 1000));
 const symbolAnalysisCache = new Map();
 
 let marketFlowCache = { at:0, data:null, lastGoodAt:0, error:null, inflight:null };
@@ -190,12 +214,81 @@ const SIGNAL_PERFORMANCE_FILE = path.join(DATA_DIR, 'signal-performance-v10.json
 const SHADOW_PERFORMANCE_FILE = path.join(DATA_DIR, 'shadow-performance-v1022.json');
 const ACTUAL_TRADE_FILE = path.join(DATA_DIR, 'actual-trades-v1026.json');
 
+// RAILWAY_HOBBY_V267: tiny daily gzip snapshots of learning ledgers on the existing Railway Volume.
+// No subscriptions, VAPID keys or cookies are copied. This protects Shadow growth from accidental overwrite.
+const HOBBY_BACKUP_DIR = path.join(DATA_DIR, 'backups-v267');
+let hobbyBackupTimerV267 = null;
+function hobbyDayKeyV267(ts=Date.now()){const d=new Date(ts);return d.toISOString().slice(0,10)}
+function runHobbyBackupV267(){
+  try{
+    fs.mkdirSync(HOBBY_BACKUP_DIR,{recursive:true});
+    const day=hobbyDayKeyV267();
+    const files=[SHADOW_PERFORMANCE_FILE,SIGNAL_PERFORMANCE_FILE,TEST_SIGNAL_FILE,TEST_SIGNAL_HISTORY_FILE,ACTUAL_TRADE_FILE];
+    for(const source of files){
+      if(!fs.existsSync(source))continue;
+      const base=path.basename(source).replace(/\.json$/i,'');
+      const target=path.join(HOBBY_BACKUP_DIR,`${base}-${day}.json.gz`);
+      if(fs.existsSync(target))continue;
+      const raw=fs.readFileSync(source);
+      if(!raw.length)continue;
+      fs.writeFileSync(target,gzipSync(raw,{level:6}));
+    }
+    const cutoff=Date.now()-HOBBY_BACKUP_KEEP_DAYS*24*60*60*1000;
+    for(const name of fs.readdirSync(HOBBY_BACKUP_DIR)){
+      if(!/\.json\.gz$/i.test(name))continue;
+      const p=path.join(HOBBY_BACKUP_DIR,name);
+      try{if(fs.statSync(p).mtimeMs<cutoff)fs.unlinkSync(p)}catch{}
+    }
+  }catch(err){console.warn('[v267-hobby-backup]',String(err?.message||err))}
+}
+setTimeout(()=>{runHobbyBackupV267();hobbyBackupTimerV267=setInterval(runHobbyBackupV267,HOBBY_BACKUP_INTERVAL_MS);hobbyBackupTimerV267.unref?.()},60_000).unref?.();
+const STRUCTURE_LEARNING_FILE = path.join(DATA_DIR, 'structure-learning-v2.json');
+const STRUCTURE_ENGINE_VERSION = 'S2.1.0';
+const STRUCTURE_ENGINE_MARKER = 'STRUCTURE_ENGINE_V21_20260902';
+const STRUCTURE_V2_MIN_SAMPLE = Math.max(12, Math.min(80, Number(process.env.STRUCTURE_V2_MIN_SAMPLE || 20)));
+const STRUCTURE_V2_MAX_ADJUST = Math.max(2, Math.min(10, Number(process.env.STRUCTURE_V2_MAX_ADJUST || 8)));
+const STRUCTURE_V2_EPISODE_MS = Math.max(15*60*1000, Math.min(2*60*60*1000, Number(process.env.STRUCTURE_V2_EPISODE_MS || 30*60*1000)));
+const STRUCTURE_V2_HORIZON_MS = Math.max(90*60*1000, Math.min(8*60*60*1000, Number(process.env.STRUCTURE_V2_HORIZON_MS || 4*60*60*1000)));
+const STRUCTURE_V2_NOTIFY_COOLDOWN_MS = Math.max(20*60*1000, Math.min(2*60*60*1000, Number(process.env.STRUCTURE_V2_NOTIFY_COOLDOWN_MS || 45*60*1000)));
+const STRUCTURE_V2_NOTIFY_MIN_HEALTH = Math.max(55, Math.min(85, Number(process.env.STRUCTURE_V2_NOTIFY_MIN_HEALTH || 64)));
+const STRUCTURE_V2_NOTIFY_MIN_CONFIDENCE = Math.max(55, Math.min(90, Number(process.env.STRUCTURE_V2_NOTIFY_MIN_CONFIDENCE || 65)));
+const RESEARCH_AUDIT_FILE = path.join(DATA_DIR, 'research-audit-v1031.json');
+const RESEARCH_LAYER_REVISION = 'V10.2.7-R1';
+const RESEARCH_LAYER_RELEASE_DATE = '2026-09-01';
+const RESEARCH_LAYER_SCORE_MEANING = 'STRUCTURE_COMPLETION';
+const RESEARCH_LAYER_MARKER = 'SHADOW_RESEARCH_LAYER_V1_20260901';
+
+// RAILWAY_EGRESS_V266: lower Railway egress without slowing server-side notification polling.
+// Dynamic JSON + static text assets are compressed; browser assets may be reused safely.
+app.use(compression({ threshold: 1024, level: 4 }));
 app.use(express.json({ limit: '128kb' }));
+
+// API data must stay fresh, but "no-cache" permits conditional revalidation instead of forcing
+// the entire payload to be transferred again when it has not changed.
+app.use((req, res, next) => {
+  if (req.method === 'GET' && req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'private, no-cache, must-revalidate');
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
-  etag: false,
-  lastModified: false,
-  setHeaders(res) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  etag: true,
+  lastModified: true,
+  setHeaders(res, filePath) {
+    const name = path.basename(filePath).toLowerCase();
+    if (name === 'index.html' || name === 'sw.js' || name === 'manifest.webmanifest') {
+      // Shell / service worker always revalidate so updates are not trapped by a stale cache.
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    } else if (/\.(?:png|jpe?g|webp|gif|ico|svg)$/.test(name)) {
+      // Versioned artwork and app icons are large and rarely change.
+      res.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
+    } else if (/\.(?:css|js)$/.test(name)) {
+      // JS/CSS already use version query strings; one-hour reuse is safe.
+      res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
+    }
   }
 }));
 
@@ -224,6 +317,9 @@ let testSignalHistory = Array.isArray(loadJson(TEST_SIGNAL_HISTORY_FILE, [])) ? 
 let signalPerformance = Array.isArray(loadJson(SIGNAL_PERFORMANCE_FILE, [])) ? loadJson(SIGNAL_PERFORMANCE_FILE, []) : [];
 let shadowPerformance = Array.isArray(loadJson(SHADOW_PERFORMANCE_FILE, [])) ? loadJson(SHADOW_PERFORMANCE_FILE, []) : [];
 let actualTrades = Array.isArray(loadJson(ACTUAL_TRADE_FILE, [])) ? loadJson(ACTUAL_TRADE_FILE, []) : [];
+let structureLearning = Array.isArray(loadJson(STRUCTURE_LEARNING_FILE, [])) ? loadJson(STRUCTURE_LEARNING_FILE, []) : [];
+let structureLearningSaveTimer = null;
+let structureLearningRevision = 1;
 let performanceSaveTimer = null;
 let actualTradeSaveTimer = null;
 let shadowPerformanceSaveTimer = null;
@@ -242,6 +338,24 @@ const testRiskCache = new Map();
 const testDerivCache = new Map();
 const testCrossExchangeCache = new Map();
 const testCandleSourceCache = new Map();
+
+// RAILWAY_HOBBY_V267: use paid-plan RAM as a bounded cache, never as an unbounded leak.
+function pruneRuntimeCachesV267(map,maxAgeMs,maxEntries){
+  const now=Date.now();
+  for(const [key,val] of map){const at=Number(val?.at||0);if(at>0&&now-at>maxAgeMs)map.delete(key)}
+  if(map.size<=maxEntries)return;
+  const oldest=[...map.entries()].sort((a,b)=>Number(a[1]?.at||0)-Number(b[1]?.at||0));
+  for(let i=0;i<oldest.length-maxEntries;i++)map.delete(oldest[i][0]);
+}
+const hobbyCachePruneTimerV267=setInterval(()=>{
+  pruneRuntimeCachesV267(testCandleCache,45*60*1000,500);
+  pruneRuntimeCachesV267(testBacktestCandleCache,4*60*60*1000,300);
+  pruneRuntimeCachesV267(testMicroCache,30*60*1000,300);
+  pruneRuntimeCachesV267(testRiskCache,60*60*1000,300);
+  pruneRuntimeCachesV267(testDerivCache,60*60*1000,300);
+  pruneRuntimeCachesV267(testCrossExchangeCache,60*60*1000,300);
+},10*60*1000);
+hobbyCachePruneTimerV267.unref?.();
 function n(v) {
   const x = Number(v);
   return Number.isFinite(x) ? x : 0;
@@ -1444,22 +1558,22 @@ function pullbackTransition(tracker, marketPrice, now = Date.now()) {
   };
   const side = String(next.side || '').toUpperCase();
   const invalidPrice = Number(next.invalidPrice);
-  const structuralInvalid = invalidPrice > 0 && (
+  const structuralBreach = invalidPrice > 0 && (
     side === 'SHORT' ? snapshot.marketPrice >= invalidPrice : snapshot.marketPrice <= invalidPrice
   );
+  if (structuralBreach) next.structuralBreachSince ||= new Date(now).toISOString();
+  else { next.structuralBreachSince = null; next.structuralBreachPrice = null; }
+  if (structuralBreach) next.structuralBreachPrice = snapshot.marketPrice;
 
+  // Structure Engine V2 rule: a wick/touch, a price-only breach, or Fib 0.786 alone is NOT invalidation.
+  // The multi-timeframe structure engine below decides whether the market is merely damaged/reclaiming/opportunity or truly destroyed.
   let eventType = null;
   let reason = null;
-  if (!next.invalidSentAt && structuralInvalid) {
-    eventType = 'INVALIDATION';
-    reason = 'STRUCTURE';
-    next.invalidSentAt = new Date(now).toISOString();
-  } else if (snapshot.activated && !next.invalidSentAt && snapshot.retracementRatio >= PULLBACK_FIB_INVALID_RATIO) {
-    eventType = 'INVALIDATION';
-    reason = 'FIB_TOO_DEEP';
-    next.invalidSentAt = new Date(now).toISOString();
-    next.normalSentAt ||= next.invalidSentAt;
-    next.deepSentAt ||= next.invalidSentAt;
+  if (snapshot.activated && !next.deepSentAt && snapshot.retracementRatio >= PULLBACK_FIB_INVALID_RATIO) {
+    eventType = 'DEEP_PULLBACK';
+    reason = 'FIB_0786_STRUCTURE_REVIEW';
+    next.deepSentAt = new Date(now).toISOString();
+    next.normalSentAt ||= next.deepSentAt;
   } else if (snapshot.activated && !next.deepSentAt && snapshot.retracementRatio >= PULLBACK_DEEP_RATIO) {
     eventType = 'DEEP_PULLBACK';
     reason = 'FIB_0618';
@@ -1675,7 +1789,7 @@ function applyRealtimeOverlay(symbol,deriv,micro,riskCtx){
 const PERF_HORIZONS_MIN=[5,15,30,60,90,240];
 const performanceActiveSymbols=new Set(signalPerformance.filter(x=>x?.version==='V10.0'&&x.status==='ACTIVE').map(x=>cleanFuturesSymbol(x.symbol)));
 const notificationAckPending={received:new Map(),clicked:new Map()};
-function schedulePerformanceSave(){if(performanceSaveTimer)return;performanceSaveTimer=setTimeout(()=>{performanceSaveTimer=null;signalPerformance=signalPerformance.slice(0,1200);saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance)},1500);performanceSaveTimer.unref?.()}
+function schedulePerformanceSave(){if(performanceSaveTimer)return;performanceSaveTimer=setTimeout(()=>{performanceSaveTimer=null;signalPerformance=signalPerformance.slice(0,PERF_HISTORY_MAX_RECORDS);saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance)},1500);performanceSaveTimer.unref?.()}
 function performanceAckTime(payloadTs, fallback=Date.now()){
   const n=Number(payloadTs);if(Number.isFinite(n)&&Math.abs(n-fallback)<10*60_000)return n;return fallback;
 }
@@ -1707,13 +1821,13 @@ function actualTradeReturnPct(rec,px){const e=finiteMetric(rec.entryPrice);if(!(
 function actualTradeRecord(body={}){
   const symbol=cleanFuturesSymbol(body.symbol),direction=actualTradeDirection(body.direction),entry=finiteMetric(body.entryPrice),tp1=finiteMetric(body.tp1),tp2=finiteMetric(body.tp2),sp1=finiteMetric(body.sp1),sp2=finiteMetric(body.sp2),margin=finiteMetric(body.margin),quantity=finiteMetric(body.quantity),leverage=finiteMetric(body.leverage);
   if(!symbol||!(entry>0))return {error:'symbol / entryPrice invalid'};
-  const signalKey=String(body.signalKey||'').slice(0,100)||null;if(signalKey){const existing=actualTrades.find(x=>x?.version==='V10.2.6'&&x.status==='ACTIVE'&&x.signalKey===signalKey);if(existing)return {error:'這筆訊號已有追蹤中的實際建倉',existingId:existing.id}}
+  const signalKey=String(body.signalKey||'').slice(0,100)||null,manualOpportunityId=String(body.manualOpportunityId||'').slice(0,160)||null;if(signalKey){const existing=actualTrades.find(x=>x?.version==='V10.2.6'&&x.status==='ACTIVE'&&x.signalKey===signalKey);if(existing)return {error:'這筆訊號已有追蹤中的實際建倉',existingId:existing.id}}if(manualOpportunityId){const existing=actualTrades.find(x=>x?.version==='V10.2.6'&&x.status==='ACTIVE'&&x.manualOpportunityId===manualOpportunityId);if(existing)return {error:'這個手動機會已有追蹤中的實際建倉',existingId:existing.id}}
   if(!(tp1>0||tp2>0||sp1>0||sp2>0))return {error:'至少填一個 TP / SP'};
   if(!(quantity>0)&&!(margin>0&&leverage>0))return {error:'請填數量，或保證金＋槓桿'};
   const dir=actualTradeDirSign(direction),badTarget=[tp1,tp2].filter(x=>x!=null).some(x=>dir*(x-entry)<=0),badStop=[sp1,sp2].filter(x=>x!=null).some(x=>dir*(x-entry)>=0);
   if(badTarget)return {error:'TP 必須在獲利方向'};if(badStop)return {error:'SP 必須在風險方向'};
   const now=new Date().toISOString(),id=`actual-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
-  const rec={id,version:'V10.2.6',createdAt:now,updatedAt:now,signalKey,notificationId:String(body.notificationId||'').slice(0,180)||null,symbol,direction,source:'MANUAL_ACTUAL',strategyId:String(body.strategyId||'').slice(0,50)||null,strategyLabel:String(body.strategyLabel||'').slice(0,80)||null,marketRegime:String(body.marketRegime||'').slice(0,40)||null,notificationTier:String(body.notificationTier||'').slice(0,20)||null,signalSnapshot:(body.signalSnapshot&&typeof body.signalSnapshot==='object')?{calibratedWinRate:finiteMetric(body.signalSnapshot.calibratedWinRate),monitorScore:finiteMetric(body.signalSnapshot.monitorScore),notificationScore:finiteMetric(body.signalSnapshot.notificationScore),observationProgress:finiteMetric(body.signalSnapshot.observationProgress),rank:finiteMetric(body.signalSnapshot.rank),oi15mChangePct:finiteMetric(body.signalSnapshot.oi15mChangePct),takerRatio:finiteMetric(body.signalSnapshot.takerRatio),depthImbalance:finiteMetric(body.signalSnapshot.depthImbalance),topPositionRatio:finiteMetric(body.signalSnapshot.topPositionRatio),marketAlign:finiteMetric(body.signalSnapshot.marketAlign)}:null,entryPrice:entry,tp1:tp1??null,tp2:tp2??null,sp1:sp1??null,sp2:sp2??null,margin:margin??null,quantity:quantity??null,leverage:leverage??null,notional:null,status:'ACTIVE',result:null,resultAt:null,firstOutcome:null,firstOutcomeAt:null,lastPrice:entry,lastPriceAt:now,lastSource:'manual-entry',mfePct:0,maePct:0,tp1Hit:false,tp1HitAt:null,tp2Hit:false,tp2HitAt:null,sp1Hit:false,sp1HitAt:null,sp2Hit:false,sp2HitAt:null,estimatedPnl:null,estimatedLossSp1:null,estimatedLossSp2:null,estimatedProfitTp1:null,estimatedProfitTp2:null};
+  const rec={id,version:'V10.2.6',createdAt:now,updatedAt:now,signalKey,notificationId:String(body.notificationId||'').slice(0,180)||null,symbol,direction,assetClass:assetClassForSymbolV2612(symbol),assetSession:assetSessionV2612(symbol),source:'MANUAL_ACTUAL',manualMode:body.manualMode===true,manualGrade:['A','B','C'].includes(String(body.manualGrade||'').toUpperCase())?String(body.manualGrade).toUpperCase():null,manualGradeScore:finiteMetric(body.manualGradeScore),manualGradeAt:String(body.manualGradeAt||'').slice(0,40)||null,manualOpportunityId,manualReasons:Array.isArray(body.manualReasons)?body.manualReasons.slice(0,8).map(x=>String(x).slice(0,100)):[],manualSnapshot:manualCleanSnapshot(body.manualSnapshot),manualRank:finiteMetric(body.manualSnapshot?.rank),manualStructureState:String(body.manualSnapshot?.structureState||'').slice(0,30)||null,manualStructureHealth:finiteMetric(body.manualSnapshot?.structureHealth),manualShadowHitRate:finiteMetric(body.manualSnapshot?.shadowHitRate),manualShadowProfitFactor:finiteMetric(body.manualSnapshot?.shadowProfitFactor),manualRr:finiteMetric(body.manualSnapshot?.rr),strategyId:String(body.strategyId||'').slice(0,50)||null,strategyLabel:String(body.strategyLabel||'').slice(0,80)||null,marketRegime:String(body.marketRegime||'').slice(0,40)||null,notificationTier:String(body.notificationTier||'').slice(0,20)||null,signalSnapshot:(body.signalSnapshot&&typeof body.signalSnapshot==='object')?{calibratedWinRate:finiteMetric(body.signalSnapshot.calibratedWinRate),monitorScore:finiteMetric(body.signalSnapshot.monitorScore),notificationScore:finiteMetric(body.signalSnapshot.notificationScore),observationProgress:finiteMetric(body.signalSnapshot.observationProgress),rank:finiteMetric(body.signalSnapshot.rank),oi15mChangePct:finiteMetric(body.signalSnapshot.oi15mChangePct),takerRatio:finiteMetric(body.signalSnapshot.takerRatio),depthImbalance:finiteMetric(body.signalSnapshot.depthImbalance),topPositionRatio:finiteMetric(body.signalSnapshot.topPositionRatio),marketAlign:finiteMetric(body.signalSnapshot.marketAlign)}:null,entryPrice:entry,tp1:tp1??null,tp2:tp2??null,sp1:sp1??null,sp2:sp2??null,margin:margin??null,quantity:quantity??null,leverage:leverage??null,notional:null,status:'ACTIVE',result:null,resultAt:null,firstOutcome:null,firstOutcomeAt:null,lastPrice:entry,lastPriceAt:now,lastSource:'manual-entry',mfePct:0,maePct:0,tp1Hit:false,tp1HitAt:null,tp2Hit:false,tp2HitAt:null,sp1Hit:false,sp1HitAt:null,sp2Hit:false,sp2HitAt:null,estimatedPnl:null,estimatedLossSp1:null,estimatedLossSp2:null,estimatedProfitTp1:null,estimatedProfitTp2:null};
   rec.notional=actualTradeNotional(rec);rec.estimatedLossSp1=sp1?actualTradePnlAt(rec,sp1):null;rec.estimatedLossSp2=sp2?actualTradePnlAt(rec,sp2):null;rec.estimatedProfitTp1=tp1?actualTradePnlAt(rec,tp1):null;rec.estimatedProfitTp2=tp2?actualTradePnlAt(rec,tp2):null;
   actualTrades.unshift(rec);actualTradeActiveSymbols.add(symbol);scheduleActualTradeSave();const px=realtimeBestPrice(symbol)||markPrices.get(symbol);if(px)actualTradeOnPrice(symbol,px,Date.now(),'entry-check');return {rec};
 }
@@ -1746,8 +1860,8 @@ function actualTradeOnPrice(symbol,price,ts=Date.now(),source='price'){
 function actualTradeAggregate(){
   const all=actualTrades.filter(x=>x?.version==='V10.2.6'),resolved=all.filter(x=>x.status==='RESOLVED'),decisive=all.filter(x=>['WIN','LOSS'].includes(x.firstOutcome)),wins=decisive.filter(x=>x.firstOutcome==='WIN').length,losses=decisive.filter(x=>x.firstOutcome==='LOSS').length,pnl=resolved.map(x=>Number(x.estimatedPnl)).filter(Number.isFinite),linked=[];
   for(const x of decisive){const p=signalPerformance.find(r=>r?.version==='V10.0'&&((x.notificationId&&r.id===x.notificationId)||(x.signalKey&&r.signalKey===x.signalKey)));if(!p)continue;const dev=x.entryPrice>0&&p.entryPrice>0?Math.abs(x.entryPrice-p.entryPrice)/p.entryPrice*100:null;linked.push({agree:['WIN','LOSS'].includes(p.result)?p.result===x.firstOutcome:null,entryDeviationPct:dev})}
-  const comparable=linked.filter(x=>x.agree!==null),devs=linked.map(x=>x.entryDeviationPct).filter(Number.isFinite);
-  return {sample:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,decisive:decisive.length,wins,losses,tp1FirstRate:decisive.length?Number((wins/decisive.length*100).toFixed(1)):null,sp1FirstRate:decisive.length?Number((losses/decisive.length*100).toFixed(1)):null,estimatedPnl:pnl.length?Number(pnl.reduce((a,b)=>a+b,0).toFixed(2)):0,linkedSample:linked.length,comparableSample:comparable.length,modelActualAgreementRate:comparable.length?Number((comparable.filter(x=>x.agree).length/comparable.length*100).toFixed(1)):null,avgEntryDeviationPct:devs.length?Number((devs.reduce((a,b)=>a+b,0)/devs.length).toFixed(3)):null};
+  const comparable=linked.filter(x=>x.agree!==null),devs=linked.map(x=>x.entryDeviationPct).filter(Number.isFinite),manual=manualActualBreakdown();
+  return {sample:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,decisive:decisive.length,wins,losses,tp1FirstRate:decisive.length?Number((wins/decisive.length*100).toFixed(1)):null,sp1FirstRate:decisive.length?Number((losses/decisive.length*100).toFixed(1)):null,estimatedPnl:pnl.length?Number(pnl.reduce((a,b)=>a+b,0).toFixed(2)):0,linkedSample:linked.length,comparableSample:comparable.length,modelActualAgreementRate:comparable.length?Number((comparable.filter(x=>x.agree).length/comparable.length*100).toFixed(1)):null,avgEntryDeviationPct:devs.length?Number((devs.reduce((a,b)=>a+b,0)/devs.length).toFixed(3)):null,manual};
 }
 
 const shadowActiveSymbols=new Set(shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='ACTIVE').map(x=>cleanFuturesSymbol(x.symbol)));
@@ -1757,20 +1871,20 @@ function scheduleShadowPerformanceSave(){
   shadowPerformanceSaveTimer.unref?.();
 }
 function stateLearningFeatures(t){
-  const dir=testSignalDirection(t?.direction),lc=t?.lastCheck||{},strategy=t?.strategyAtConfirm||t?.strategyProfile||{},oi=finiteMetric(lc.oi15mChangePct)??finiteMetric(lc.oiChangePct),taker=finiteMetric(lc.takerRatio),depth=finiteMetric(lc.depthImbalance),top=finiteMetric(lc.topPositionRatio),marketAlign=Number(lc.marketAlign||0),regime=String(t?.marketRegime||lc.marketRegime||'NORMAL');
+  const dir=testSignalDirection(t?.direction),lc=t?.lastCheck||{},strategy=t?.strategyAtConfirm||t?.strategyProfile||{},oi=finiteMetric(lc.oi15mChangePct)??finiteMetric(lc.oiChangePct),taker=finiteMetric(lc.takerRatio),depth=finiteMetric(lc.depthImbalance),top=finiteMetric(lc.topPositionRatio),marketAlign=Number(lc.marketAlign||0),regime=String(t?.marketRegime||lc.marketRegime||'NORMAL'),assetClass=assetClassForSymbolV2612(t?.symbol),assetSession=assetSessionV2612(t?.symbol),assetFamily=assetProfileV2612(t?.symbol)?.subtype||'CRYPTO';
   const bucket=(v,kind)=>{if(v==null)return 'NA';if(kind==='oi')return v>=.35?'RISING':v<=-.35?'FALLING':'FLAT';if(kind==='taker')return dir>0?(v>=1.02?'ALIGNED':v<=.96?'OPPOSED':'NEUTRAL'):(v<=.98?'ALIGNED':v>=1.04?'OPPOSED':'NEUTRAL');if(kind==='depth')return dir>0?(v>=.06?'ALIGNED':v<=-.10?'OPPOSED':'NEUTRAL'):(v<=-.06?'ALIGNED':v>=.10?'OPPOSED':'NEUTRAL');if(kind==='top')return dir>0?(v>=1.02?'ALIGNED':v<=.96?'OPPOSED':'NEUTRAL'):(v<=.98?'ALIGNED':v>=1.04?'OPPOSED':'NEUTRAL');return 'NA'};
-  return {strategyId:String(strategy.id||'UNKNOWN'),strategyLabel:String(strategy.label||'未分類'),regime,direction:t?.direction||'LONG',oi:bucket(oi,'oi'),taker:bucket(taker,'taker'),depth:bucket(depth,'depth'),top:bucket(top,'top'),market:marketAlign>0?'ALIGNED':marketAlign<0?'OPPOSED':'NEUTRAL'};
+  return {assetClass,assetSession,assetFamily,strategyId:String(strategy.id||'UNKNOWN'),strategyLabel:String(strategy.label||'未分類'),regime,direction:t?.direction||'LONG',oi:bucket(oi,'oi'),taker:bucket(taker,'taker'),depth:bucket(depth,'depth'),top:bucket(top,'top'),market:marketAlign>0?'ALIGNED':marketAlign<0?'OPPOSED':'NEUTRAL'};
 }
-function stateLearningKeys(features){const f=features||{};return {detail:[f.strategyId,f.regime,f.direction,f.oi,f.taker,f.depth,f.top,f.market].join('|'),core:[f.strategyId,f.regime,f.direction].join('|'),broad:[f.strategyId,f.regime].join('|')}}
+function stateLearningKeys(features){const f=features||{},a=f.assetClass||'CRYPTO',s=f.assetSession||'UNKNOWN';return {detail:[a,s,f.strategyId,f.regime,f.direction,f.oi,f.taker,f.depth,f.top,f.market].join('|'),core:[a,s,f.strategyId,f.regime,f.direction].join('|'),broad:[a,f.strategyId,f.regime,f.direction].join('|'),global:[f.strategyId,f.regime,f.direction].join('|')}}
 function shadowStats(rows){
   const resolved=(rows||[]).filter(x=>x?.status==='RESOLVED'),wins=resolved.filter(x=>x.result==='WIN').length,losses=resolved.filter(x=>x.result==='LOSS').length,timeouts=resolved.filter(x=>x.result==='TIMEOUT').length,rr=resolved.map(x=>Number(x.realizedR)).filter(Number.isFinite),profits=rr.filter(x=>x>0).reduce((a,b)=>a+b,0),lossSum=Math.abs(rr.filter(x=>x<0).reduce((a,b)=>a+b,0));
   const hitRate=resolved.length?wins/resolved.length*100:null,expectancyR=rr.length?rr.reduce((a,b)=>a+b,0)/rr.length:null,profitFactor=lossSum>0?profits/lossSum:(profits>0?99:null);
   return {sample:resolved.length,wins,losses,timeouts,hitRate:hitRate==null?null:Number(hitRate.toFixed(1)),expectancyR:expectancyR==null?null:Number(expectancyR.toFixed(3)),profitFactor:profitFactor==null?null:Number(profitFactor.toFixed(2))};
 }
+function shadowLearningKeysV2612(rec){const f={...(rec?.stateFeatures||{}),assetClass:rec?.assetClass||rec?.stateFeatures?.assetClass||assetClassForSymbolV2612(rec?.symbol),assetSession:rec?.assetSession||rec?.stateFeatures?.assetSession||assetSessionV2612(rec?.symbol,new Date(rec?.shadowAt||Date.now()).getTime()),assetFamily:rec?.assetFamily||rec?.stateFeatures?.assetFamily||assetProfileV2612(rec?.symbol)?.subtype||'CRYPTO',strategyId:rec?.strategyId||rec?.stateFeatures?.strategyId||'UNKNOWN',regime:rec?.marketRegime||rec?.stateFeatures?.regime||'NORMAL',direction:rec?.direction||rec?.stateFeatures?.direction||'LONG',oi:rec?.stateFeatures?.oi||'NA',taker:rec?.stateFeatures?.taker||'NA',depth:rec?.stateFeatures?.depth||'NA',top:rec?.stateFeatures?.top||'NA',market:rec?.stateFeatures?.market||'NEUTRAL'};return stateLearningKeys(f)}
 function shadowLearningEffectiveRows(){
   const rows=shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'&&x.learningEligible!==false).sort((a,b)=>new Date(b.shadowAt||0)-new Date(a.shadowAt||0)),seen=new Map(),out=[];
-  for(const rec of rows){const core=rec?.stateKeys?.core||[rec.strategyId,rec.marketRegime,rec.direction].join('|'),k=`${core}|${cleanFuturesSymbol(rec.symbol)}`,ts=new Date(rec.shadowAt||0).getTime(),prev=seen.get(k);if(Number.isFinite(prev)&&Math.abs(prev-ts)<STATE_LEARNING_DEDUP_MS)continue;seen.set(k,ts);out.push(rec)}
-  return out;
+  for(const rec of rows){const core=shadowLearningKeysV2612(rec).core,k=`${core}|${cleanFuturesSymbol(rec.symbol)}`,ts=new Date(rec.shadowAt||0).getTime(),prev=seen.get(k);if(Number.isFinite(prev)&&Math.abs(prev-ts)<STATE_LEARNING_DEDUP_MS)continue;seen.set(k,ts);out.push(rec)}return out;
 }
 function stateLearningAdjustmentFromStats(stats){
   const sample=Number(stats?.sample||0);if(sample<STATE_LEARNING_MIN_SAMPLE)return 0;const cap=Math.min(STATE_LEARNING_MAX_BONUS,sample>=100?6:sample>=50?4:2),hit=Number(stats?.hitRate??50),exp=Number(stats?.expectancyR??0),pf=Number(stats?.profitFactor??1);
@@ -1778,24 +1892,147 @@ function stateLearningAdjustmentFromStats(stats){
 }
 function stateLearningIndex(){
   if(shadowLearningIndexCache.revision===shadowLearningRevision&&shadowLearningIndexCache.maps)return shadowLearningIndexCache.maps;
-  // 學習樣本去相關化：同一標的、同一狀態在短時間內重複出現，只保留最新一筆參與權重學習。
-  // 原始 Shadow 紀錄仍完整保留做研究與稽核，不會刪資料。
-  const resolved=shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'&&x.learningEligible!==false).sort((a,b)=>new Date(b.shadowAt||0)-new Date(a.shadowAt||0)),maps={detail:new Map(),core:new Map(),broad:new Map()},seen={detail:new Map(),core:new Map(),broad:new Map()};
-  for(const rec of resolved){const ts=new Date(rec.shadowAt||0).getTime(),symbol=cleanFuturesSymbol(rec.symbol);for(const level of ['detail','core','broad']){const key=rec?.stateKeys?.[level];if(!key)continue;const correlationKey=`${key}|${symbol}`,prev=seen[level].get(correlationKey);if(Number.isFinite(prev)&&Math.abs(prev-ts)<STATE_LEARNING_DEDUP_MS)continue;seen[level].set(correlationKey,ts);if(!maps[level].has(key))maps[level].set(key,[]);maps[level].get(key).push(rec)}}shadowLearningIndexCache={revision:shadowLearningRevision,maps};return maps;
+  const resolved=shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'&&x.learningEligible!==false).sort((a,b)=>new Date(b.shadowAt||0)-new Date(a.shadowAt||0)),maps={detail:new Map(),core:new Map(),broad:new Map(),global:new Map()},seen={detail:new Map(),core:new Map(),broad:new Map(),global:new Map()};
+  for(const rec of resolved){const ts=new Date(rec.shadowAt||0).getTime(),symbol=cleanFuturesSymbol(rec.symbol),keys=shadowLearningKeysV2612(rec);for(const level of ['detail','core','broad','global']){const key=keys[level];if(!key)continue;const correlationKey=`${key}|${symbol}`,prev=seen[level].get(correlationKey);if(Number.isFinite(prev)&&Math.abs(prev-ts)<STATE_LEARNING_DEDUP_MS)continue;seen[level].set(correlationKey,ts);if(!maps[level].has(key))maps[level].set(key,[]);maps[level].get(key).push(rec)}}shadowLearningIndexCache={revision:shadowLearningRevision,maps};return maps;
 }
-function actualStateEvidence(features){const rows=actualTrades.filter(x=>x?.version==='V10.2.6'&&['WIN','LOSS'].includes(x.firstOutcome)&&String(x.strategyId||'')===String(features.strategyId||'')&&String(x.marketRegime||'')===String(features.regime||'')&&String(x.direction||'')===String(features.direction||''));const sample=rows.length,wins=rows.filter(x=>x.firstOutcome==='WIN').length,hitRate=sample?wins/sample*100:null;let adjustment=0;if(sample>=12){if(hitRate>=65)adjustment=1;else if(hitRate<=40)adjustment=-1}return {sample,hitRate:hitRate==null?null:Number(hitRate.toFixed(1)),adjustment}}
+function actualStateEvidence(features){const assetClass=String(features?.assetClass||'CRYPTO'),rows=actualTrades.filter(x=>x?.version==='V10.2.6'&&['WIN','LOSS'].includes(x.firstOutcome)&&assetClassForSymbolV2612(x.symbol)===assetClass&&String(x.strategyId||'')===String(features.strategyId||'')&&String(x.marketRegime||'')===String(features.regime||'')&&String(x.direction||'')===String(features.direction||''));const sample=rows.length,wins=rows.filter(x=>x.firstOutcome==='WIN').length,hitRate=sample?wins/sample*100:null;let adjustment=0;if(sample>=12){if(hitRate>=65)adjustment=1;else if(hitRate<=40)adjustment=-1}return {sample,hitRate:hitRate==null?null:Number(hitRate.toFixed(1)),adjustment,assetClass}}
+/* INSTITUTIONAL_SHADOW_EDGE_V2621
+ * Institutional mentor layer.
+ * Separates alpha (directional edge) from readiness/execution and risk.
+ * Uses net-of-cost Shadow outcomes with de-correlation and conservative sample gates.
+ */
+const SHADOW_EDGE_VERSION_V2621='V2.6.21';
+const SHADOW_EDGE_MIN_SAMPLE_V2621=Math.max(16,Math.min(60,Number(process.env.SHADOW_EDGE_MIN_SAMPLE||20)));
+const SHADOW_EDGE_STRATEGY_SAMPLE_V2621=Math.max(24,Math.min(100,Number(process.env.SHADOW_EDGE_STRATEGY_SAMPLE||30)));
+const SHADOW_EDGE_A_MIN_V2621=Math.max(56,Math.min(78,Number(process.env.SHADOW_EDGE_A_MIN||60)));
+const SHADOW_EDGE_B_MIN_V2621=Math.max(44,Math.min(SHADOW_EDGE_A_MIN_V2621-2,Number(process.env.SHADOW_EDGE_B_MIN||48)));
+const SHADOW_EDGE_A_COST_RATIO_V2621=Math.max(.20,Math.min(.50,Number(process.env.SHADOW_EDGE_A_COST_RATIO||.35)));
+const SHADOW_EDGE_B_COST_RATIO_V2621=Math.max(SHADOW_EDGE_A_COST_RATIO_V2621,Math.min(.80,Number(process.env.SHADOW_EDGE_B_COST_RATIO||.60)));
+
+function edgeNumV2621(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function edgeAssetV2621(x){try{return String(x?.assetClass||assetClassForSymbolV2612(x?.symbol)||'CRYPTO').toUpperCase()}catch{return String(x?.assetClass||'CRYPTO').toUpperCase()}}
+function edgeRiskPctV2621(x){const e=edgeNumV2621(x?.entryPrice),st=edgeNumV2621(x?.stop);return e>0&&st>0?Math.abs(st-e)/e*100:null}
+function edgeNetRV2621(x){
+  const nr=edgeNumV2621(x?.netR);if(nr!=null)return nr;
+  const riskPct=edgeRiskPctV2621(x),netPct=edgeNumV2621(x?.netReturnPct);if(riskPct>0&&netPct!=null)return netPct/riskPct;
+  const r=edgeNumV2621(x?.realizedR);if(r==null)return null;
+  const bps=edgeNumV2621(x?.costBps)??PERF_ROUND_TRIP_COST_BPS;if(!(riskPct>0))return r;
+  return r-((bps/100)/riskPct);
+}
+function edgeWilsonLowV2621(wins,n){if(!(n>0))return null;const z=1.281551565545,ph=wins/n,z2=z*z,den=1+z2/n,mid=ph+z2/(2*n),rad=z*Math.sqrt((ph*(1-ph)+z2/(4*n))/n);return Math.max(0,(mid-rad)/den)*100}
+function edgeStatsV2621(rows){
+  const a=(rows||[]).filter(x=>x?.status==='RESOLVED'&&x?.learningEligible!==false&&['WIN','LOSS','TIMEOUT'].includes(String(x?.result||''))),dec=a.filter(x=>['WIN','LOSS'].includes(x.result)),wins=dec.filter(x=>x.result==='WIN').length,losses=dec.length-wins,nr=a.map(edgeNetRV2621).filter(Number.isFinite),profit=nr.filter(v=>v>0).reduce((p,v)=>p+v,0),loss=Math.abs(nr.filter(v=>v<0).reduce((p,v)=>p+v,0)),hit=dec.length?wins/dec.length*100:null,pf=loss>0?profit/loss:(profit>0?99:null),exp=nr.length?nr.reduce((p,v)=>p+v,0)/nr.length:null;
+  return {sample:a.length,decisive:dec.length,wins,losses,timeouts:a.length-dec.length,hitRate:hit==null?null:Number(hit.toFixed(1)),wilsonLow:hit==null?null:Number(edgeWilsonLowV2621(wins,dec.length).toFixed(1)),netProfitFactor:pf==null?null:Number(pf.toFixed(2)),netExpectancyR:exp==null?null:Number(exp.toFixed(3))};
+}
+function edgeDedupV2621(rows,keyFn){const sorted=[...(rows||[])].sort((a,b)=>new Date(b.shadowAt||0)-new Date(a.shadowAt||0)),seen=new Map(),out=[];for(const r of sorted){const k=String(keyFn?.(r)||cleanFuturesSymbol(r?.symbol)||'NA'),ts=new Date(r?.shadowAt||0).getTime(),prev=seen.get(k);if(Number.isFinite(prev)&&Number.isFinite(ts)&&Math.abs(prev-ts)<STATE_LEARNING_DEDUP_MS)continue;seen.set(k,ts);out.push(r)}return out}
+function edgeAdjFromStatsV2621(st,cap=8){const n=Number(st?.sample||0);if(n<SHADOW_EDGE_MIN_SAMPLE_V2621)return 0;let raw=0,low=Number(st?.wilsonLow??50),pf=Number(st?.netProfitFactor??1),exp=Number(st?.netExpectancyR??0);if(low>=56)raw+=3;else if(low>=51)raw+=1;else if(low<42)raw-=3;if(pf>=1.25)raw+=3;else if(pf>=1.05)raw+=1;else if(pf<.55)raw-=6;else if(pf<.80)raw-=4;if(exp>=.10)raw+=3;else if(exp>=.02)raw+=1;else if(exp<=-.25)raw-=5;else if(exp<=-.10)raw-=3;const conf=Math.min(1,Math.sqrt(n/100));return clamp(Math.round(raw*conf),-cap,cap)}
+function edgeCostV2621(t){const entry=edgeNumV2621(t?.reentryEntryPrice)??edgeNumV2621(t?.confirmationPrice)??edgeNumV2621(t?.currentPrice)??edgeNumV2621(realtimeBestPrice(t?.symbol)),stop=edgeNumV2621(t?.reentryStop)??edgeNumV2621(t?.structureProtection)??edgeNumV2621(t?.stop)??edgeNumV2621(t?.setup?.invalidation);if(!(entry>0&&stop>0))return {riskPct:null,costPct:PERF_ROUND_TRIP_COST_BPS/100,ratio:null,adjustment:-2,aGate:false,bGate:false};const riskPct=Math.abs(entry-stop)/entry*100,costPct=PERF_ROUND_TRIP_COST_BPS/100,ratio=riskPct>0?costPct/riskPct:99;let adjustment=0;if(ratio<=.12)adjustment=4;else if(ratio<=.20)adjustment=2;else if(ratio<=.35)adjustment=0;else if(ratio<=.50)adjustment=-4;else if(ratio<=.65)adjustment=-8;else adjustment=-16;return {riskPct:Number(riskPct.toFixed(4)),costPct:Number(costPct.toFixed(4)),ratio:Number(ratio.toFixed(3)),adjustment,aGate:ratio<=SHADOW_EDGE_A_COST_RATIO_V2621,bGate:ratio<=SHADOW_EDGE_B_COST_RATIO_V2621}}
+function edgeRowsV2621(){return shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'&&x.learningEligible!==false&&['WIN','LOSS','TIMEOUT'].includes(String(x.result||'')))}
+function edgeStrategyMatchV2621(x,features){const a=String(x?.strategyId||''),b=String(features?.strategyId||''),la=String(x?.strategyLabel||''),lb=String(features?.strategyLabel||'');if(a&&b&&a!=='UNKNOWN'&&b!=='UNKNOWN')return a===b;return la&&lb?la===lb:a===b}
+function institutionalEdgeV2621(t){
+  const features=stateLearningFeatures(t),asset=String(features.assetClass||edgeAssetV2621(t)),all=edgeRowsV2621(),sameAsset=all.filter(x=>edgeAssetV2621(x)===asset),strategyId=String(features.strategyId||''),direction=String(features.direction||t?.direction||'LONG'),regime=String(features.regime||'UNKNOWN');
+  const exact=edgeDedupV2621(sameAsset.filter(x=>edgeStrategyMatchV2621(x,features)&&String(x.direction||'')===direction&&String(x.marketRegime||'')===regime),x=>cleanFuturesSymbol(x.symbol));
+  const strategyDir=edgeDedupV2621(sameAsset.filter(x=>edgeStrategyMatchV2621(x,features)&&String(x.direction||'')===direction),x=>cleanFuturesSymbol(x.symbol));
+  const strategyAll=edgeDedupV2621(sameAsset.filter(x=>edgeStrategyMatchV2621(x,features)),x=>`${cleanFuturesSymbol(x.symbol)}|${x.direction}`);
+  const directionRows=edgeDedupV2621(sameAsset.filter(x=>String(x.direction||'')===direction),x=>`${cleanFuturesSymbol(x.symbol)}|${x.strategyId}`);
+  let chosen=exact,level='同資產·策略×狀態×方向';if(chosen.length<SHADOW_EDGE_MIN_SAMPLE_V2621){chosen=strategyDir;level='同資產·策略×方向'}if(chosen.length<SHADOW_EDGE_STRATEGY_SAMPLE_V2621){chosen=strategyAll;level='同資產·策略'}if(chosen.length<SHADOW_EDGE_STRATEGY_SAMPLE_V2621){chosen=directionRows;level='同資產·方向'}
+  const stats=edgeStatsV2621(chosen),strategyStats=edgeStatsV2621(strategyAll),stateAdj=edgeAdjFromStatsV2621(stats,6),strategyAdj=edgeAdjFromStatsV2621(strategyStats,8),cost=edgeCostV2621(t),ev=t?.monitorEvidence||t?.lastCheck||{};
+  let score=55+stateAdj*2+strategyAdj*1.4+cost.adjustment;
+  if(regime==='UNKNOWN')score-=5;
+  if(ev.adverseMarket)score-=18;if(ev.adverse1h)score-=7;if(ev.adverse30)score-=4;if(String(ev.adlRisk||'').toLowerCase()==='high')score-=12;if(ev.fundingCrowded===true)score-=8;
+  score=clamp(Math.round(score),0,100);
+  const poorStrategy=Number(strategyStats.sample||0)>=SHADOW_EDGE_STRATEGY_SAMPLE_V2621&&(Number(strategyStats.netProfitFactor??1)<.80||Number(strategyStats.netExpectancyR??0)<-.10);
+  const severeStrategy=Number(strategyStats.sample||0)>=SHADOW_EDGE_STRATEGY_SAMPLE_V2621&&(Number(strategyStats.netProfitFactor??1)<.55||Number(strategyStats.netExpectancyR??0)<-.25);
+  const label=String(features.strategyLabel||'');const breakoutPoor=label.includes('突破回測')&&poorStrategy,momentumPoor=label.includes('動能')&&poorStrategy;
+  const hardBlockReasons=[];if(cost.ratio!=null&&cost.ratio>.65)hardBlockReasons.push('成本/停損比過高');if(ev.adverseMarket)hardBlockReasons.push(asset==='TRADFI'?'美股大盤逆向':'BTC/ETH大盤逆向');if(severeStrategy&&breakoutPoor)hardBlockReasons.push('突破回測淨期望顯著為負');
+  const capA=regime==='UNKNOWN'||poorStrategy||breakoutPoor||momentumPoor||!cost.aGate||stateAdj<=-4;
+  const learningAdjustment=clamp(Math.round(stateAdj+strategyAdj*.55),-STATE_LEARNING_MAX_BONUS,STATE_LEARNING_MAX_BONUS);
+  return {version:SHADOW_EDGE_VERSION_V2621,edgeScore:score,level,sample:Number(stats.sample||0),stats,strategyStats,stateAdjustment:stateAdj,strategyAdjustment:strategyAdj,learningAdjustment,cost,costGateA:cost.aGate,costGateB:cost.bGate,capA,hardBlock:hardBlockReasons.length>0,hardBlockReasons,poorStrategy,severeStrategy,assetClass:asset,regime,strategyId,strategyLabel:features.strategyLabel,direction};
+}
+
+/* INSTITUTIONAL_MENTOR_EDGE_V2622
+ * Frozen-train + forward-verification mentor layer.
+ * Goals:
+ * - do not confuse readiness with alpha;
+ * - use net-of-cost outcomes only;
+ * - penalize instability / symbol concentration / multiple testing;
+ * - keep post-deploy samples as a forward verification cohort instead of feeding them back immediately;
+ * - prefer abstention when edge cannot clear costs with robust evidence.
+ */
+const SHADOW_MENTOR_VERSION_V2622='V2.6.22';
+const SHADOW_MENTOR_STATE_FILE_V2622=path.join(DATA_DIR,'shadow-mentor-v2622-state.json');
+const SHADOW_MENTOR_FORWARD_TARGET_V2622=40;
+const SHADOW_MENTOR_STRATEGY_FORWARD_MIN_V2622=20;
+
+function mentorNumV2622(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function mentorClampV2622(v,a=0,b=100){return Math.max(a,Math.min(b,Number(v)||0))}
+function mentorPersistentStateV2622(){
+  let d=null;try{d=JSON.parse(fs.readFileSync(SHADOW_MENTOR_STATE_FILE_V2622,'utf8'))}catch{}
+  if(!d||!Number.isFinite(Date.parse(d.startAt||''))){d={version:SHADOW_MENTOR_VERSION_V2622,startAt:new Date().toISOString(),createdAt:new Date().toISOString()};if(process.env.UNIT_TEST!=='1'){try{fs.writeFileSync(SHADOW_MENTOR_STATE_FILE_V2622,JSON.stringify(d,null,2))}catch(e){console.warn('[v2622-mentor] forward state save failed:',String(e?.message||e))}}}
+  return d
+}
+const SHADOW_MENTOR_STATE_V2622=mentorPersistentStateV2622();
+const SHADOW_MENTOR_FORWARD_START_MS_V2622=Date.parse(SHADOW_MENTOR_STATE_V2622.startAt)||Date.now();
+
+function mentorAssetV2622(x){
+  const raw=String(x?.assetClass||'').toUpperCase(),symbol=x?.symbol||'';let classified='';
+  try{classified=String(assetClassForSymbolV2612(symbol)||'').toUpperCase()}catch{}
+  if(classified==='TRADFI'||['TRADFI','EQUITY_TOKEN','EQUITY','STOCK','ETF'].includes(raw))return'TRADFI';
+  if(raw==='COMMODITY')return'COMMODITY';
+  return classified||raw||'CRYPTO'
+}
+function mentorAssetForTrackerV2622(t){return mentorAssetV2622({symbol:t?.symbol,assetClass:t?.assetClass})}
+function mentorResolvedRowsV2622(){return edgeRowsV2621()}
+function mentorTrainRowsV2622(){return mentorResolvedRowsV2622().filter(x=>{const ms=Date.parse(x?.shadowAt||'');return Number.isFinite(ms)&&ms<SHADOW_MENTOR_FORWARD_START_MS_V2622})}
+function mentorForwardRowsV2622(){return mentorResolvedRowsV2622().filter(x=>{const ms=Date.parse(x?.shadowAt||'');return Number.isFinite(ms)&&ms>=SHADOW_MENTOR_FORWARD_START_MS_V2622})}
+function mentorDedupeV2622(rows,keyFn){return edgeDedupV2621(rows,keyFn)}
+function mentorStatsV2622(rows){return edgeStatsV2621(rows)}
+function mentorPositiveNetRV2622(x){const n=edgeNetRV2621(x);return Number.isFinite(n)?Math.max(0,n):0}
+
+function mentorChronoStabilityV2622(rows){
+  const a=[...(rows||[])].filter(x=>Number.isFinite(Date.parse(x?.shadowAt||''))).sort((x,y)=>Date.parse(x.shadowAt)-Date.parse(y.shadowAt)),n=a.length;
+  if(n<18)return{sample:n,available:false,positiveFolds:0,totalFolds:0,score:50,adjustment:0,gateA:true,folds:[]};
+  const folds=[];for(let i=0;i<3;i++){const lo=Math.floor(n*i/3),hi=Math.floor(n*(i+1)/3),r=a.slice(lo,hi),st=mentorStatsV2622(r),positive=Number(st.netProfitFactor??0)>=1&&Number(st.netExpectancyR??-9)>=0,severe=Number(st.netProfitFactor??1)<.55||Number(st.netExpectancyR??0)<-.25;folds.push({sample:st.sample,hitRate:st.hitRate,netProfitFactor:st.netProfitFactor,netExpectancyR:st.netExpectancyR,positive,severe})}
+  const positiveFolds=folds.filter(x=>x.positive).length,severeFolds=folds.filter(x=>x.severe).length;let adjustment=positiveFolds===3?4:positiveFolds===2?1:positiveFolds===1?-4:-7;if(severeFolds>=2)adjustment-=3;const score=mentorClampV2622(28+positiveFolds*22-severeFolds*12);return{sample:n,available:true,positiveFolds,totalFolds:3,severeFolds,score,adjustment,gateA:n<30||positiveFolds>=2,folds}
+}
+function mentorConcentrationV2622(rows){
+  const a=[...(rows||[])],n=a.length;if(!n)return{sample:0,topSymbols:[],top1Share:0,top2Share:0,profitTop2Share:0,leaveTop2:{sample:0},score:50,adjustment:0,gateA:true};
+  const m=new Map();for(const r of a){const s=cleanFuturesSymbol(r?.symbol)||'NA',q=m.get(s)||{symbol:s,sample:0,positiveR:0};q.sample++;q.positiveR+=mentorPositiveNetRV2622(r);m.set(s,q)}const top=[...m.values()].sort((x,y)=>y.sample-x.sample||y.positiveR-x.positiveR),top2=top.slice(0,2),ban=new Set(top2.map(x=>x.symbol)),leave=a.filter(x=>!ban.has(cleanFuturesSymbol(x?.symbol))),leaveStats=mentorStatsV2622(leave),positiveAll=a.reduce((p,r)=>p+mentorPositiveNetRV2622(r),0),positiveTop=top2.reduce((p,r)=>p+r.positiveR,0),top1Share=(top[0]?.sample||0)/n,top2Share=top2.reduce((p,r)=>p+r.sample,0)/n,profitTop2Share=positiveAll>0?positiveTop/positiveAll:0;
+  let adjustment=0;if(n>=40&&top2Share>.55&&Number(leaveStats.netProfitFactor??1)<.80)adjustment=-8;else if(n>=40&&top2Share>.45&&Number(leaveStats.netProfitFactor??1)<.90)adjustment=-5;else if(top2Share<.32)adjustment=2;const gateA=n<40||top2Share<=.45||(Number(leaveStats.sample||0)>=20&&Number(leaveStats.netProfitFactor??0)>=.85&&Number(leaveStats.netExpectancyR??-9)>=-.05),score=mentorClampV2622(100-top2Share*70-Math.max(0,profitTop2Share-.55)*55+(Number(leaveStats.netProfitFactor??0)>=1?8:0));return{sample:n,topSymbols:top2.map(x=>({symbol:x.symbol,sample:x.sample,share:Number((x.sample/n).toFixed(3))})),top1Share:Number(top1Share.toFixed(3)),top2Share:Number(top2Share.toFixed(3)),profitTop2Share:Number(profitTop2Share.toFixed(3)),leaveTop2:leaveStats,score,adjustment,gateA}
+}
+function mentorTrialPenaltyV2622(rows){const n=new Set((rows||[]).map(x=>String(x?.strategyId||x?.strategyLabel||'UNKNOWN'))).size;return{trials:n,penalty:n<=3?0:n<=5?1:n<=8?2:3}}
+function mentorForwardEvidenceV2622(features){
+  const asset=String(features?.assetClass||'CRYPTO'),strategyId=String(features?.strategyId||''),direction=String(features?.direction||''),rows=mentorDedupeV2622(mentorForwardRowsV2622().filter(x=>mentorAssetV2622(x)===asset&&edgeStrategyMatchV2621(x,features)&&String(x?.direction||'')===direction),x=>cleanFuturesSymbol(x?.symbol)),st=mentorStatsV2622(rows),n=Number(st.sample||0);let status='COLLECTING',adjustment=0,capA=false,hardFail=false;if(n>=SHADOW_MENTOR_STRATEGY_FORWARD_MIN_V2622){if(Number(st.netProfitFactor??1)<.75||Number(st.netExpectancyR??0)<-.10){status='WEAK';adjustment=-4;capA=true}else status='CHECKING'}if(n>=SHADOW_MENTOR_FORWARD_TARGET_V2622){if(Number(st.netProfitFactor??0)>=1.05&&Number(st.netExpectancyR??-9)>0){status='PASS';adjustment=2;capA=false}else{status='FAIL';adjustment=-7;capA=true;hardFail=Number(st.netProfitFactor??1)<.55||Number(st.netExpectancyR??0)<-.25}}return{startAt:SHADOW_MENTOR_STATE_V2622.startAt,target:SHADOW_MENTOR_FORWARD_TARGET_V2622,sample:n,status,adjustment,capA,hardFail,stats:st}
+}
+function mentorConfidenceV2622({stats,stability,concentration,forward,cost}){const sample=mentorClampV2622(Number(stats?.sample||0)/80*100),quality=mentorClampV2622(45+(Number(stats?.netProfitFactor??1)-1)*42+Number(stats?.netExpectancyR??0)*65+(Number(stats?.wilsonLow??48)-48)*1.2),stable=mentorClampV2622(stability?.score??50),div=mentorClampV2622(concentration?.score??50),fwd=forward?.status==='PASS'?90:forward?.status==='FAIL'?15:forward?.status==='WEAK'?30:mentorClampV2622(35+Number(forward?.sample||0)/SHADOW_MENTOR_FORWARD_TARGET_V2622*40),costScore=cost?.ratio==null?35:mentorClampV2622(100-Number(cost.ratio)*125);return Math.round(sample*.18+quality*.27+stable*.20+div*.15+fwd*.12+costScore*.08)}
+
+function institutionalMentorEdgeV2622(t){
+  const features=stateLearningFeatures(t),asset=mentorAssetForTrackerV2622(t),direction=String(features.direction||t?.direction||'LONG'),regime=String(features.regime||'UNKNOWN'),train=mentorTrainRowsV2622(),sameAsset=train.filter(x=>mentorAssetV2622(x)===asset),exact=mentorDedupeV2622(sameAsset.filter(x=>edgeStrategyMatchV2621(x,features)&&String(x.direction||'')===direction&&String(x.marketRegime||'')===regime),x=>cleanFuturesSymbol(x.symbol)),strategyDir=mentorDedupeV2622(sameAsset.filter(x=>edgeStrategyMatchV2621(x,features)&&String(x.direction||'')===direction),x=>cleanFuturesSymbol(x.symbol)),strategyAll=mentorDedupeV2622(sameAsset.filter(x=>edgeStrategyMatchV2621(x,features)),x=>`${cleanFuturesSymbol(x.symbol)}|${x.direction}`),directionRows=mentorDedupeV2622(sameAsset.filter(x=>String(x.direction||'')===direction),x=>`${cleanFuturesSymbol(x.symbol)}|${x.strategyId}`);
+  let chosen=exact,level='同資產·策略×狀態×方向';if(chosen.length<SHADOW_EDGE_MIN_SAMPLE_V2621){chosen=strategyDir;level='同資產·策略×方向'}if(chosen.length<SHADOW_EDGE_STRATEGY_SAMPLE_V2621){chosen=strategyAll;level='同資產·策略'}if(chosen.length<SHADOW_EDGE_STRATEGY_SAMPLE_V2621){chosen=directionRows;level='同資產·方向'}
+  const stats=mentorStatsV2622(chosen),strategyStats=mentorStatsV2622(strategyAll),stateAdj=edgeAdjFromStatsV2621(stats,6),strategyAdj=edgeAdjFromStatsV2621(strategyStats,8),cost=edgeCostV2621(t),stability=mentorChronoStabilityV2622(chosen),concentration=mentorConcentrationV2622(strategyAll),forward=mentorForwardEvidenceV2622({...features,assetClass:asset}),trials=mentorTrialPenaltyV2622(sameAsset),ev=t?.monitorEvidence||t?.lastCheck||{};
+  let score=52+stateAdj*2+strategyAdj*1.35+cost.adjustment+stability.adjustment+concentration.adjustment+forward.adjustment-trials.penalty;if(regime==='UNKNOWN')score-=5;if(ev.adverseMarket)score-=18;if(ev.adverse1h)score-=7;if(ev.adverse30)score-=4;if(String(ev.adlRisk||'').toLowerCase()==='high')score-=12;if(ev.fundingCrowded===true)score-=8;score=mentorClampV2622(Math.round(score));
+  const poorStrategy=Number(strategyStats.sample||0)>=SHADOW_EDGE_STRATEGY_SAMPLE_V2621&&(Number(strategyStats.netProfitFactor??1)<.80||Number(strategyStats.netExpectancyR??0)<-.10),severeStrategy=Number(strategyStats.sample||0)>=SHADOW_EDGE_STRATEGY_SAMPLE_V2621&&(Number(strategyStats.netProfitFactor??1)<.55||Number(strategyStats.netExpectancyR??0)<-.25),label=String(features.strategyLabel||''),breakoutPoor=label.includes('突破回測')&&poorStrategy,momentumPoor=label.includes('動能')&&poorStrategy,hardBlockReasons=[];
+  if(cost.ratio!=null&&cost.ratio>.65)hardBlockReasons.push('成本/停損比過高');if(ev.adverseMarket)hardBlockReasons.push(asset==='TRADFI'?'美股大盤逆向':'BTC/ETH大盤逆向');if(severeStrategy&&breakoutPoor)hardBlockReasons.push('突破回測淨期望顯著為負');if(forward.hardFail)hardBlockReasons.push('Forward 驗證顯著失敗');
+  const confidenceScore=mentorConfidenceV2622({stats,stability,concentration,forward,cost}),capA=regime==='UNKNOWN'||poorStrategy||breakoutPoor||momentumPoor||!cost.aGate||stateAdj<=-4||!stability.gateA||!concentration.gateA||forward.capA||confidenceScore<48,learningAdjustment=clamp(Math.round(stateAdj+strategyAdj*.50+stability.adjustment*.25+concentration.adjustment*.20+forward.adjustment*.25),-STATE_LEARNING_MAX_BONUS,STATE_LEARNING_MAX_BONUS),watchEligible=hardBlockReasons.length===0&&cost.bGate&&score>=SHADOW_EDGE_B_MIN_V2621&&confidenceScore>=42;
+  return{version:SHADOW_MENTOR_VERSION_V2622,edgeScore:score,confidenceScore,level,sample:Number(stats.sample||0),stats,strategyStats,stateAdjustment:stateAdj,strategyAdjustment:strategyAdj,learningAdjustment,cost,costGateA:cost.aGate,costGateB:cost.bGate,stability,concentration,forward,trials,capA,hardBlock:hardBlockReasons.length>0,hardBlockReasons,poorStrategy,severeStrategy,assetClass:asset,regime,strategyId:String(features.strategyId||''),strategyLabel:features.strategyLabel,direction,watchEligible,frozenTrain:true,forwardStartAt:SHADOW_MENTOR_STATE_V2622.startAt}
+}
+
+function mentorTrainingSummaryV2622(){
+  const train=mentorDedupeV2622(mentorTrainRowsV2622(),x=>`${mentorAssetV2622(x)}|${cleanFuturesSymbol(x.symbol)}|${x.strategyId}|${x.direction}`),forward=mentorDedupeV2622(mentorForwardRowsV2622(),x=>`${mentorAssetV2622(x)}|${cleanFuturesSymbol(x.symbol)}|${x.strategyId}|${x.direction}`),trainStats=mentorStatsV2622(train),forwardStats=mentorStatsV2622(forward),stability=mentorChronoStabilityV2622(train),concentration=mentorConcentrationV2622(train),groups=new Map();for(const r of train){const k=`${mentorAssetV2622(r)}|${String(r.strategyLabel||r.strategyId||'未分類')}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}const strategies=[...groups.entries()].map(([key,rows])=>{const [assetClass,...rest]=key.split('|'),label=rest.join('|'),stats=mentorStatsV2622(mentorDedupeV2622(rows,x=>`${cleanFuturesSymbol(x.symbol)}|${x.direction}`)),stable=mentorChronoStabilityV2622(rows),conc=mentorConcentrationV2622(rows);return{assetClass,label,...stats,stabilityScore:stable.score,positiveFolds:stable.positiveFolds,totalFolds:stable.totalFolds,top2Share:conc.top2Share,robustScore:Math.round(mentorClampV2622(45+(Number(stats.netProfitFactor??1)-1)*35+Number(stats.netExpectancyR??0)*55+(Number(stats.wilsonLow??48)-48)+stable.adjustment*2+conc.adjustment*1.5))}}).sort((a,b)=>b.robustScore-a.robustScore||b.sample-a.sample);
+  const sampleScore=mentorClampV2622(Number(trainStats.sample||0)/300*100),netScore=mentorClampV2622(40+(Number(trainStats.netProfitFactor??1)-1)*45+Number(trainStats.netExpectancyR??0)*70),stableScore=stability.score,divScore=concentration.score,forwardScore=Number(forwardStats.sample||0)>=SHADOW_MENTOR_FORWARD_TARGET_V2622?mentorClampV2622(45+(Number(forwardStats.netProfitFactor??1)-1)*45+Number(forwardStats.netExpectancyR??0)*70):mentorClampV2622(Number(forwardStats.sample||0)/SHADOW_MENTOR_FORWARD_TARGET_V2622*60),maturity=Math.round(sampleScore*.22+netScore*.28+stableScore*.20+divScore*.15+forwardScore*.15);let stage='研究中';if(maturity>=78)stage='穩定驗證';else if(maturity>=62)stage='成形';else if(maturity>=46)stage='局部 Edge';else if(maturity>=32)stage='校準中';const warnings=[];if(Number(trainStats.netProfitFactor??0)<1)warnings.push('整體 Net PF 尚未站上 1，只允許局部 Edge 升級');if(stability.available&&stability.positiveFolds<2)warnings.push('跨時間窗穩定度不足');if(concentration.top2Share>.45)warnings.push('績效集中於少數標的，已套用集中度折扣');if(Number(forwardStats.sample||0)<SHADOW_MENTOR_FORWARD_TARGET_V2622)warnings.push(`Forward ${Number(forwardStats.sample||0)}/${SHADOW_MENTOR_FORWARD_TARGET_V2622}，新資料不回灌調參`);return{ok:true,version:SHADOW_MENTOR_VERSION_V2622,generatedAt:new Date().toISOString(),forwardStartAt:SHADOW_MENTOR_STATE_V2622.startAt,maturity:{score:maturity,stage},training:{...trainStats,sampleDepthScore:Math.round(sampleScore)},forward:{...forwardStats,target:SHADOW_MENTOR_FORWARD_TARGET_V2622,progressPct:Math.round(mentorClampV2622(Number(forwardStats.sample||0)/SHADOW_MENTOR_FORWARD_TARGET_V2622*100))},stability,concentration,strategies:strategies.slice(0,12),strongest:strategies[0]||null,warnings,principles:['net-of-cost','frozen-train','forward-oos','chronological-stability','symbol-concentration-haircut','selective-abstention','multiple-testing-haircut']}
+}
+
 function stateLearningAdjustment(t){
-  const features=stateLearningFeatures(t),keys=stateLearningKeys(features),idx=stateLearningIndex(),actualEvidence=actualStateEvidence(features);
-  for(const level of ['detail','core','broad']){const rows=idx[level].get(keys[level])||[],stats=shadowStats(rows);if(stats.sample>=STATE_LEARNING_MIN_SAMPLE){const shadowAdjustment=stateLearningAdjustmentFromStats(stats),adjustment=clamp(shadowAdjustment+Number(actualEvidence.adjustment||0),-STATE_LEARNING_MAX_BONUS,STATE_LEARNING_MAX_BONUS);return {adjustment,shadowAdjustment,actualAdjustment:Number(actualEvidence.adjustment||0),actualEvidence,level,key:keys[level],features,stats,active:true}}}
-  return {adjustment:Number(actualEvidence.adjustment||0),shadowAdjustment:0,actualAdjustment:Number(actualEvidence.adjustment||0),actualEvidence,level:null,key:null,features,stats:{sample:0,hitRate:null,profitFactor:null,expectancyR:null},active:Boolean(actualEvidence.adjustment)};
+  const features=stateLearningFeatures(t),actualEvidence=actualStateEvidence(features),institutionalEdge=institutionalMentorEdgeV2622(t),shadowAdjustment=Number(institutionalEdge.learningAdjustment||0),adjustment=clamp(shadowAdjustment+Number(actualEvidence.adjustment||0),-STATE_LEARNING_MAX_BONUS,STATE_LEARNING_MAX_BONUS);
+  return {adjustment,shadowAdjustment,actualAdjustment:Number(actualEvidence.adjustment||0),actualEvidence,level:institutionalEdge.level,key:null,features,stats:{sample:institutionalEdge.sample,hitRate:institutionalEdge.stats?.hitRate??null,profitFactor:institutionalEdge.stats?.netProfitFactor??null,expectancyR:institutionalEdge.stats?.netExpectancyR??null},active:institutionalEdge.sample>=SHADOW_EDGE_MIN_SAMPLE_V2621,crossAsset:false,institutionalEdge};
 }
 function stateLearningTable(limit=24){
   const idx=stateLearningIndex(),rows=[];for(const [key,a] of idx.detail.entries()){const stats=shadowStats(a),rec=a[0];if(stats.sample<5)continue;rows.push({key,label:rec?.stateLabel||key,features:rec?.stateFeatures||null,adjustment:stateLearningAdjustmentFromStats(stats),...stats})}
   return rows.sort((a,b)=>Math.abs(b.adjustment)-Math.abs(a.adjustment)||b.sample-a.sample||Number(b.expectancyR||0)-Number(a.expectancyR||0)).slice(0,limit);
 }
 function shadowRecordCandidate(t,{entry,stop,target,tier='VALID',rawScore=null,adjustedScore=null,learningEligible=true,shadowProgress=null,blockReasons=[]}={}){
-  const e=finiteMetric(entry),s=finiteMetric(stop),tg=finiteMetric(target);if(!(e>0&&s>0&&tg>0))return null;const risk=Math.abs(e-s);if(!(risk>0))return null;const features=stateLearningFeatures(t),keys=stateLearningKeys(features),learning=stateLearningAdjustment(t),now=new Date().toISOString(),id=`shadow-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,label=`${features.strategyLabel}｜${features.regime}｜${features.direction}｜OI ${features.oi}｜Taker ${features.taker}｜Depth ${features.depth}`;
-  const rec={id,version:'V10.2.2',signalKey:t.key,symbol:t.symbol,direction:t.direction,phase:'FIRST_ENTRY',shadowAt:now,entryPrice:e,stop:s,target:tg,riskDistance:risk,targetR:Number((testSignalDirection(t.direction)*(tg-e)/risk).toFixed(3)),strategyId:features.strategyId,strategyLabel:features.strategyLabel,marketRegime:features.regime,stateFeatures:features,stateKeys:keys,stateLabel:label,rawScore:finiteMetric(rawScore),adjustedScore:finiteMetric(adjustedScore),learningAdjustmentAtEntry:Number(learning.adjustment||0),tierAtEntry:String(tier||'VALID'),learningEligible:learningEligible!==false,shadowProgress:finiteMetric(shadowProgress),blockReasons:Array.isArray(blockReasons)?blockReasons.slice(0,8):[],notified:false,notificationId:null,status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:e,lastPriceAt:now,lastSource:'shadow-entry',costBps:PERF_ROUND_TRIP_COST_BPS};
+  const e=finiteMetric(entry),s=finiteMetric(stop),tg=finiteMetric(target);if(!(e>0&&s>0&&tg>0))return null;const risk=Math.abs(e-s);if(!(risk>0))return null;const features=stateLearningFeatures(t),keys=stateLearningKeys(features),learning=stateLearningAdjustment(t),mentor=institutionalMentorEdgeV2622(t),now=new Date().toISOString(),id=`shadow-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,label=`${features.strategyLabel}｜${features.regime}｜${features.direction}｜OI ${features.oi}｜Taker ${features.taker}｜Depth ${features.depth}`;
+  const rec={id,version:'V10.2.2',signalKey:t.key,symbol:t.symbol,assetClass:features.assetClass,assetSession:features.assetSession,assetFamily:features.assetFamily,direction:t.direction,phase:'FIRST_ENTRY',shadowAt:now,entryPrice:e,stop:s,target:tg,riskDistance:risk,targetR:Number((testSignalDirection(t.direction)*(tg-e)/risk).toFixed(3)),strategyId:features.strategyId,strategyLabel:features.strategyLabel,marketRegime:features.regime,stateFeatures:features,stateKeys:keys,stateLabel:label,rawScore:finiteMetric(rawScore),adjustedScore:finiteMetric(adjustedScore),learningAdjustmentAtEntry:Number(learning.adjustment||0),mentorModelVersion:SHADOW_MENTOR_VERSION_V2622,institutionalEdgeAtEntry:Number(mentor.edgeScore||0),mentorConfidenceAtEntry:Number(mentor.confidenceScore||0),mentorForwardStatusAtEntry:String(mentor.forward?.status||'COLLECTING'),costRatioAtEntry:mentor.cost?.ratio??null,strategyNetPfAtEntry:mentor.strategyStats?.netProfitFactor??null,strategyNetExpRAtEntry:mentor.strategyStats?.netExpectancyR??null,tierAtEntry:String(tier||'VALID'),learningEligible:learningEligible!==false,shadowProgress:finiteMetric(shadowProgress),blockReasons:Array.isArray(blockReasons)?blockReasons.slice(0,8):[],notified:false,notificationId:null,status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:e,lastPriceAt:now,lastSource:'shadow-entry',costBps:PERF_ROUND_TRIP_COST_BPS,researchRevisionAtEntry:RESEARCH_LAYER_REVISION,coreBuildAtEntry:BUILD_VERSION,assetClassAtEntry:researchAssetClass(t.symbol),primaryBlockClassAtEntry:researchPrimaryBlockClass(tier,blockReasons),blockClassFlagsAtEntry:researchBlockClasses(tier,blockReasons),scoreMeaning:RESEARCH_LAYER_SCORE_MEANING};
   shadowPerformance.unshift(rec);shadowActiveSymbols.add(cleanFuturesSymbol(t.symbol));scheduleShadowPerformanceSave();t.shadowRecordId=id;t.shadowReadyLatch=features.strategyId;shadowOnPrice(t.symbol,e,Date.now(),'shadow-entry');return rec;
 }
 function shadowMarkNotified(t,noticeId,tier){const id=t?.shadowRecordId;if(!id)return false;const rec=shadowPerformance.find(x=>x.id===id);if(!rec)return false;rec.notified=true;rec.notificationId=noticeId||null;rec.notifiedAt=new Date().toISOString();rec.finalTier=String(tier||rec.tierAtEntry||'VALID');scheduleShadowPerformanceSave();return true}
@@ -1806,8 +2043,68 @@ function shadowOnPrice(symbol,price,ts=Date.now(),source='price'){
   if(dirty)scheduleShadowPerformanceSave();
 }
 function shadowPerformanceAggregate(){
-  const all=shadowPerformance.filter(x=>x?.version==='V10.2.2'),resolved=all.filter(x=>x.status==='RESOLVED'),base=shadowStats(resolved),blocked=resolved.filter(x=>!x.notified),blockedStats=shadowStats(blocked),notified=resolved.filter(x=>x.notified),notifiedStats=shadowStats(notified),learningEligible=resolved.filter(x=>x.learningEligible!==false),learningEffective=shadowLearningEffectiveRows(),group=(keyFn)=>{const m=new Map();for(const x of resolved){const k=String(keyFn(x)||'UNKNOWN');if(!m.has(k))m.set(k,[]);m.get(k).push(x)}return [...m.entries()].map(([key,a])=>({key,...shadowStats(a)})).sort((a,b)=>b.sample-a.sample)};
-  return {sample:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,...base,learningEligibleResolved:learningEligible.length,learningEffectiveResolved:learningEffective.length,learningDedupMinutes:Math.round(STATE_LEARNING_DEDUP_MS/60000),blockedSample:blocked.length,blockedHitRate:blockedStats.hitRate,blockedProfitFactor:blockedStats.profitFactor,blockedExpectancyR:blockedStats.expectancyR,notifiedSample:notified.length,notifiedHitRate:notifiedStats.hitRate,byTier:group(x=>x.finalTier||x.tierAtEntry||'VALID'),byRegime:group(x=>x.marketRegime),byStrategy:group(x=>x.strategyLabel||x.strategyId||'未分類')};
+  const all=shadowPerformance.filter(x=>x?.version==='V10.2.2'),resolved=all.filter(x=>x.status==='RESOLVED'),base=shadowStats(resolved);
+  const blocked=resolved.filter(x=>String(x.tierAtEntry||'').toUpperCase()==='BLOCKED'),blockedStats=shadowStats(blocked);
+  const valid=resolved.filter(x=>String(x.tierAtEntry||'').toUpperCase()==='VALID'),validStats=shadowStats(valid);
+  const unnotified=resolved.filter(x=>!x.notified),unnotifiedStats=shadowStats(unnotified);
+  const notified=resolved.filter(x=>x.notified),notifiedStats=shadowStats(notified),learningEligible=resolved.filter(x=>x.learningEligible!==false),learningEffective=shadowLearningEffectiveRows();
+  const group=(keyFn)=>{const m=new Map();for(const x of resolved){const k=String(keyFn(x)||'UNKNOWN');if(!m.has(k))m.set(k,[]);m.get(k).push(x)}return [...m.entries()].map(([key,a])=>({key,...shadowStats(a)})).sort((a,b)=>b.sample-a.sample)};
+  return {sample:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,...base,learningEligibleResolved:learningEligible.length,learningEffectiveResolved:learningEffective.length,learningDedupMinutes:Math.round(STATE_LEARNING_DEDUP_MS/60000),blockedSample:blocked.length,blockedHitRate:blockedStats.hitRate,blockedProfitFactor:blockedStats.profitFactor,blockedExpectancyR:blockedStats.expectancyR,validSample:valid.length,validHitRate:validStats.hitRate,validProfitFactor:validStats.profitFactor,validExpectancyR:validStats.expectancyR,unnotifiedSample:unnotified.length,unnotifiedHitRate:unnotifiedStats.hitRate,unnotifiedProfitFactor:unnotifiedStats.profitFactor,notifiedSample:notified.length,notifiedHitRate:notifiedStats.hitRate,byAssetClass:group(x=>x.assetClass||assetClassForSymbolV2612(x.symbol)),bySession:group(x=>x.assetSession||assetSessionV2612(x.symbol,new Date(x.shadowAt||Date.now()).getTime())),byTier:group(x=>x.finalTier||x.tierAtEntry||'VALID'),byRegime:group(x=>x.marketRegime),byStrategy:group(x=>x.strategyLabel||x.strategyId||'未分類')};
+}
+
+/* SHADOW_RESEARCH_LAYER_V1_20260901 — research-only layer. Core signal thresholds / hard blockers are intentionally untouched. */
+function researchBaseSymbol(symbol){const s=cleanFuturesSymbol(symbol);return s.endsWith('USDT')?s.slice(0,-4):s}
+function researchAssetClass(symbol){
+  try{return bootcampAssetClassV2681(symbol)}catch{}
+  const b=researchBaseSymbol(symbol);return new Set(['XAU','XAG']).has(b)?'COMMODITY':'CRYPTO';
+}
+function researchReasonText(reasons){return (Array.isArray(reasons)?reasons:[reasons]).filter(Boolean).join('｜')}
+function researchBlockClasses(tierOrRec,reasonsMaybe){
+  const rec=tierOrRec&&typeof tierOrRec==='object'?tierOrRec:null,tier=String(rec?.tierAtEntry??tierOrRec??'').toUpperCase(),txt=researchReasonText(rec?.blockReasons??reasonsMaybe);
+  if(tier!=='BLOCKED')return ['NONE'];const out=[];
+  if(/ADL|Funding|擁擠|安全閘門|風險|清算|spread|價差|流動性|深度|stale|過期|延遲|資料|coverage|confidence|追價|滑價|slippage/i.test(txt))out.push('RISK');
+  if(/勝率|分數|結構|趨勢|方向|大盤|逆向|動能|回踩|突破|未確認|regime/i.test(txt))out.push('ALPHA');
+  if(/ready|樣本|尚未/i.test(txt))out.push('READINESS');
+  return out.length?out:['OTHER'];
+}
+function researchPrimaryBlockClass(tierOrRec,reasonsMaybe){return researchBlockClasses(tierOrRec,reasonsMaybe)[0]||'OTHER'}
+function researchScoreBucket(v){if(v==null||v==='')return 'NA';const x=Number(v);if(!Number.isFinite(x))return 'NA';if(x>=100)return '100';if(x>=95)return '95-99';if(x>=90)return '90-94';if(x>=80)return '80-89';if(x>=70)return '70-79';return '<70'}
+function researchNetR(rec){
+  const net=rec?.netReturnPct==null?null:Number(rec.netReturnPct),entry=Number(rec?.entryPrice),risk=Number(rec?.riskDistance)||Math.abs(Number(rec?.entryPrice)-Number(rec?.stop));
+  const riskPct=entry>0&&risk>0?risk/entry*100:null;return net!=null&&Number.isFinite(net)&&Number.isFinite(riskPct)&&riskPct>0?Number((net/riskPct).toFixed(4)):null;
+}
+function researchStats(rows){
+  const resolved=(rows||[]).filter(x=>x?.status==='RESOLVED'),gross=shadowStats(resolved),netRs=resolved.map(researchNetR).filter(Number.isFinite),netProfit=netRs.filter(x=>x>0).reduce((a,b)=>a+b,0),netLoss=Math.abs(netRs.filter(x=>x<0).reduce((a,b)=>a+b,0)),netExp=netRs.length?netRs.reduce((a,b)=>a+b,0)/netRs.length:null;
+  const grossPct=resolved.map(x=>x.grossReturnPct==null?null:Number(x.grossReturnPct)).filter(Number.isFinite),netPct=resolved.map(x=>x.netReturnPct==null?null:Number(x.netReturnPct)).filter(Number.isFinite),avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  return {...gross,netSample:netRs.length,netProfitFactor:netLoss>0?Number((netProfit/netLoss).toFixed(2)):(netProfit>0?99:null),netExpectancyR:netExp==null?null:Number(netExp.toFixed(3)),avgGrossReturnPct:grossPct.length?Number(avg(grossPct).toFixed(4)):null,avgNetReturnPct:netPct.length?Number(avg(netPct).toFixed(4)):null,costDragPct:grossPct.length&&netPct.length?Number((avg(grossPct)-avg(netPct)).toFixed(4)):null};
+}
+function researchGroup(rows,keyFn,minSample=1){
+  const m=new Map();for(const r of rows||[]){const k=String(keyFn(r)||'UNKNOWN');if(!m.has(k))m.set(k,[]);m.get(k).push(r)}
+  return [...m.entries()].map(([key,a])=>({key,...researchStats(a)})).filter(x=>x.sample>=minSample).sort((a,b)=>b.sample-a.sample||Number(b.netProfitFactor||0)-Number(a.netProfitFactor||0));
+}
+function researchPointBiserial(rows){
+  const a=(rows||[]).filter(x=>['WIN','LOSS'].includes(x?.result)&&x?.rawScore!=null&&Number.isFinite(Number(x.rawScore))).map(x=>[Number(x.rawScore),x.result==='WIN'?1:0]);if(a.length<8)return null;
+  const mx=a.reduce((s,x)=>s+x[0],0)/a.length,my=a.reduce((s,x)=>s+x[1],0)/a.length;let num=0,dx=0,dy=0;for(const [x,y] of a){num+=(x-mx)*(y-my);dx+=(x-mx)**2;dy+=(y-my)**2}const d=Math.sqrt(dx*dy);return d>0?Number((num/d).toFixed(3)):null;
+}
+function researchCoreConfigSnapshot(){return {buildVersion:BUILD_VERSION,highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,shadowMinScore:SHADOW_MIN_SCORE,shadowMinProgress:SHADOW_MIN_PROGRESS,shadowMinCoverage:SHADOW_MIN_COVERAGE,shadowMinConfidence:SHADOW_MIN_CONFIDENCE,dedupMinutes:Math.round(STATE_LEARNING_DEDUP_MS/60000),stateMinSample:STATE_LEARNING_MIN_SAMPLE,stateMaxBonus:STATE_LEARNING_MAX_BONUS,costBps:PERF_ROUND_TRIP_COST_BPS}}
+function researchAuditRead(){const x=loadJson(RESEARCH_AUDIT_FILE,null);return x&&typeof x==='object'?x:{schemaVersion:1,createdAt:new Date().toISOString(),revisions:[],configEvents:[],checkpoints:[]}}
+function researchEnsureAudit({checkpoint=true}={}){
+  const audit=researchAuditRead(),now=new Date().toISOString(),config=researchCoreConfigSnapshot(),fp=JSON.stringify(config);let dirty=false;
+  if(!Array.isArray(audit.revisions))audit.revisions=[];if(!Array.isArray(audit.configEvents))audit.configEvents=[];if(!Array.isArray(audit.checkpoints))audit.checkpoints=[];
+  if(!audit.revisions.some(x=>x?.revision===RESEARCH_LAYER_REVISION)){audit.revisions.push({revision:RESEARCH_LAYER_REVISION,releaseDate:RESEARCH_LAYER_RELEASE_DATE,installedAt:now,coreBuild:BUILD_VERSION,coreRulesChanged:false,baseline:{shadowRaw:shadowPerformance.filter(x=>x?.version==='V10.2.2').length,shadowResolved:shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED').length,effective:shadowLearningEffectiveRows().length},changes:['BLOCKED 改以 tierAtEntry 判定，和未通知樣本分離','新增研究版號與變更日期稽核','新增 Asset Class / Block Class 衍生分類','新增 Net PF / Net Expectancy / 成本拖累','新增 Score bucket 與分數-結果相關性診斷','新增 Strategy × Regime × Direction 階層統計；只研究，不改核心門檻'],knownIssues:['Score 100 目前只代表條件完成度，勝負辨識力待 OOS 驗證','VALID 扣成本後是否形成正期望仍未證明','BLOCKED 需長期區分 Alpha / Risk / Readiness 原因','CRYPTO / EQUITY_TOKEN / COMMODITY 不應直接混成同一研究結論','核心狀態桶樣本仍可能稀疏','真正通知與實際建倉樣本仍不足以做可靠校準'],nextGates:[{gate:'R1_OOS_30',condition:'R1 去相關新樣本 >= 30',action:'比較 PRE_R1 / R1；只評估，不放寬門檻'},{gate:'EFFECTIVE_150',condition:'總去相關有效樣本 >= 150',action:'重估 VALID/BLOCKED、Strategy×Regime×Direction 與 Net PF'},{gate:'CORE_BUCKET_20',condition:'至少一個核心狀態桶 >= 20',action:'檢查該桶是否有穩定正期望，再決定是否允許保守學習'},{gate:'NOTIFIED_20',condition:'真正通知 decisive >= 20',action:'開始看 live calibration / Brier / notification PF'},{gate:'ACTUAL_12_STATE',condition:'同策略×Regime×方向實際建倉 decisive >= 12',action:'只允許既有 ±1 人類實盤交叉驗證，不覆蓋硬風控'}],researchPrinciples:['forward/shadow first','out-of-sample by revision','net-of-cost evaluation','no threshold loosening from small samples']});dirty=true}
+  if(audit.currentConfigFingerprint&&audit.currentConfigFingerprint!==fp){audit.configEvents.push({at:now,type:'CONFIG_DRIFT',from:audit.currentConfig||null,to:config});audit.configEvents=audit.configEvents.slice(-50);dirty=true}
+  if(audit.currentConfigFingerprint!==fp){audit.currentConfigFingerprint=fp;audit.currentConfig=config;dirty=true}
+  if(checkpoint){const day=now.slice(0,10),last=audit.checkpoints.at(-1);if(!last||String(last.at||'').slice(0,10)!==day){audit.checkpoints.push({at:now,revision:RESEARCH_LAYER_REVISION,shadowRaw:shadowPerformance.filter(x=>x?.version==='V10.2.2').length,shadowResolved:shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED').length,effective:shadowLearningEffectiveRows().length,actualTrades:actualTrades.filter(x=>x?.version==='V10.2.6').length});audit.checkpoints=audit.checkpoints.slice(-120);dirty=true}}
+  if(dirty)saveJson(RESEARCH_AUDIT_FILE,audit);return audit;
+}
+function researchDiagnostics(persistAudit=true){
+  const effective=shadowLearningEffectiveRows(),allResolved=shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'),valid=effective.filter(x=>String(x.tierAtEntry||'').toUpperCase()==='VALID'),blocked=effective.filter(x=>String(x.tierAtEntry||'').toUpperCase()==='BLOCKED');
+  const audit=persistAudit?researchEnsureAudit({checkpoint:true}):researchAuditRead(),scoreCorr=researchPointBiserial(effective),scoreBuckets=researchGroup(effective,x=>researchScoreBucket(x.rawScore),1),score100=scoreBuckets.find(x=>x.key==='100')||null;
+  const core=researchGroup(effective,x=>[x.strategyId,x.marketRegime,x.direction].join('|'),1),broad=researchGroup(effective,x=>[x.strategyId,x.marketRegime].join('|'),1),strategy=researchGroup(effective,x=>x.strategyId||x.strategyLabel||'UNKNOWN',1);
+  const asset=researchGroup(effective,x=>researchAssetClass(x.symbol),1),blockClass=researchGroup(blocked,x=>researchPrimaryBlockClass(x),1),blockFlag=['RISK','ALPHA','READINESS','OTHER'].map(key=>({key,...researchStats(blocked.filter(x=>researchBlockClasses(x).includes(key)))})).filter(x=>x.sample>0),revision=researchGroup(effective,x=>x.researchRevisionAtEntry||'PRE_R1',1);
+  const currentRev=audit.revisions?.find(x=>x.revision===RESEARCH_LAYER_REVISION)||null,currentRevRows=effective.filter(x=>x.researchRevisionAtEntry===RESEARCH_LAYER_REVISION),currentRevStats=researchStats(currentRevRows),maxCore=Math.max(0,...core.map(x=>x.sample)),maxBroad=Math.max(0,...broad.map(x=>x.sample));
+  const warnings=[];if(scoreCorr!=null&&scoreCorr<.08)warnings.push({code:'SCORE_LOW_DISCRIMINATION',severity:'HIGH',text:'結構分數與勝負的線性辨識力偏低；100 分不得視為勝率。'});if(valid.length>=20&&researchStats(valid).netProfitFactor!=null&&researchStats(valid).netProfitFactor<1)warnings.push({code:'VALID_NET_PF_LT_1',severity:'HIGH',text:'VALID 去相關樣本扣成本後仍未形成正期望。'});if(asset.length>1)warnings.push({code:'MIXED_ASSET_CLASSES',severity:'MEDIUM',text:'研究池包含不同資產類別；先分層觀察，不直接共用結論。'});if(maxCore<STATE_LEARNING_MIN_SAMPLE)warnings.push({code:'CORE_BUCKET_SPARSE',severity:'MEDIUM',text:'Strategy × Regime × Direction 尚未有足量核心桶；避免提早加權。'});if(currentRevStats.sample<30)warnings.push({code:'OOS_REVISION_SAMPLE_LOW',severity:'INFO',text:'R1 上線後的新樣本尚未滿 30；先累積 revision cohort，再比較 PRE_R1 / R1。'});if((audit.configEvents||[]).length)warnings.push({code:'CONFIG_DRIFT_RECORDED',severity:'INFO',text:'核心設定曾變動，已記錄時間與前後值；跨版本績效需分開看。'});if((audit.revisions||[]).length+(audit.configEvents||[]).length>=4)warnings.push({code:'MULTIPLE_TESTING_RISK',severity:'MEDIUM',text:'研究版本/設定嘗試次數增加；避免只挑最好看的結果，後續以新 revision 的 OOS 樣本驗證。'});
+  return {revision:RESEARCH_LAYER_REVISION,releaseDate:RESEARCH_LAYER_RELEASE_DATE,coreBuild:BUILD_VERSION,coreRulesChanged:false,scoreMeaning:RESEARCH_LAYER_SCORE_MEANING,generatedAt:new Date().toISOString(),sample:{rawResolved:allResolved.length,effective:effective.length,dedupMinutes:Math.round(STATE_LEARNING_DEDUP_MS/60000)},overall:researchStats(effective),valid:researchStats(valid),blocked:researchStats(blocked),score:{outcomeCorrelation:scoreCorr,buckets:scoreBuckets,score100},hierarchy:{coreReady:core.filter(x=>x.sample>=STATE_LEARNING_MIN_SAMPLE).length,maxCoreSample:maxCore,broadReady:broad.filter(x=>x.sample>=STATE_LEARNING_MIN_SAMPLE).length,maxBroadSample:maxBroad,core:core.slice(0,40),broad:broad.slice(0,30),strategy:strategy.slice(0,20)},byAssetClass:asset,byBlockClass:blockClass,byBlockFlag:blockFlag,byRevision:revision,oos:{currentRevisionSample:Number(currentRevStats.sample||0),minimumReviewSample:30,ready:Number(currentRevStats.sample||0)>=30},warnings,roadmap:currentRev?.nextGates||[],audit:{release:currentRev,configEvents:(audit.configEvents||[]).slice(-8),checkpoints:(audit.checkpoints||[]).slice(-12)},methodology:'研究層只做診斷、版本稽核與成本後統計；不降低 HIGH/NORMAL 門檻、不改硬性風控、不因 100 分直接提高勝率。'};
 }
 function performanceRecordForNotification(t,code,tier,delivery,options={}){
   if(!(delivery?.sent>0))return null;const phase=options.reentry?'REENTRY':'FIRST_ENTRY';const isEntry=code==='CONFIRMED'||(phase==='REENTRY'&&String(options.statusLabel||'').includes('二次確認'));if(!isEntry)return null;
@@ -1850,7 +2147,7 @@ function performanceAggregate(input=signalPerformance,includeBreakdowns=true){
   const base={sample:all.length,active:all.length-resolved.length,resolved:resolved.length,wins,losses,timeouts:resolved.filter(x=>x.result==='TIMEOUT').length,hitRate:resolved.length?Number((wins/resolved.length*100).toFixed(1)):null,decisiveHitRate:binary.length?Number((binary.filter(x=>x.result==='WIN').length/binary.length*100).toFixed(1)):null,profitFactor:lossSum>0?Number((profits/lossSum).toFixed(2)):(profits>0?99:null),expectancyR:resolved.length?Number(avg(resolved,x=>x.realizedR).toFixed(3)):null,avgGrossReturnPct:resolved.length?Number(avg(resolved,x=>x.grossReturnPct).toFixed(3)):null,avgNetReturnPct:resolved.length?Number(avg(resolved,x=>x.netReturnPct).toFixed(3)):null,avgMfePct:all.length?Number(avg(all,x=>x.mfePct).toFixed(3)):null,avgMaePct:all.length?Number(avg(all,x=>x.maePct).toFixed(3)):null,cumulativeGrossReturnPct:resolved.length?Number(resolved.reduce((a,x)=>a+Number(x.grossReturnPct||0),0).toFixed(4)):0,cumulativePer1000Notional:resolved.length?Number(resolved.reduce((a,x)=>a+1000*Number(x.netReturnPct||0)/100,0).toFixed(2)):0,receivedAcks:recv.length,deliveryAckRate:all.length?Number((recv.length/all.length*100).toFixed(1)):null,avgDeliveryLatencyMs:recv.length?Math.round(avg(recv,x=>x.deliveryLatencyMs)):null,p95DeliveryLatencyMs:recv.length?Math.round(performancePercentile(recv.map(x=>x.deliveryLatencyMs),.95)):null,clicked:clicks.length,clickRate:recv.length?Number((clicks.length/recv.length*100).toFixed(1)):null,avgClickLatencyMs:clicks.length?Math.round(avg(clicks,x=>x.clickLatencyMs)):null,avgSignalToPushMs:signalLag.length?Math.round(signalLag.reduce((a,b)=>a+b,0)/signalLag.length):null,p95SignalToPushMs:signalLag.length?Math.round(performancePercentile(signalLag,.95)):null,avgPushServiceMs:pushMs.length?Math.round(pushMs.reduce((a,b)=>a+b,0)/pushMs.length):null,p95PushServiceMs:pushMs.length?Math.round(performancePercentile(pushMs,.95)):null,calibration:performanceCalibration(all)};
   if(!includeBreakdowns)return base;return {...base,byTier:performanceGroup(all,x=>x.tier),byDirection:performanceGroup(all,x=>x.direction),byRegime:performanceGroup(all,x=>x.marketRegime),byStrategy:performanceGroup(all,x=>x.strategyLabel||x.strategyId||'未分類'),bySymbol:performanceGroup(all,x=>x.symbol).slice(0,20)};
 }
-function performanceResponse(){return {ok:true,generatedAt:new Date().toISOString(),version:'V10.2.6',preciseSampleStarts:'V10.0 deployment',defaultCostBps:PERF_ROUND_TRIP_COST_BPS,maxHorizonMinutes:Math.round(PERF_MAX_HORIZON_MS/60000),summary:performanceAggregate(),shadowSummary:shadowPerformanceAggregate(),actualSummary:actualTradeAggregate(),actualTrades:actualTrades.filter(x=>x?.version==='V10.2.6').slice(0,200),stateLearning:{minSample:STATE_LEARNING_MIN_SAMPLE,maxBonus:STATE_LEARNING_MAX_BONUS,shadowMinScore:SHADOW_MIN_SCORE,patterns:stateLearningTable(30)},records:signalPerformance.filter(x=>x.version==='V10.0').slice(0,500),recent:signalPerformance.filter(x=>x.version==='V10.0').slice(0,100),shadowRecent:shadowPerformance.filter(x=>x.version==='V10.2.2').slice(0,100),methodology:'通知帳本統計真正成功送出的進場型通知；影子績效追蹤未通知候選；實際建倉帳本則由你手動填成本、TP/SP、保證金/數量與槓桿，後端用 Binance 即時價格追蹤 TP/SP first-touch 與估算損益，作為獨立的人類實盤佐證。Shadow 狀態學習仍採去相關化且保守加權，實際建倉先作交叉驗證，不直接覆蓋硬性風險門檻。'};}
+function performanceResponse(){return {ok:true,generatedAt:new Date().toISOString(),version:'V10.2.6',preciseSampleStarts:'V10.0 deployment',defaultCostBps:PERF_ROUND_TRIP_COST_BPS,maxHorizonMinutes:Math.round(PERF_MAX_HORIZON_MS/60000),summary:performanceAggregate(),shadowSummary:shadowPerformanceAggregate(),actualSummary:actualTradeAggregate(),research:researchDiagnostics(false),actualTrades:actualTrades.filter(x=>x?.version==='V10.2.6').slice(0,200),stateLearning:{minSample:STATE_LEARNING_MIN_SAMPLE,maxBonus:STATE_LEARNING_MAX_BONUS,shadowMinScore:SHADOW_MIN_SCORE,patterns:stateLearningTable(30)},records:signalPerformance.filter(x=>x.version==='V10.0').slice(0,500),recent:signalPerformance.filter(x=>x.version==='V10.0').slice(0,100),shadowRecent:shadowPerformance.filter(x=>x.version==='V10.2.2').slice(0,100),methodology:'通知帳本統計真正成功送出的進場型通知；影子績效追蹤未通知候選；實際建倉帳本則由你手動填成本、TP/SP、保證金/數量與槓桿，後端用 Binance 即時價格追蹤 TP/SP first-touch 與估算損益，作為獨立的人類實盤佐證。Shadow 狀態學習仍採去相關化且保守加權，實際建倉先作交叉驗證，不直接覆蓋硬性風險門檻。'};}
 
 async function refreshMarkPrices(force = false) {
   if (markPriceBusy) return false;
@@ -2489,6 +2786,16 @@ function cleanTestSignalNotifyMode(value) {
   return ['HIGH','HIGH_NORMAL','ALL'].includes(v)?v:'HIGH_NORMAL';
 }
 
+/* NOTIFICATION_CONTROL_V2616: phone whitelist = 熬鷹 order events + A/B shadow judgement only. */
+const NOTICE_DEDUP_FILE_V2616=path.join(DATA_DIR,'notification-dedup-v2616.json');
+const NOTICE_DEDUP_MS_V2616=Math.max(15*60_000,Math.min(120*60_000,Number(process.env.NOTICE_DEDUP_MS_V2616||45*60_000)));
+function noticeDedupKeyV2616(endpoint,symbol,direction){return [String(endpoint||'').slice(-96),cleanFuturesSymbol(symbol),String(direction||'LONG').toUpperCase()==='SHORT'?'SHORT':'LONG'].join('|')}
+function noticeDedupMapV2616(){const x=loadJson(NOTICE_DEDUP_FILE_V2616,{});return x&&typeof x==='object'&&!Array.isArray(x)?x:{}}
+function noticeDedupCanSendV2616(endpoint,symbol,direction,now=Date.now()){const m=noticeDedupMapV2616(),at=Number(m[noticeDedupKeyV2616(endpoint,symbol,direction)]||0);return !(at>0&&now-at<NOTICE_DEDUP_MS_V2616)}
+function noticeDedupMarkV2616(endpoint,symbol,direction,now=Date.now()){const m=noticeDedupMapV2616(),cut=now-24*60*60_000;for(const [k,v] of Object.entries(m))if(Number(v)<cut)delete m[k];m[noticeDedupKeyV2616(endpoint,symbol,direction)]=now;saveJson(NOTICE_DEDUP_FILE_V2616,m)}
+function shadowGradeV2616(tier){return String(tier||'').toUpperCase()==='HIGH'?'A':String(tier||'').toUpperCase()==='NORMAL'?'B':null}
+
+
 function migratedEventTypes(record) {
   const types = cleanEventTypes(record?.enabledTypes, true);
   if (Number(record?.preferenceVersion || 0) >= 65) return types;
@@ -2540,36 +2847,26 @@ function saveSubRecords(records) {
   saveJson(SUB_FILE, records);
 }
 
-function subscriptionAllows(rec, target = {}) {
-  const enabledTraders = new Set(rec?.enabledTraders || []);
-  const enabledTypes = new Set(rec?.enabledTypes || EVENT_TYPES);
-  const isConsensus = target.eventType === 'CONSENSUS';
-  if (target.testSignal === true) {
-    if(rec?.testSignalEnabled !== true) return false;
-    const mode=cleanTestSignalNotifyMode(rec?.testSignalNotifyMode);
-    const tier=String(target.testSignalTier||'VALID').toUpperCase();
-    if(mode==='HIGH') return tier==='HIGH';
-    if(mode==='HIGH_NORMAL') return tier==='HIGH'||tier==='NORMAL';
-    return tier!=='BLOCKED';
+function subscriptionAllows(rec,target={}){
+  const enabledTraders=new Set(rec?.enabledTraders||[]),enabledTypes=new Set(rec?.enabledTypes||EVENT_TYPES);
+  if(target.forceTest===true)return !target.endpoint||String(rec?.endpoint||'')===String(target.endpoint);
+  if(target.candidateNotice===true){
+    const pref=typeof notificationCustomPrefsV2673==='function'?notificationCustomPrefsV2673():{candidateMode:'OFF'};
+    if(pref.candidateMode==='OFF')return false;
+    return true;
   }
-
-  // Core-aligned confirmation is independent from individual trader toggles.
-  // The user can keep only core alerts while still receiving one confirmation when
-  // at least one qualified secondary trader matches the same symbol and direction.
-  if (isConsensus) return rec?.consensusEnabled !== false;
-
-  const traderAllowed = target.traderId
-    ? enabledTraders.has(target.traderId)
-    : Array.isArray(target.traderIds)
-      ? target.traderIds.some(id => enabledTraders.has(id))
-      : true;
-  const typeAllowed = target.eventType
-    ? enabledTypes.has(target.eventType)
-    : true;
-  return traderAllowed && typeAllowed;
+  if(target.testSignal===true){
+    const pref=typeof notificationCustomPrefsV2673==='function'?notificationCustomPrefsV2673():{formalMode:'AB'};
+    const grade=typeof shadowGradeV2616==='function'?shadowGradeV2616(target.testSignalTier):(String(target.testSignalTier||'').toUpperCase()==='HIGH'?'A':String(target.testSignalTier||'').toUpperCase()==='NORMAL'?'B':null);
+    if(!grade)return false;
+    return pref.formalMode==='A'?grade==='A':['A','B'].includes(grade);
+  }
+  const eventType=String(target.eventType||'').toUpperCase();
+  if(['OPEN','ADD','REDUCE','CLOSE'].includes(eventType))return String(target.traderId||'')===CORE_TRADER_ID;
+  return false;
 }
 
-async function sendPush(payload, target = {}) {
+async function sendPushCoreV2681(payload, target = {}) {
   const records = loadSubRecords();
   const keep = [];
   let eligible=0,sent=0,failed=0,filtered=0;
@@ -2581,13 +2878,14 @@ async function sendPush(payload, target = {}) {
       continue;
     }
     eligible++;
+    if(target.shadowDedup===true&&!noticeDedupCanSendV2616(rec.endpoint,target.symbol,target.direction)){filtered++;eligible--;keep.push(rec);continue;}
     try {
       await webpush.sendNotification(
         rec.subscription,
         JSON.stringify(payload),
         { TTL: 90, urgency: 'high' }
       );
-      sent++;
+      sent++;if(target.shadowDedup===true)noticeDedupMarkV2616(rec.endpoint,target.symbol,target.direction);
       keep.push(rec);
     } catch (e) {
       failed++;
@@ -2598,6 +2896,13 @@ async function sendPush(payload, target = {}) {
   if (keep.length !== records.length) saveSubRecords(keep);
   return {records:records.length,eligible,sent,failed,filtered};
 }
+
+async function sendPush(payload,target={}){
+  const out=await sendPushCoreV2681(payload,target);
+  try{bootcampPushAuditV2681(payload,target,out)}catch{}
+  return out;
+}
+
 
 function makeTraderEvent(type, trader, o, result) {
   const direction = sideZh(o.positionSide);
@@ -2695,7 +3000,7 @@ async function emitEvent(event) {
     body: text.body,
     tag: `${event.kind}-${event.symbol || 'market'}-${event.type}-${Date.now()}`,
     renotify: true,
-    data: { url: event.kind === 'PULLBACK' ? tradingViewLaunchUrl(event.symbol) : '/' },
+    data: { url: event.kind === 'TRADER' ? '/?page=today' : event.kind === 'PULLBACK' ? tradingViewLaunchUrl(event.symbol) : '/?page=today' },
   }, event.kind === 'TRADER' || event.kind === 'PULLBACK'
     ? { traderId: event.traderId, eventType: event.type }
     : { traderIds: event.traderIds, eventType: 'CONSENSUS' }
@@ -3403,7 +3708,7 @@ function buildTodayView(rows, byVolume, recommendations, summary) {
   };
 }
 
-function buildMarketFlow(tickers, premiums) {
+function buildMarketFlowCoreV2612(tickers, premiums) {
   const premiumMap = new Map((Array.isArray(premiums) ? premiums : []).map(x => [String(x?.symbol || ''), x]));
   const rows = (Array.isArray(tickers) ? tickers : [])
     .filter(x => /USDT$/.test(String(x?.symbol || '')) && !String(x?.symbol || '').includes('_'))
@@ -3454,6 +3759,15 @@ function buildMarketFlow(tickers, premiums) {
   };
 }
 
+function buildMarketFlow(tickers,premiums){
+  const allTick=Array.isArray(tickers)?tickers:[],allPrem=Array.isArray(premiums)?premiums:[];
+  const cryptoTick=allTick.filter(x=>assetClassForSymbolV2612(x?.symbol)==='CRYPTO'),tradfiTick=allTick.filter(x=>assetClassForSymbolV2612(x?.symbol)==='TRADFI');
+  const cryptoSet=new Set(cryptoTick.map(x=>String(x?.symbol||''))),tradfiSet=new Set(tradfiTick.map(x=>String(x?.symbol||'')));
+  const combined=buildMarketFlowCoreV2612(allTick,allPrem),crypto=buildMarketFlowCoreV2612(cryptoTick,allPrem.filter(x=>cryptoSet.has(String(x?.symbol||'')))),tradfi=buildMarketFlowCoreV2612(tradfiTick,allPrem.filter(x=>tradfiSet.has(String(x?.symbol||''))));
+  const decorate=(v,assetClass,label)=>({...v,assetClass,assetLabel:label,leaders:(v.leaders||[]).map(x=>({...x,assetClass})),recommendations:(v.recommendations||[]).map(x=>({...x,assetClass}))});
+  return {...combined,assetViews:{crypto:decorate(crypto,'CRYPTO','幣圈'),tradfi:decorate(tradfi,'TRADFI','美股')},assetCounts:{crypto:cryptoTick.length,tradfi:tradfiTick.length},assetLearning:'V2.6.12 ASSET-AWARE'};
+}
+
 async function fetchMarketFlowFresh() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MARKET_FLOW_TIMEOUT_MS);
@@ -3470,6 +3784,9 @@ async function fetchMarketFlowFresh() {
   } finally { clearTimeout(timeout); }
 }
 
+const ASYNC_DEADLINE_MS_V2616=Math.max(3500,Math.min(15000,Number(process.env.ASYNC_DEADLINE_MS_V2616||8000)));
+function deadlineV2616(p,ms=ASYNC_DEADLINE_MS_V2616,label='async'){let t;return Promise.race([Promise.resolve(p),new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(label+' timeout '+ms+'ms')),ms)})]).finally(()=>clearTimeout(t))}
+
 async function getMarketFlow() {
   const now = Date.now();
   if (marketFlowCache.data && now - marketFlowCache.at < MARKET_FLOW_CACHE_MS) return { ...marketFlowCache.data, stale:false, cacheAgeMs:now-marketFlowCache.at };
@@ -3484,7 +3801,7 @@ async function getMarketFlow() {
     });
   }
   try {
-    const data = await marketFlowCache.inflight;
+    const data = await deadlineV2616(marketFlowCache.inflight,ASYNC_DEADLINE_MS_V2616,'market-flow');
     return { ...data, stale:false, cacheAgeMs:0 };
   } catch (err) {
     if (marketFlowCache.data && now - marketFlowCache.lastGoodAt <= MARKET_FLOW_STALE_MS) {
@@ -3808,15 +4125,31 @@ const SYMBOL_PROJECT_PROFILES = {
   EIGEN:{sector:'再質押 / 基礎設施',purpose:'EigenLayer 再質押與共享安全服務'},
   S:{sector:'L1 / Sonic',purpose:'Sonic 高效能 EVM 公鏈與 DeFi 生態'},
 };
+/* TRADFI_LEARNING_V2612_20260902 */
+const ASSET_PROFILE_PATH_V2612=path.join(__dirname,'asset-profiles-v2612.json');
+let ASSET_PROFILES_V2612={};try{ASSET_PROFILES_V2612=JSON.parse(fs.readFileSync(ASSET_PROFILE_PATH_V2612,'utf8'))||{}}catch(e){console.warn('[v2612-tradfi] asset profiles unavailable:',String(e?.message||e))}
+const TRADFI_BASES_V2612=new Set(Object.entries(ASSET_PROFILES_V2612).filter(([,v])=>String(v?.assetClass||'').toUpperCase()==='TRADFI').map(([k])=>String(k).toUpperCase()));
+function assetBaseV2612(symbol){return String(symbol||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/USDT$/,'').replace(/^1000(?=[A-Z])/,'')}
+function assetClassForSymbolV2612(symbol){return TRADFI_BASES_V2612.has(assetBaseV2612(symbol))?'TRADFI':'CRYPTO'}
+function assetProfileV2612(symbol){const base=assetBaseV2612(symbol),p=ASSET_PROFILES_V2612[base]||null;return p?{base,...p}:{base,assetClass:'CRYPTO',subtype:'CRYPTO'}}
+function assetSessionV2612(symbol,at=Date.now()){
+  if(assetClassForSymbolV2612(symbol)!=='TRADFI')return 'CRYPTO_24H';
+  const d=new Date(at);let parts={};try{parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]))}catch{return'US_OTHER'}
+  const wd=String(parts.weekday||''),h=Number(parts.hour||0),m=Number(parts.minute||0),min=h*60+m;if(['Sat','Sun'].includes(wd))return'US_WEEKEND';if(min>=570&&min<960)return'US_REGULAR';if(min>=240&&min<570)return'US_PRE';if(min>=960&&min<1200)return'US_AFTER';return'US_OVERNIGHT';
+}
+function assetSessionLabelV2612(v){return ({CRYPTO_24H:'幣圈24H',US_PRE:'美股盤前',US_REGULAR:'美股正規盤',US_AFTER:'美股盤後',US_OVERNIGHT:'美股隔夜',US_WEEKEND:'美股週末',US_OTHER:'美股其他'})[String(v||'')]||String(v||'—')}
+function assetViewRowsV2612(rows,assetClass){return (rows||[]).filter(x=>assetClassForSymbolV2612(x?.symbol)===assetClass)}
+
 function symbolBaseAsset(symbol){
   const raw=String(symbol||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/USDT$/,'');
   if(raw.startsWith('1000')&&SYMBOL_PROJECT_PROFILES[raw.slice(4)])return raw.slice(4);
   return raw;
 }
 function symbolProjectProfile(symbol){
-  const base=symbolBaseAsset(symbol), known=SYMBOL_PROJECT_PROFILES[base];
-  if(known)return {base,sector:known.sector,purpose:known.purpose,known:true};
-  return {base,sector:'其他 / 新興加密資產',purpose:'題材與用途變動較快；展開詳細可用即時網搜確認專案定位與今日催化',known:false};
+  const ap=assetProfileV2612(symbol);if(ap.assetClass==='TRADFI')return {base:ap.base,name:ap.name,assetClass:'TRADFI',subtype:ap.subtype,sector:ap.sector,purpose:ap.purpose,history:ap.history,risk:ap.risk,benchmark:ap.benchmark,known:true};
+  const base=symbolBaseAsset(symbol),known=SYMBOL_PROJECT_PROFILES[base];
+  if(known)return {base,assetClass:'CRYPTO',subtype:'CRYPTO',sector:known.sector,purpose:known.purpose,known:true};
+  return {base,assetClass:'CRYPTO',subtype:'CRYPTO',sector:'其他 / 新興加密資產',purpose:'題材與用途變動較快；展開後可用公開資訊快取補充。',known:false};
 }
 
 async function analyzeIdeaSymbol(row) {
@@ -3840,7 +4173,7 @@ async function analyzeIdeaSymbol(row) {
   const rankScore=clamp(model.modelScore*0.62 + hist*0.38,0,100);
   const reason=model.signals.filter(x=>x.value!==0).sort((a,b)=>b.weight-a.weight).slice(0,4).map(x=>`${x.name}${x.value>0?'↑':'↓'}`).join(' · ') || '訊號分歧';
   return {
-    symbol, price:row.price, changePct:row.changePct, quoteVolume:row.quoteVolume, fundingPct:row.fundingPct,
+    symbol, assetClass:assetClassForSymbolV2612(symbol), assetSession:assetSessionV2612(symbol), assetSessionLabel:assetSessionLabelV2612(assetSessionV2612(symbol)), assetFamily:assetProfileV2612(symbol)?.subtype||'CRYPTO', price:row.price, changePct:row.changePct, quoteVolume:row.quoteVolume, fundingPct:row.fundingPct,
     direction:model.direction, label:model.direction==='LONG'?'做多':model.direction==='SHORT'?'做空':'等待',
     modelScore:model.modelScore, rankScore:Number(rankScore.toFixed(1)), estimatedWinRate:Number(estimate.toFixed(1)),
     historicalHitRate:bt.hitRate, backtestSample:bt.sample, reason,
@@ -3858,11 +4191,15 @@ async function mapPool(items, concurrency, fn) {
 
 async function fetchRankedIdeasFresh() {
   const flow=await getMarketFlow(),radar=realtimeRadarCandidates(RADAR_MAX_SYMBOLS),merged=new Map();
-  for(const x of [...radar,...(flow.leaders||[])])if(x?.symbol&&!merged.has(x.symbol))merged.set(x.symbol,x);
-  const candidates=[...merged.values()].sort((a,b)=>Number(b.activityScore||0)-Number(a.activityScore||0)||Number(b.quoteVolume||0)-Number(a.quoteVolume||0)).slice(0,IDEA_SYMBOLS);
+  for(const x of [...radar,...(flow.leaders||[]),...(flow.assetViews?.tradfi?.leaders||[])])if(x?.symbol&&!merged.has(x.symbol))merged.set(x.symbol,x);
+  const sorted=[...merged.values()].sort((a,b)=>Number(b.activityScore||0)-Number(a.activityScore||0)||Number(b.quoteVolume||0)-Number(a.quoteVolume||0));
+  const crypto=sorted.filter(x=>assetClassForSymbolV2612(x.symbol)==='CRYPTO'),tradfi=sorted.filter(x=>assetClassForSymbolV2612(x.symbol)==='TRADFI');
+  const picked=new Map();for(const x of sorted.slice(0,Math.max(12,IDEA_SYMBOLS-6)))picked.set(x.symbol,x);for(const x of crypto.slice(0,10))picked.set(x.symbol,x);for(const x of tradfi.slice(0,10))picked.set(x.symbol,x);
+  const candidates=[...picked.values()].sort((a,b)=>Number(b.activityScore||0)-Number(a.activityScore||0)||Number(b.quoteVolume||0)-Number(a.quoteVolume||0)).slice(0,Math.min(48,IDEA_SYMBOLS+8));
   const analyzed=await mapPool(candidates,IDEA_CONCURRENCY,analyzeIdeaSymbol);
-  const rows=analyzed.filter(x=>x && !x.error && x.direction!=='WAIT').sort((a,b)=>b.rankScore-a.rankScore || b.estimatedWinRate-a.estimatedWinRate || b.quoteVolume-a.quoteVolume);
-  return { ok:true, generatedAt:new Date().toISOString(), methodology:'V10：全市場WS雷達先掃描，僅對前段候選做 15m+1h EMA/RSI/MACD/ATR/volume + OI + taker + top/global L/S + funding + backtest 深度分析', radar:realtimeRadarSummary(), analyzed:candidates.length, rows:rows.slice(0,12), errors:analyzed.filter(x=>x?.error).length };
+  const rows=analyzed.filter(x=>x&&!x.error&&x.direction!=='WAIT').sort((a,b)=>b.rankScore-a.rankScore||b.estimatedWinRate-a.estimatedWinRate||b.quoteVolume-a.quoteVolume);
+  let cr=0,us=0;const enriched=rows.map((x,i)=>({...x,globalRank:i+1,assetRank:x.assetClass==='TRADFI'?++us:++cr}));
+  return {ok:true,generatedAt:new Date().toISOString(),methodology:'V2.6.12：幣圈＋美股永續雙池雷達；15m+1h 趨勢/動能/量能 + OI/Taker/大戶/Funding + 回測；Shadow 採資產/時段分層學習，再用低權重跨市場經驗補樣本。',radar:realtimeRadarSummary(),analyzed:candidates.length,assetAnalyzed:{crypto:candidates.filter(x=>assetClassForSymbolV2612(x.symbol)==='CRYPTO').length,tradfi:candidates.filter(x=>assetClassForSymbolV2612(x.symbol)==='TRADFI').length},rows:enriched.slice(0,30),errors:analyzed.filter(x=>x?.error).length};
 }
 
 async function getRankedIdeas() {
@@ -3871,7 +4208,7 @@ async function getRankedIdeas() {
   if(!rankedIdeasCache.inflight){
     rankedIdeasCache.inflight=fetchRankedIdeasFresh().then(data=>{rankedIdeasCache={at:Date.now(),lastGoodAt:Date.now(),data,error:null,inflight:null};return data}).catch(e=>{rankedIdeasCache.error=String(e?.message||e);rankedIdeasCache.inflight=null;throw e});
   }
-  try{return {...await rankedIdeasCache.inflight,stale:false,cacheAgeMs:0}}catch(e){if(rankedIdeasCache.data&&now-rankedIdeasCache.lastGoodAt<IDEA_STALE_MS)return {...rankedIdeasCache.data,stale:true,error:rankedIdeasCache.error,cacheAgeMs:now-rankedIdeasCache.lastGoodAt};throw e}
+  try{return {...await deadlineV2616(rankedIdeasCache.inflight,ASYNC_DEADLINE_MS_V2616,'ranked-ideas'),stale:false,cacheAgeMs:0}}catch(e){if(/timeout/i.test(String(e?.message||e)))rankedIdeasCache.inflight=null;if(rankedIdeasCache.data&&now-rankedIdeasCache.lastGoodAt<IDEA_STALE_MS)return {...rankedIdeasCache.data,stale:true,error:String(e?.message||e),cacheAgeMs:now-rankedIdeasCache.lastGoodAt};return {ok:true,generatedAt:new Date().toISOString(),stale:true,error:String(e?.message||e),radar:realtimeRadarSummary(),analyzed:0,rows:[],errors:1}}
 }
 
 
@@ -3964,7 +4301,7 @@ function findTestImpulse(candles, direction) {
 async function testFetchBacktestCandles(symbol, interval='5m', pages=2) {
   const safePages=Math.max(1,Math.min(3,Number(pages)||2));
   const key=`${symbol}:${interval}:${safePages}`,now=Date.now(),cached=testBacktestCandleCache.get(key);
-  if(cached&&now-cached.at<15*60*1000)return cached.rows;
+  if(cached&&now-cached.at<BACKTEST_CACHE_MS)return cached.rows;
   const chunks=[];let endTime=null;
   for(let i=0;i<safePages;i++){
     const qs=new URLSearchParams({symbol:cleanFuturesSymbol(symbol),interval,limit:'1500'});
@@ -4079,11 +4416,11 @@ async function testFetchDerivatives(symbol) {
   let globalLongShortRatio=ratioLast(globalRows,'longShortRatio'),globalSource=globalLongShortRatio!=null?'Binance':null;
   let topPositionRatio=ratioLast(topRows,'longShortRatio'),topSource=topPositionRatio!=null?'Binance':null;
   const topAccountRatio=ratioLast(topAccountRows,'longShortRatio');
-  if(ENABLE_CROSS_EXCHANGE&&oiChangePct==null){try{const r=await fetchBybitOiFallback(key);if(r){oiChangePct=r.changePct;oi1hChangePct=r.change1hPct??r.changePct;oi15mChangePct=r.change15mPct??null;oi5mChangePct=r.change5mPct??null;oiSource='Bybit備援'}}catch(e){errors.oiFallback=String(e?.message||e)}}
+  if(assetClassForSymbolV2612(key)==='CRYPTO'&&ENABLE_CROSS_EXCHANGE&&oiChangePct==null){try{const r=await fetchBybitOiFallback(key);if(r){oiChangePct=r.changePct;oi1hChangePct=r.change1hPct??r.changePct;oi15mChangePct=r.change15mPct??null;oi5mChangePct=r.change5mPct??null;oiSource='Bybit備援'}}catch(e){errors.oiFallback=String(e?.message||e)}}
   if(takerRatio==null){try{const r=await fetchBinanceAggTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Binance成交備援'}}catch(e){errors.takerFallback=String(e?.message||e)}}
-  if(ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchBybitRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Bybit成交備援'}}catch(e){errors.takerBybitFallback=String(e?.message||e)}}
-  if(ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchOkxRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='OKX成交備援'}}catch(e){errors.takerOkxFallback=String(e?.message||e)}}
-  if(ENABLE_CROSS_EXCHANGE&&globalLongShortRatio==null){try{const r=await fetchBybitAccountRatioFallback(key);if(r){globalLongShortRatio=r.ratio;globalSource='Bybit備援'}}catch(e){errors.globalFallback=String(e?.message||e)}}
+  if(assetClassForSymbolV2612(key)==='CRYPTO'&&ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchBybitRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='Bybit成交備援'}}catch(e){errors.takerBybitFallback=String(e?.message||e)}}
+  if(assetClassForSymbolV2612(key)==='CRYPTO'&&ENABLE_CROSS_EXCHANGE&&takerRatio==null){try{const r=await fetchOkxRecentTakerFallback(key);if(r){takerRatio=r.ratio;takerSource='OKX成交備援'}}catch(e){errors.takerOkxFallback=String(e?.message||e)}}
+  if(assetClassForSymbolV2612(key)==='CRYPTO'&&ENABLE_CROSS_EXCHANGE&&globalLongShortRatio==null){try{const r=await fetchBybitAccountRatioFallback(key);if(r){globalLongShortRatio=r.ratio;globalSource='Bybit備援'}}catch(e){errors.globalFallback=String(e?.message||e)}}
   const health={oi:Number.isFinite(oiChangePct),taker:Number.isFinite(takerRatio),globalLs:Number.isFinite(globalLongShortRatio),topPos:Number.isFinite(topPositionRatio),topAccount:Number.isFinite(topAccountRatio),fetchedAt:new Date().toISOString()};
   const data={
     oiChangePct:Number.isFinite(oiChangePct)?oiChangePct:null,
@@ -4151,6 +4488,7 @@ async function testFetchRiskContext(symbol) {
   testRiskCache.set(key,{at:now,data});return data;
 }
 async function testFetchCrossExchange(symbol){
+  if(assetClassForSymbolV2612(symbol)==='TRADFI')return {available:0,consensus:0,source:'TRADFI_BINANCE_ONLY',skipped:true};
   const key=cleanFuturesSymbol(symbol),now=Date.now(),cached=testCrossExchangeCache.get(key);if(cached&&now-cached.at<45000)return cached.data;if(!ENABLE_CROSS_EXCHANGE)return {enabled:false};
   const bybit=await (async()=>{try{const [c,oi,ls,depth,ticker]=await Promise.all([fetchBybitCandles(key,'15m',140),fetchBybitOiFallback(key).catch(()=>null),fetchBybitAccountRatioFallback(key).catch(()=>null),fetchBybitDepth(key).catch(()=>null),fetchBybitTicker(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,oiChangePct:oi?.changePct??null,oi5mChangePct:oi?.change5mPct??null,oi15mChangePct:oi?.change15mPct??null,oi1hChangePct:oi?.change1hPct??oi?.changePct??null,longShortRatio:ls?.ratio??null,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null,fundingPct:finiteMetric(ticker?.fundingRate)!=null?Number(ticker.fundingRate)*100:null,markPrice:finiteMetric(ticker?.markPrice)} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
   const okx=await (async()=>{try{const [c,depth]=await Promise.all([fetchOkxCandles(key,'15m',140),fetchOkxDepth(key).catch(()=>null)]);const tech=technicalSnapshot(closedTestCandles(c)),sm=depth?summarizeDepth(depth.bids,depth.asks):{};return {ok:true,trend:tech.trend,momentum:tech.momentum,rsi15:tech.rsi14,depthImbalance:sm.depthImbalance??null,spreadBps:sm.spreadBps??null} }catch(e){return {ok:false,error:String(e?.message||e)}}})();
@@ -4303,15 +4641,18 @@ function testSetState(t,state,label,at=new Date().toISOString()){
   if(t.monitorState!==state||t.monitorLabel!==label)t.stateChangedAt=at;
   t.monitorState=state;t.monitorLabel=label;return t;
 }
+function selectLearningIdeasV2612(ideas){
+  const rows=Array.isArray(ideas?.rows)?ideas.rows:[],picked=new Map();for(const x of rows.slice(0,Math.min(12,TEST_SIGNAL_MAX)))picked.set(testSignalKey(x.symbol,x.direction),x);for(const cls of ['CRYPTO','TRADFI'])for(const x of rows.filter(y=>assetClassForSymbolV2612(y.symbol)===cls).slice(0,4))picked.set(testSignalKey(x.symbol,x.direction),x);return [...picked.values()].sort((a,b)=>Number(a.globalRank||99)-Number(b.globalRank||99)).slice(0,TEST_SIGNAL_MAX)
+}
 function syncTestIdeas(ideas) {
   const now=Date.now(),seen=new Set();
-  (ideas?.rows||[]).slice(0,TEST_SIGNAL_MAX).forEach((idea,i)=>{
+  selectLearningIdeasV2612(ideas).forEach((idea,i)=>{
     if(!['LONG','SHORT'].includes(idea.direction))return;const key=testSignalKey(idea.symbol,idea.direction);seen.add(key);
     const opposite=testSignalTrackers.get(testSignalKey(idea.symbol,idea.direction==='LONG'?'SHORT':'LONG'));
     if(opposite&&!terminalTestStatus(opposite.status)&&opposite.status!=='CONFIRMED'){opposite.status='EXPIRED';opposite.statusLabel='方向翻轉';opposite.updatedAt=new Date().toISOString();opposite.finishedAt=opposite.updatedAt;testSignalTrackers.set(opposite.key,opposite)}
     const old=testSignalTrackers.get(key);
-    if(!old||terminalTestStatus(old.status)&&now-new Date(old.updatedAt||0).getTime()>TEST_REARM_COOLDOWN_MS){testSignalTrackers.set(key,newTestTracker(idea,i+1));return}
-    old.rank=i+1;old.idea={...idea};old.lastSeenIdeaAt=new Date().toISOString();old.updatedAt=new Date().toISOString();testSignalTrackers.set(key,old);
+    if(!old||terminalTestStatus(old.status)&&now-new Date(old.updatedAt||0).getTime()>TEST_REARM_COOLDOWN_MS){testSignalTrackers.set(key,newTestTracker(idea,Number(idea.assetRank||idea.globalRank||i+1)));return}
+    old.rank=Number(idea.assetRank||idea.globalRank||i+1);old.idea={...idea};old.lastSeenIdeaAt=new Date().toISOString();old.updatedAt=new Date().toISOString();testSignalTrackers.set(key,old);
   });
   for(const [key,t] of testSignalTrackers){
     if(terminalTestStatus(t.status)||t.status==='CONFIRMED'||t.status==='INVALID')continue;
@@ -4338,9 +4679,191 @@ function testPreferredEntryZone(t) {
   const biased=mid-dir*width*.05,half=width*.27;
   return {low:Math.max(z.low,biased-half),high:Math.min(z.high,biased+half),reentry:z.reentry};
 }
+
+/* STRUCTURE_ENGINE_V21_20260902
+   Structure Engine V2.1 — structure judgement is independent from notification strictness.
+   Primary online sources stay Binance Copy BAPI + Binance Kline/WS; external mirrors are cross-checks, not truth.
+   Deep pullback != invalidation. Wick != close. 5m damage != 15m/30m destruction. */
+function scheduleStructureLearningSave(){
+  if(structureLearningSaveTimer)return;
+  structureLearningSaveTimer=setTimeout(()=>{structureLearningSaveTimer=null;structureLearning=structureLearning.slice(0,7000);saveJson(STRUCTURE_LEARNING_FILE,structureLearning)},1200);
+  structureLearningSaveTimer.unref?.();
+}
+function structureV2Dir(t){return testSignalDirection(t?.direction)}
+function structureV2Beyond(dir,price,level){return Number.isFinite(Number(price))&&Number.isFinite(Number(level))&&(dir>0?Number(price)<Number(level):Number(price)>Number(level))}
+function structureV2Inside(dir,price,level){return Number.isFinite(Number(price))&&Number.isFinite(Number(level))&&(dir>0?Number(price)>=Number(level):Number(price)<=Number(level))}
+function structureV2AssetClass(symbol){
+  const b=String(symbol||'').toUpperCase().replace(/USDT$/,'');
+  if(['XAU','XAG','WTI','BRENT','USOIL','UKOIL'].includes(b))return 'COMMODITY';
+  if(/^(SOXL|SOXS|SKHYNIX|NVDA|TSLA|AAPL|MSFT|GOOGL|META|AMZN|AMD|MSTR|COIN|QQQ|SPY|VOO|NDX)/.test(b))return 'EQUITY_TOKEN';
+  return 'CRYPTO';
+}
+function structureV2ProtectedSwing(rows,dir){
+  const a=(rows||[]).slice(-80);if(a.length<12)return null;
+  const sw=swingLevels(a,2),pts=dir>0?sw.lows:sw.highs,p=pts.at(-1)?.price;
+  return Number.isFinite(Number(p))?Number(p):null;
+}
+function structureV2Retracement(t,price){
+  const s=t?.setup||{},dir=structureV2Dir(t),lo=finiteMetric(s.impulseLow),hi=finiteMetric(s.impulseHigh),px=finiteMetric(price),range=(hi!=null&&lo!=null)?hi-lo:null;
+  if(!(px>0&&range>0))return null;
+  return clamp(dir>0?(hi-px)/range:(px-lo)/range,0,2.5);
+}
+function structureV2RetrBucket(r){if(!Number.isFinite(Number(r)))return 'NA';const x=Number(r);if(x<.382)return 'SHALLOW';if(x<.618)return 'NORMAL';if(x<.786)return 'DEEP';if(x<1)return 'VERY_DEEP';return 'BEYOND_IMPULSE'}
+function structureV2TraderContext(t,now=Date.now()){
+  const symbol=cleanFuturesSymbol(t?.symbol),side=String(t?.direction||'LONG').toUpperCase()==='SHORT'?'SHORT':'LONG',rows=recentEvents.filter(e=>e?.kind==='TRADER'&&e?.traderId===CORE_TRADER_ID&&e?.symbol===symbol&&e?.side===side).slice(0,30);
+  const recent=rows.map(e=>({...e,_ms:new Date(e.ts||0).getTime()})).filter(e=>Number.isFinite(e._ms)&&now-e._ms<=6*60*60*1000);
+  const last=recent[0]||null,lastAdd=recent.find(e=>e.type==='ADD')||null,lastReduce=recent.find(e=>e.type==='REDUCE')||null,lastClose=recent.find(e=>e.type==='CLOSE')||null;
+  const age=x=>x?Math.max(0,(now-x._ms)/60000):null;
+  const heldNow=!!states.get(CORE_TRADER_ID)?.positions?.has(positionKey(symbol,side));
+  return {source:'Binance Copy BAPI/order_history + reconstructed live position',heldNow,lastAction:last?.type||null,lastActionAt:last?.ts||null,lastActionAgeMin:age(last),lastAddAt:lastAdd?.ts||null,lastAddAgeMin:age(lastAdd),lastReduceAt:lastReduce?.ts||null,lastReduceAgeMin:age(lastReduce),lastCloseAt:lastClose?.ts||null,lastCloseAgeMin:age(lastClose),recentAdds:recent.filter(e=>e.type==='ADD').length,recentReduces:recent.filter(e=>e.type==='REDUCE').length};
+}
+function structureV2Pattern({deep=false,veryDeep=false,wickSweep=false,reclaim15=false,break15=false,two15=false,break30=false,pocLost=false,pocReclaim=false}={}){
+  if((deep||veryDeep)&&(wickSweep||reclaim15))return 'DEEP_RECLAIM';
+  if(break15&&reclaim15)return 'FAILED_BREAK_RECLAIM';
+  if(wickSweep)return 'LIQUIDITY_SWEEP';
+  if(two15||break30)return 'STRUCTURE_BREAK';
+  if(pocLost&&pocReclaim)return 'POC_RECLAIM';
+  if(deep||veryDeep)return 'DEEP_RETRACE';
+  return 'NORMAL_STRUCTURE';
+}
+function structureV2OutcomeSign(x){
+  const o=String(x?.outcome||'');
+  if(['STRUCTURE_HELD','RECLAIM_SUCCESS','DEEP_PULLBACK_SUCCESS','FALSE_INVALIDATION'].includes(o))return 1;
+  if(['STRUCTURE_FAILED','DEEP_PULLBACK_FAILED','TRUE_INVALIDATION'].includes(o))return -1;
+  return 0;
+}
+function structureV2Keys(t,state,bucket,assetClass=null,pattern=null){
+  const strategy=t?.strategyAtConfirm||t?.strategyProfile||{},regime=String(t?.marketRegime||t?.lastCheck?.marketRegime||'UNKNOWN'),direction=String(t?.direction||'LONG'),asset=assetClass||structureV2AssetClass(t?.symbol),pat=pattern||'NA';
+  return {detail:[asset,strategy.id||'UNKNOWN',regime,direction,state,bucket,pat].join('|'),core:[asset,strategy.id||'UNKNOWN',regime,direction,state].join('|'),broad:[asset,state,bucket].join('|')};
+}
+function structureV2EffectiveRows(){
+  const rows=structureLearning.filter(x=>x?.version===STRUCTURE_ENGINE_VERSION&&x.status==='RESOLVED'&&x.learningEligible!==false&&structureV2OutcomeSign(x)!==0).sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));
+  const seenSymbol=new Map(),episodeCount=new Map(),out=[];
+  for(const r of rows){
+    const core=r?.keys?.core||r.keyCore||'NA',symbol=cleanFuturesSymbol(r.symbol),ts=new Date(r.at||0).getTime(),symbolKey=core+'|'+symbol,prev=seenSymbol.get(symbolKey);
+    if(Number.isFinite(prev)&&Math.abs(prev-ts)<STRUCTURE_V2_EPISODE_MS)continue;
+    seenSymbol.set(symbolKey,ts);
+    const episode=String(r.marketEpisodeId||'NA'),episodeKey=core+'|'+episode,count=Number(episodeCount.get(episodeKey)||0);
+    if(episode!=='NA'&&count>=3)continue; // cross-symbol correlation cap: max 3 samples per same market episode/state.
+    episodeCount.set(episodeKey,count+1);out.push(r);
+  }
+  return out;
+}
+function structureV2Stats(rows){
+  const a=(rows||[]).filter(x=>x?.status==='RESOLVED'&&structureV2OutcomeSign(x)!==0),wins=a.filter(x=>structureV2OutcomeSign(x)>0).length,losses=a.filter(x=>structureV2OutcomeSign(x)<0).length,sample=wins+losses;
+  const rate=sample?wins/sample*100:null,smoothed=sample?(wins+8)/(sample+16)*100:null;
+  const fav=a.map(x=>finiteMetric(x.maxFavorablePct)).filter(Number.isFinite),adv=a.map(x=>finiteMetric(x.maxAdversePct)).filter(Number.isFinite),avg=v=>v.length?v.reduce((s,x)=>s+x,0)/v.length:null;
+  return {sample,wins,losses,hitRate:rate==null?null:Number(rate.toFixed(1)),smoothedHitRate:smoothed==null?null:Number(smoothed.toFixed(1)),avgFavorablePct:fav.length?Number(avg(fav).toFixed(3)):null,avgAdversePct:adv.length?Number(avg(adv).toFixed(3)):null};
+}
+function structureV2Learn(t,rawState,bucket,assetClass,pattern){
+  const keys=structureV2Keys(t,rawState,bucket,assetClass,pattern),rows=structureV2EffectiveRows();
+  for(const level of ['detail','core','broad']){
+    const a=rows.filter(x=>String(x.keys?.[level]||'')===keys[level]),stats=structureV2Stats(a),n=stats.sample;
+    if(n<STRUCTURE_V2_MIN_SAMPLE)continue;
+    const cap=Math.min(STRUCTURE_V2_MAX_ADJUST,n>=100?8:n>=50?5:3),smooth=Number(stats.smoothedHitRate??50),raw=(smooth-55)*.16,adjustment=clamp(Math.round(raw),-cap,cap);
+    return {active:true,level,key:keys[level],keys,adjustment,stats};
+  }
+  return {active:false,level:null,key:null,keys,adjustment:0,stats:{sample:0,wins:0,losses:0,hitRate:null,smoothedHitRate:null}};
+}
+function structureV2Assess(t,{rows5=[],rows15=[],rows30=[],rows1h=[],t5=null,t15=null,t30=null,t1h=null,deriv=null,micro=null,market=null}={}){
+  const dir=structureV2Dir(t),last=rows5.at(-1),prev=rows5.at(-2),last15=rows15.at(-1),prev15=rows15.at(-2),last30=rows30.at(-1),px=finiteMetric(t?.livePrice)??finiteMetric(last?.close),orig=finiteMetric(t?.setup?.invalidation),protection=finiteMetric(t?.structureProtection)??finiteMetric(t?.stop)??orig,poc=finiteMetric(t?.setup?.poc15),atr5=Math.max(0,finiteMetric(t?.setup?.atr5)??finiteMetric(t5?.atr14)??0),atr15=Math.max(0,finiteMetric(t?.setup?.atr15)??finiteMetric(t15?.atr14)??0),retracement=structureV2Retracement(t,px),bucket=structureV2RetrBucket(retracement),assetClass=structureV2AssetClass(t?.symbol);
+  const protected15=structureV2ProtectedSwing(rows15,dir),protected30=structureV2ProtectedSwing(rows30,dir),primary15=protected15??orig,primary30=protected30??primary15;
+  const deep=Number.isFinite(retracement)&&retracement>=.618,veryDeep=Number.isFinite(retracement)&&retracement>=.786;
+  const break5=protection!=null&&last?structureV2Beyond(dir,last.close,protection):false,two5=break5&&prev&&structureV2Beyond(dir,prev.close,protection);
+  const softOrigBreak=orig!=null&&last15?structureV2Beyond(dir,last15.close,orig):false;
+  const break15=primary15!=null&&last15?structureV2Beyond(dir,last15.close,primary15):softOrigBreak,two15=break15&&prev15&&structureV2Beyond(dir,prev15.close,primary15??orig);
+  const break30=primary30!=null&&last30?structureV2Beyond(dir,last30.close,primary30):false;
+  const wickSweep=primary15!=null&&last?(dir>0?Number(last.low)<primary15&&Number(last.close)>=primary15:Number(last.high)>primary15&&Number(last.close)<=primary15):false;
+  const reclaim5=protection!=null&&last&&structureV2Inside(dir,last.close,protection)&&((prev&&structureV2Beyond(dir,prev.close,protection))||(dir>0?Number(last.low)<protection:Number(last.high)>protection));
+  const reclaim15=primary15!=null&&last15&&structureV2Inside(dir,last15.close,primary15)&&((prev15&&structureV2Beyond(dir,prev15.close,primary15))||(dir>0?Number(last15.low)<primary15:Number(last15.high)>primary15));
+  const pocLost=poc!=null&&last?structureV2Beyond(dir,last.close,poc):false,pocReclaim=poc!=null&&last&&structureV2Inside(dir,last.close,poc)&&prev&&structureV2Beyond(dir,prev.close,poc);
+  const adverse30=t30?(dir>0?(t30.trend<0&&t30.momentum<=0):(t30.trend>0&&t30.momentum>=0)):false,adverse1h=t1h?(dir>0?(t1h.trend<0&&t1h.momentum<=0):(t1h.trend>0&&t1h.momentum>=0)):false,adverse15=t15?(dir>0?(t15.trend<0||(Number(t15.adx14)>=24&&Number(t15.diBias)<0)):(t15.trend>0||(Number(t15.adx14)>=24&&Number(t15.diBias)>0))):false;
+  const marketOpposed=market?.dir!==0&&market?.dir!==dir,taker=finiteMetric(deriv?.takerRatio),depth=finiteMetric(micro?.depthImbalance),supportTaker=taker!=null?(dir>0?taker>=.99:taker<=1.01):false,supportDepth=depth!=null?(dir>0?depth>=-.02:depth<=.02):false,support15=!adverse15,support30=!adverse30,support1h=!adverse1h,supportMarket=!marketOpposed,trader=structureV2TraderContext(t),traderHeld=trader.heldNow===true,traderAdd=trader.lastAddAgeMin!=null&&trader.lastAddAgeMin<=120,traderReduce=trader.lastReduceAgeMin!=null&&trader.lastReduceAgeMin<=90,traderClose=trader.lastCloseAgeMin!=null&&trader.lastCloseAgeMin<=90;
+  const supportCount=[supportTaker,supportDepth,support15,support30,support1h,supportMarket,traderHeld,traderAdd].filter(Boolean).length;
+  const severeBreak=primary15!=null&&atr15>0&&last15?structureV2Beyond(dir,last15.close,primary15-dir*atr15*.55):false;
+  const nearProtected=primary15!=null&&atr15>0&&px!=null?Math.abs(px-primary15)<=atr15*.55:false;
+  const failedReclaim=break15&&!reclaim15&&!reclaim5;
+  // DESTROYED needs acceptance, not a touch: protected 15m swing + 30m/1h agreement or a severe accepted break.
+  const destroyed=(two15&&!reclaim15&&(break30||adverse1h)&&supportCount<=3)||(severeBreak&&break30&&adverse1h&&!reclaim15);
+  const pattern=structureV2Pattern({deep,veryDeep,wickSweep,reclaim15,break15,two15,break30,pocLost,pocReclaim});
+  let health=86;
+  if(deep)health-=5;if(veryDeep)health-=6;if(pocLost)health-=4;if(two5)health-=5;if(softOrigBreak)health-=5;if(break15)health-=14;if(two15)health-=18;if(break30)health-=12;if(adverse15)health-=6;if(adverse30)health-=8;if(adverse1h)health-=10;if(marketOpposed)health-=4;if(failedReclaim)health-=6;
+  if(wickSweep)health+=8;if(reclaim5)health+=7;if(reclaim15)health+=11;if(pocReclaim)health+=4;if(supportCount>=5)health+=5;if(traderHeld)health+=1;if(traderAdd)health+=3;if(traderReduce)health-=2;if(traderClose)health-=4;
+  let rawState=destroyed?'DESTROYED':deep&&(wickSweep||reclaim5||reclaim15||nearProtected||traderAdd)&&supportCount>=3&&!break30&&!adverse1h?'OPPORTUNITY':(break15||two5||pocLost||deep||softOrigBreak)&&(reclaim5||reclaim15||pocReclaim)?'RECLAIMING':(break15||two5||pocLost||deep||softOrigBreak||adverse30||adverse1h)?'DAMAGED':'INTACT';
+  const learning=structureV2Learn(t,rawState,bucket,assetClass,pattern);health=clamp(Math.round(health+Number(learning.adjustment||0)),0,100);
+  let state=rawState;
+  // Learning may refine only a borderline non-destroyed state. It can never resurrect confirmed destruction.
+  if(rawState==='DAMAGED'&&deep&&learning.active&&learning.adjustment>=4&&(reclaim5||reclaim15||wickSweep||nearProtected)&&supportCount>=3)state='OPPORTUNITY';
+  if(rawState==='OPPORTUNITY'&&learning.active&&learning.adjustment<=-4)state='RECLAIMING';
+  const labels={INTACT:'完整',DAMAGED:'受損',RECLAIMING:'收復中',OPPORTUNITY:'深回踩機會',DESTROYED:'徹底破壞'},actions={INTACT:'結構正常，依原策略等進場區/確認',DAMAGED:'結構受損但未死，先等收復；不是直接判失效',RECLAIMING:'正在收復關鍵結構，等5分/15分收盤確認',OPPORTUNITY:'深回踩但主結構未確認破壞；確認收復後可視為較便宜的候選進場',DESTROYED:'15/30/60分已接受結構破壞，不進場'};
+  const codes=[];if(deep)codes.push('DEEP_PULLBACK');if(veryDeep)codes.push('VERY_DEEP');if(wickSweep)codes.push('WICK_SWEEP');if(reclaim5)codes.push('RECLAIM_5M');if(reclaim15)codes.push('RECLAIM_15M');if(pocLost)codes.push('POC_LOST');if(pocReclaim)codes.push('POC_RECLAIM');if(softOrigBreak)codes.push('SOFT_INVALIDATION_BREACH');if(break15)codes.push('PROTECTED_SWING_15M_BREAK');if(two15)codes.push('BREAK_15M_X2');if(break30)codes.push('PROTECTED_SWING_30M_BREAK');if(adverse1h)codes.push('ADVERSE_1H');if(marketOpposed)codes.push('MARKET_OPPOSED');if(traderHeld)codes.push('CORE_TRADER_STILL_HOLDING');if(traderAdd)codes.push('CORE_TRADER_ADD_RECENT');if(traderReduce)codes.push('CORE_TRADER_REDUCE_RECENT');if(destroyed)codes.push('CONFIRMED_DESTROY');
+  const reasons=[];if(wickSweep)reasons.push('掃過保護位但收盤收回');if(reclaim15)reasons.push('15分重新收復受保護 swing');else if(reclaim5)reasons.push('5分正在收復保護結構');if(deep)reasons.push(veryDeep?'回踩超過 0.786，但深回踩本身不等於失效':'回踩進入 0.618 深區');if(pocLost&&!pocReclaim)reasons.push('POC 暫時失守，只列弱化證據');if(two15)reasons.push('連續兩根15分收盤破受保護 swing');if(break30)reasons.push('30分也接受在破壞側');if(adverse1h)reasons.push('1H 高週期同步逆向');if(traderHeld&&!destroyed)reasons.push('核心交易員目前仍持有同方向，僅作弱佐證');if(traderAdd&&!destroyed)reasons.push('核心交易員近期仍加碼，僅作弱佐證');if(traderReduce&&!destroyed)reasons.push('核心交易員近期減碼，風險升高但不直接判死');if(supportCount>=4&&!destroyed)reasons.push('高週期/資金/深度多數仍支持原方向');
+  const dataPct=Number(t?.dataHealth?.confidencePct),confidence=Number.isFinite(dataPct)?clamp(Math.round(dataPct*(learning.active?1:.92)),0,100):null;
+  const episodeBucket=Math.floor(Date.now()/(15*60*1000)),marketEpisodeId=[assetClass,String(market?.regime||t?.marketRegime||'UNKNOWN'),String(t?.direction||'LONG'),episodeBucket].join('|');
+  return {version:STRUCTURE_ENGINE_VERSION,at:new Date().toISOString(),state,rawState,label:labels[state],health,confidence,action:actions[state],hardInvalid:state==='DESTROYED',assetClass,pattern,marketEpisodeId,retracementRatio:Number.isFinite(retracement)?Number(retracement.toFixed(3)):null,retracementPct:Number.isFinite(retracement)?Number((retracement*100).toFixed(1)):null,retracementBucket:bucket,reasonCodes:codes,reasons:reasons.slice(0,7),learning,trader,levels:{originalInvalidation:orig,protection,poc15:poc,protectedSwing15:protected15,protectedSwing30:protected30,primary15,primary30},evidence:{deep,veryDeep,wickSweep,reclaim5,reclaim15,pocLost,pocReclaim,softOrigBreak,break5,two5,break15,two15,break30,adverse15,adverse30,adverse1h,marketOpposed,nearProtected,severeBreak,supportCount}};
+}
+function structureV2Finalize(rec,outcome,at=Date.now(),extra={}){
+  if(!rec||rec.status!=='ACTIVE')return;rec.status='RESOLVED';rec.outcome=outcome;rec.outcomeAt=new Date(at).toISOString();rec.learningEligible=!['AMBIGUOUS','TIMEOUT','STATE_TRANSITION'].includes(outcome);Object.assign(rec,extra);structureLearningRevision++;scheduleStructureLearningSave();
+}
+function structureV2OutcomeLevels(t,a,price){
+  const dir=structureV2Dir(t),atr5=Math.max(0,finiteMetric(t?.setup?.atr5)??0),atr15=Math.max(0,finiteMetric(t?.setup?.atr15)??0),anchor=Number(price),primary=finiteMetric(a?.levels?.primary15)??finiteMetric(a?.levels?.originalInvalidation)??anchor;
+  const successMove=Math.max(atr5*.90,atr15*.28,anchor*.0012),failureMove=Math.max(atr15*.55,atr5*1.35,anchor*.0018);
+  const successPrice=anchor+dir*successMove,failurePrice=primary-dir*failureMove;
+  return {atr5AtEntry:atr5,atr15AtEntry:atr15,successMove,successPrice,failureMove,failurePrice,primaryLevel:primary};
+}
+function structureV2NewRecord(t,a,price){
+  const now=new Date().toISOString(),strategy=t?.strategyAtConfirm||t?.strategyProfile||{},keys=structureV2Keys(t,a.rawState,a.retracementBucket,a.assetClass,a.pattern),id='structure-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),levels=structureV2OutcomeLevels(t,a,price);
+  const rec={id,version:STRUCTURE_ENGINE_VERSION,at:now,signalKey:t.key,symbol:t.symbol,direction:t.direction,assetClass:a.assetClass,pattern:a.pattern,marketEpisodeId:a.marketEpisodeId,strategyId:strategy.id||null,strategyLabel:strategy.label||null,marketRegime:t.marketRegime||null,state:a.state,rawState:a.rawState,label:a.label,rawHealth:Number(a.health)-Number(a.learning?.adjustment||0),learningAdjustment:Number(a.learning?.adjustment||0),health:a.health,confidence:a.confidence,retracementRatio:a.retracementRatio,retracementBucket:a.retracementBucket,reasonCodes:a.reasonCodes,reasons:a.reasons,keys,price,entryPrice:finiteMetric(t.confirmationPrice),originalTradeTarget:finiteMetric(t.target1R),originalTradeStop:finiteMetric(t.stop),originalInvalidation:a.levels?.originalInvalidation??null,protection:a.levels?.protection??null,poc15:a.levels?.poc15??null,protectedSwing15:a.levels?.protectedSwing15??null,protectedSwing30:a.levels?.protectedSwing30??null,...levels,traderAtEntry:a.trader||null,traderLastAction:null,traderAddsDuringEpisode:0,traderReducesDuringEpisode:0,status:'ACTIVE',outcome:null,outcomeAt:null,learningEligible:true,lastPrice:price,lastAt:now,lastState:a.state,transitions:[],maxFavorablePct:0,maxAdversePct:0};
+  structureLearning.unshift(rec);t.structureV2RecordId=id;t.structureV2RecordState=a.state;t.structureV2RecordAt=now;structureLearningRevision++;scheduleStructureLearningSave();return rec;
+}
+function structureV2Observe(t,a,{rows5=[]}={}){
+  const last=rows5.at(-1),px=finiteMetric(t?.livePrice)??finiteMetric(last?.close);if(!(px>0)||!a)return;
+  let rec=structureLearning.find(x=>x.id===t.structureV2RecordId&&x.status==='ACTIVE')||null;
+  if(rec){
+    const dir=structureV2Dir(t),anchor=finiteMetric(rec.price),fav=anchor>0?dir*(px-anchor)/anchor*100:0;rec.lastPrice=px;rec.lastAt=new Date().toISOString();rec.maxFavorablePct=Number(Math.max(Number(rec.maxFavorablePct||0),fav).toFixed(4));rec.maxAdversePct=Number(Math.max(Number(rec.maxAdversePct||0),-fav).toFixed(4));
+    const trader=structureV2TraderContext(t),prevTraderAction=String(rec.traderLastAction||''),nowTraderAction=String(trader.lastAction||'');if(nowTraderAction&&nowTraderAction!==prevTraderAction){if(nowTraderAction==='ADD')rec.traderAddsDuringEpisode=Number(rec.traderAddsDuringEpisode||0)+1;if(nowTraderAction==='REDUCE')rec.traderReducesDuringEpisode=Number(rec.traderReducesDuringEpisode||0)+1;rec.traderLastAction=nowTraderAction;rec.traderLastActionAt=trader.lastActionAt||null;}
+    const successPrice=finiteMetric(rec.successPrice),failurePrice=finiteMetric(rec.failurePrice),hitSuccess=successPrice!=null?(dir>0?px>=successPrice:px<=successPrice):false,hitFailure=failurePrice!=null?(dir>0?px<=failurePrice:px>=failurePrice):false,reclaimed=finiteMetric(rec.primaryLevel)!=null?structureV2Inside(dir,px,rec.primaryLevel):false;
+    if(rec.state==='DESTROYED'){
+      if(a.state!=='DESTROYED'&&reclaimed&&hitSuccess){structureV2Finalize(rec,'FALSE_INVALIDATION',Date.now(),{resolvedState:a.state});rec=null}
+      else if(hitFailure||a.state==='DESTROYED'&&Number(rec.maxAdversePct||0)>=Math.max(.10,Math.abs(Number(rec.failureMove||0))/Math.max(1e-9,anchor)*100*.8)){structureV2Finalize(rec,'TRUE_INVALIDATION',Date.now(),{resolvedState:a.state});rec=null}
+    }else{
+      if(a.state==='DESTROYED'){structureV2Finalize(rec,rec.state==='OPPORTUNITY'?'DEEP_PULLBACK_FAILED':'STRUCTURE_FAILED',Date.now(),{resolvedState:a.state});rec=null}
+      else if(hitFailure&&a.state==='DAMAGED'){structureV2Finalize(rec,rec.state==='OPPORTUNITY'?'DEEP_PULLBACK_FAILED':'STRUCTURE_FAILED',Date.now(),{resolvedState:a.state});rec=null}
+      else if(hitSuccess){const o=rec.state==='OPPORTUNITY'?'DEEP_PULLBACK_SUCCESS':rec.state==='RECLAIMING'||rec.state==='DAMAGED'?'RECLAIM_SUCCESS':'STRUCTURE_HELD';structureV2Finalize(rec,o,Date.now(),{resolvedState:a.state});rec=null}
+    }
+    if(rec&&rec.lastState!==a.state){rec.transitions=Array.isArray(rec.transitions)?rec.transitions:[];rec.transitions.push({at:new Date().toISOString(),from:rec.lastState,to:a.state,health:a.health});rec.transitions=rec.transitions.slice(-20);rec.lastState=a.state;}
+    if(rec&&Date.now()-new Date(rec.at||0).getTime()>=STRUCTURE_V2_HORIZON_MS){structureV2Finalize(rec,'TIMEOUT');rec=null}
+  }
+  if(!rec){
+    const lastAt=t.structureV2RecordAt?new Date(t.structureV2RecordAt).getTime():0,same=String(t.structureV2RecordState||'')===String(a.state);
+    if(!(same&&Number.isFinite(lastAt)&&Date.now()-lastAt<STRUCTURE_V2_EPISODE_MS))structureV2NewRecord(t,a,px);
+  } else scheduleStructureLearningSave();
+}
+async function structureV2MaybeNotify(t,a){
+  if(!a||!['OPPORTUNITY','RECLAIMING'].includes(a.state))return {sent:0,skipped:true};
+  if(a.state==='RECLAIMING'&&!a.evidence?.deep&&!a.evidence?.veryDeep)return {sent:0,skipped:true};
+  const health=Number(a.health||0),confidence=Number(a.confidence||0),spread=finiteMetric(t?.lastCheck?.spreadBps),adl=String(t?.lastCheck?.adlRisk||'unknown').toLowerCase(),crowded=t?.lastCheck?.fundingCrowded===true;
+  if(health<STRUCTURE_V2_NOTIFY_MIN_HEALTH||confidence<STRUCTURE_V2_NOTIFY_MIN_CONFIDENCE||adl==='high'||crowded||(spread!=null&&spread>TEST_SIGNAL_MAX_SPREAD_BPS))return {sent:0,skipped:true};
+  t.structureV2Alerts=t.structureV2Alerts&&typeof t.structureV2Alerts==='object'?t.structureV2Alerts:{};
+  const k=a.state+':'+a.retracementBucket,last=new Date(t.structureV2Alerts[k]||0).getTime();if(Number.isFinite(last)&&last>0&&Date.now()-last<STRUCTURE_V2_NOTIFY_COOLDOWN_MS)return {sent:0,duplicate:true};
+  const tier=health>=80&&confidence>=82&&a.evidence?.reclaim15?'HIGH':'NORMAL',title=(a.state==='OPPORTUNITY'?'🟡 ':'🔄 ')+t.symbol+'｜'+a.label+'｜非進場確認',body='結構 '+Math.round(health)+'｜'+(a.reasons||[]).slice(0,2).join(' · ')+'｜等5/15分收復/策略確認';
+  const delivery=await sendPush({title,body,tag:'structure-v21-'+t.symbol+'-'+t.direction+'-'+a.state+'-'+Date.now(),renotify:true,data:{url:testMonitorRoute(t)}},{testSignal:true,testSignalTier:tier,shadowDedup:true,symbol:t.symbol,direction:t.direction});
+  if(delivery.sent>0)t.structureV2Alerts[k]=new Date().toISOString();
+  return {tier,...delivery};
+}
+function structureV2Summary(){
+  const all=structureLearning.filter(x=>x?.version===STRUCTURE_ENGINE_VERSION),resolved=all.filter(x=>x.status==='RESOLVED'),effective=structureV2EffectiveRows(),states={},patterns={},assets={};for(const x of all){states[x.state]=(states[x.state]||0)+1;patterns[x.pattern||'NA']=(patterns[x.pattern||'NA']||0)+1;assets[x.assetClass||'NA']=(assets[x.assetClass||'NA']||0)+1}
+  const deep=effective.filter(x=>['DEEP_PULLBACK_SUCCESS','DEEP_PULLBACK_FAILED'].includes(x.outcome)),falseInv=effective.filter(x=>['TRUE_INVALIDATION','FALSE_INVALIDATION'].includes(x.outcome));
+  return {version:STRUCTURE_ENGINE_VERSION,records:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,effective:effective.length,minLearningSample:STRUCTURE_V2_MIN_SAMPLE,maxAdjustment:STRUCTURE_V2_MAX_ADJUST,states,patterns,assets,overall:structureV2Stats(effective),deepPullback:{sample:deep.length,success:deep.filter(x=>x.outcome==='DEEP_PULLBACK_SUCCESS').length,successRate:deep.length?Number((deep.filter(x=>x.outcome==='DEEP_PULLBACK_SUCCESS').length/deep.length*100).toFixed(1)):null},invalidation:{sample:falseInv.length,trueInvalid:falseInv.filter(x=>x.outcome==='TRUE_INVALIDATION').length,falseInvalid:falseInv.filter(x=>x.outcome==='FALSE_INVALIDATION').length,falseInvalidRate:falseInv.length?Number((falseInv.filter(x=>x.outcome==='FALSE_INVALIDATION').length/falseInv.length*100).toFixed(1)):null},sourcePolicy:{trader:'Binance Copy BAPI/order_history primary; public mirrors cross-check only',market:'Binance Kline/WS primary; Bybit/OKX explicit fallback'}};
+}
+function structureV2CsvEscape(v){if(v==null)return'';const x=Array.isArray(v)?v.join('｜'):typeof v==='object'?JSON.stringify(v):String(v);return /[",\n\r]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x}
+
 function testEntryStrategy(t, statusLabel='') {
-  const state=String(t?.monitorState||''),status=String(t?.status||''),label=String(statusLabel||testTrackerStatusLabel(t));
-  if(status==='INVALID'||status==='DROPPED'||state==='WEAKENING')return '暫停進場，等資料重新同向後再判讀';
+  const state=String(t?.monitorState||''),status=String(t?.status||''),label=String(statusLabel||testTrackerStatusLabel(t)),structure=t?.structureV2||null;
+  if(structure?.state==='DESTROYED'||status==='DROPPED')return '結構徹底破壞，不進場；等新的完整結構重新建立';
+  if(structure?.state==='OPPORTUNITY')return '深回踩但主結構未確認破壞；只在收復確認＋建議區間內分批';
+  if(structure?.state==='RECLAIMING')return '結構收復中，等5分/15分收盤確認後再進';
+  if(structure?.state==='DAMAGED')return '結構受損但未死，先等收復；不要把深回踩直接當失效';
   if(t?.targetReachedAt&&!['TOUCHING','READY'].includes(t?.reentryStage))return '已達標，不追價；只等二次回踩';
   if(t?.reentryStage==='TOUCHING')return '二次回踩中，等5分K收回確認';
   if(t?.reentryStage==='READY')return '二次確認完成，只在建議區間內分批';
@@ -4353,7 +4876,235 @@ function testEntryStrategy(t, statusLabel='') {
   if(state==='CONSOLIDATING')return '盤整中，等策略條件完成；中間區不進';
   return s.ready?'順勢回踩確認完成，只在建議區間內分批':'順勢回踩觀察中，等守住＋短週期重新同向';
 }
+/* SHADOW_BOOTCAMP_V2681_20260905
+ * "Profit-first" here means positive NET expectancy after costs, not maximum risk.
+ * Champion = legacy execution/risk blockers. Challenger = adaptive, walk-forward, recency-weighted Shadow model.
+ * Soft alpha/readiness misses may be re-ranked, but formal A/B still requires hard risk safety plus positive net edge.
+ */
+const SHADOW_BOOTCAMP_VERSION_V2681='V2.6.81';
+const SHADOW_BOOTCAMP_AUDIT_FILE_V2681=path.join(DATA_DIR,'shadow-bootcamp-audit-v2681.json');
+const SHADOW_BOOTCAMP_HALF_LIFE_H_V2681=48;
+const SHADOW_BOOTCAMP_MIN_HISTORY_V2681=120;
+const SHADOW_BOOTCAMP_B_P_V2681=.50;
+const SHADOW_BOOTCAMP_B_EXP_V2681=.10;
+const SHADOW_BOOTCAMP_B_COST_V2681=.05;
+const SHADOW_BOOTCAMP_A_P_V2681=.55;
+const SHADOW_BOOTCAMP_A_EXP_V2681=.18;
+const SHADOW_BOOTCAMP_A_COST_V2681=.03;
+const SHADOW_BOOTCAMP_A_PF_V2681=1.25;
+const SHADOW_BOOTCAMP_B_PF_V2681=1.15;
+const SHADOW_BOOTCAMP_TRAINING_V2681={source:'shadow-performance-v1022-research-2026-09-04.csv',rows:1794,resolved:1749,eligibleResolved:626,window:'2026-08-31..2026-09-04',validation:'walk-forward/no-lookahead',objective:'net expectancy after costs',findings:['舊正式A/B幾乎未生成','舊高分與淨結果未呈正向校準','成本/1R是第一級執行門檻','舊Mentor alpha分數不作新模型硬閘門'],promotionPolicy:'no positive net edge = no formal A/B'};
+const SHADOW_BOOTCAMP_CACHE_MS_V2681=20_000;
+const shadowBootcampCacheV2681=new Map();
+const shadowBootcampAuditMemoV2681=new Map();
+
+function bootcampFiniteV2681(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function bootcampClampV2681(v,a,b){return Math.max(a,Math.min(b,Number(v)||0))}
+function bootcampBaseV2681(symbol){return String(symbol||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/USDT$/,'').replace(/^1000(?=[A-Z])/,'')}
+function bootcampAssetClassV2681(symbol){
+  const b=bootcampBaseV2681(symbol),tradfi=new Set(['MSTR','COIN','CRCL','PLTR','NVDA','AAPL','MSFT','AMZN','META','TSLA','GOOGL','GOOG','AVGO','AMD','TSM','NFLX','MU','INTC','SPY','QQQ','IWM','DIA','BITO','SOXL','SOXS','SKHYNIX','SNDK','MVLL','MUU','AXTI','KORU','ZHIPU','DELL','CRDO','HOOD','SMCI','ARM','ALAB','MRVL','LRCX','AMAT','ORCL']);
+  if(new Set(['XAU','XAG']).has(b))return 'COMMODITY';
+  if(tradfi.has(b))return 'TRADFI';
+  try{if(typeof assetClassForSymbolV2612==='function'&&assetClassForSymbolV2612(symbol)==='TRADFI')return 'TRADFI'}catch{}
+  return 'CRYPTO';
+}
+function bootcampSessionV2681(symbol,at=Date.now()){
+  const cls=bootcampAssetClassV2681(symbol);
+  if(cls==='CRYPTO')return 'CRYPTO_24H';
+  if(cls==='COMMODITY')return 'COMMODITY_24H';
+  try{if(typeof assetSessionV2612==='function'){const v=String(assetSessionV2612(symbol,at)||'');if(v.startsWith('US_'))return v}}catch{}
+  try{
+    const d=new Date(at);let parts={};parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+    const wd=String(parts.weekday||''),h=Number(parts.hour||0),m=Number(parts.minute||0),min=h*60+m;if(['Sat','Sun'].includes(wd))return'US_WEEKEND';if(min>=570&&min<960)return'US_REGULAR';if(min>=240&&min<570)return'US_PRE';if(min>=960&&min<1200)return'US_AFTER';return'US_OVERNIGHT';
+  }catch{return'US_OTHER'}
+}
+function bootcampStateTokenV2681(label,key){
+  const m=String(label||'').match(new RegExp(key+'\\s+([A-Z]+)','i'));
+  return m?String(m[1]).toUpperCase():'NA';
+}
+function bootcampRowFeaturesV2681(r){
+  const sf=r?.stateFeatures&&typeof r.stateFeatures==='object'?r.stateFeatures:{},at=new Date(r?.shadowAt||r?.resultAt||Date.now()).getTime(),assetClass=bootcampAssetClassV2681(r?.symbol),assetSession=bootcampSessionV2681(r?.symbol,at);
+  return {
+    assetClass,
+    assetSession:String(assetSession||'UNKNOWN'),
+    strategyLabel:String(r?.strategyLabel||sf.strategyLabel||r?.strategyId||sf.strategyId||'UNKNOWN'),
+    regime:String(r?.marketRegime||sf.regime||'UNKNOWN'),
+    direction:String(r?.direction||sf.direction||'LONG').toUpperCase()==='SHORT'?'SHORT':'LONG',
+    oi:String(sf.oi||bootcampStateTokenV2681(r?.stateLabel,'OI')||'NA').toUpperCase(),
+    taker:String(sf.taker||bootcampStateTokenV2681(r?.stateLabel,'Taker')||'NA').toUpperCase(),
+    depth:String(sf.depth||bootcampStateTokenV2681(r?.stateLabel,'Depth')||'NA').toUpperCase(),
+  };
+}
+function bootcampTrackerFeaturesV2681(t){
+  let sf={};try{sf=typeof stateLearningFeatures==='function'?stateLearningFeatures(t):{}}catch{}
+  const strategy=t?.strategyAtConfirm||t?.strategyProfile||{},lc=t?.lastCheck||{},ev=t?.monitorEvidence||lc;
+  return {
+    assetClass:bootcampAssetClassV2681(t?.symbol),
+    assetSession:bootcampSessionV2681(t?.symbol,Date.now()),
+    strategyLabel:String(sf.strategyLabel||strategy.label||strategy.id||'UNKNOWN'),
+    regime:String(sf.regime||t?.marketRegime||lc.marketRegime||'UNKNOWN'),
+    direction:String(t?.direction||sf.direction||'LONG').toUpperCase()==='SHORT'?'SHORT':'LONG',
+    oi:String(sf.oi||'NA').toUpperCase(),
+    taker:String(sf.taker||'NA').toUpperCase(),
+    depth:String(sf.depth||'NA').toUpperCase(),
+    weakFlags:Number(ev?.weakFlags||0),
+  };
+}
+function bootcampNetRV2681(r){
+  const direct=bootcampFiniteV2681(r?.netR);if(direct!=null)return direct;
+  const entry=bootcampFiniteV2681(r?.entryPrice),stop=bootcampFiniteV2681(r?.stop),net=bootcampFiniteV2681(r?.netReturnPct);
+  if(entry>0&&stop>0&&net!=null){const riskPct=Math.abs(entry-stop)/entry*100;if(riskPct>0)return net/riskPct}
+  const rr=bootcampFiniteV2681(r?.realizedR);if(rr==null)return null;
+  const cost=bootcampCostRatioFromLevelsV2681(entry,stop);return rr-(cost==null?0:cost);
+}
+function bootcampCostRatioFromLevelsV2681(entry,stop){
+  entry=bootcampFiniteV2681(entry);stop=bootcampFiniteV2681(stop);if(!(entry>0&&stop>0))return null;
+  const riskPct=Math.abs(entry-stop)/entry*100;if(!(riskPct>0))return null;
+  const roundTripPct=Number(PERF_ROUND_TRIP_COST_BPS||12)/100;
+  return roundTripPct/riskPct;
+}
+function bootcampCurrentLevelsV2681(t,{reentry=false}={}){
+  let zone=null;try{zone=typeof testCurrentEntryZone==='function'?testCurrentEntryZone(t):null}catch{}
+  let entry=null;try{entry=bootcampFiniteV2681(typeof realtimeBestPrice==='function'?realtimeBestPrice(t?.symbol):null)}catch{}
+  entry=entry??bootcampFiniteV2681(reentry?t?.reentryEntryPrice:t?.confirmationPrice)??(zone?((Number(zone.low)+Number(zone.high))/2):null)??bootcampFiniteV2681(t?.entryPrice);
+  const stop=bootcampFiniteV2681(reentry?t?.reentryStop:t?.stop);
+  return {entry,stop,costRatio:bootcampCostRatioFromLevelsV2681(entry,stop)};
+}
+function bootcampHistoryV2681(now=Date.now()){
+  let rows=[];try{rows=typeof shadowLearningEffectiveRows==='function'?shadowLearningEffectiveRows():shadowPerformance}catch{rows=shadowPerformance||[]}
+  return (Array.isArray(rows)?rows:[]).filter(r=>{
+    if(r?.status!=='RESOLVED'||r?.learningEligible===false)return false;
+    const resultAt=new Date(r?.resultAt||0).getTime(),net=bootcampNetRV2681(r);
+    return Number.isFinite(resultAt)&&resultAt>0&&resultAt<now&&Number.isFinite(net);
+  }).slice(0,1800);
+}
+function bootcampWeightedStatsV2681(rows,predicate,now){
+  let sw=0,sw2=0,wins=0,sum=0,profit=0,loss=0,n=0;
+  for(const r of rows){
+    if(predicate&&!predicate(r))continue;
+    const net0=bootcampNetRV2681(r);if(!Number.isFinite(net0))continue;
+    const resultAt=new Date(r?.resultAt||0).getTime();if(!(resultAt>0&&resultAt<now))continue;
+    const ageH=Math.max(0,(now-resultAt)/3_600_000),revWeight=String(r?.researchRevisionAtEntry||'')==='V10.2.7-R1'?1:.65,w=Math.pow(.5,ageH/SHADOW_BOOTCAMP_HALF_LIFE_H_V2681)*revWeight,net=bootcampClampV2681(net0,-1.5,1.5);
+    if(!(w>0))continue;n++;sw+=w;sw2+=w*w;sum+=w*net;if(net>0){wins+=w;profit+=w*net}else if(net<0)loss+=w*(-net);
+  }
+  if(!(sw>0))return null;
+  return {n,neff:sw*sw/Math.max(1e-9,sw2),p:wins/sw,exp:sum/sw,pf:loss>1e-9?profit/loss:(profit>0?99:0)};
+}
+function bootcampMatchesV2681(rowFeatures,target,cols){
+  for(const c of cols)if(String(rowFeatures?.[c]??'UNKNOWN')!==String(target?.[c]??'UNKNOWN'))return false;
+  return true;
+}
+function bootcampWilsonLowV2681(p,n){
+  p=bootcampClampV2681(p,.01,.99);n=Math.max(1,Number(n)||1);
+  return bootcampClampV2681(p-1.28*Math.sqrt(p*(1-p)/(n+16)),0,1);
+}
+function bootcampStrengthFailureRiskV2681(t){
+  const ev=t?.monitorEvidence||t?.lastCheck||{};let risk=0;
+  const weak=Number(ev?.weakFlags||0);if(weak>=2)risk+=.16;if(weak>=4)risk+=.18;
+  if(ev?.adverse15===true)risk+=.08;if(ev?.adverse30===true)risk+=.06;if(ev?.adverse1h===true)risk+=.07;if(ev?.adverseMarket===true)risk+=.07;
+  if(ev?.belowBreakout2===true)risk+=.24;
+  if(ev?.adverseDepth===true)risk+=.08;
+  if(ev?.adverseTaker===true)risk+=.08;
+  if(ev?.adverseTop===true)risk+=.05;
+  if(t?.breakoutAt&&ev?.aboveBreakout2===false)risk+=.12;
+  const chase=bootcampFiniteV2681(ev?.chaseAtr??t?.lastCheck?.chaseAtr);if(chase!=null&&chase>.18)risk+=.07;if(chase!=null&&chase>.30)risk+=.10;
+  if(String(t?.monitorState||'')==='WEAKENING')risk+=.35;if(String(t?.monitorState||'')==='CONTINUING')risk-=.06;
+  return bootcampClampV2681(risk,0,1);
+}
+function bootcampModelV2681(t,{reentry=false}={}){
+  const now=Date.now(),f=bootcampTrackerFeaturesV2681(t),levels=bootcampCurrentLevelsV2681(t,{reentry}),cacheKey=[t?.key||t?.symbol,f.assetClass,f.assetSession,f.strategyLabel,f.regime,f.direction,f.oi,f.taker,f.depth,Math.round(Number(levels.costRatio||9)*100),String(t?.monitorState||''),Number((t?.monitorEvidence||t?.lastCheck||{})?.weakFlags||0)].join('|');
+  const cached=shadowBootcampCacheV2681.get(cacheKey);if(cached&&now-cached.at<SHADOW_BOOTCAMP_CACHE_MS_V2681)return cached.value;
+  const history=bootcampHistoryV2681(now),global=bootcampWeightedStatsV2681(history,null,now),prior=bootcampWeightedStatsV2681(history,r=>{const x=bootcampRowFeaturesV2681(r);return x.assetClass===f.assetClass&&x.direction===f.direction},now)||global;
+  if(!global||!prior){const out={ready:false,history:history.length,p:.5,low:.3,exp:-1,pf:0,support:0,costRatio:levels.costRatio,features:f,strengthFailureRisk:bootcampStrengthFailureRiskV2681(t)};shadowBootcampCacheV2681.set(cacheKey,{at:now,value:out});return out}
+  const specs=[
+    [['assetClass','assetSession','strategyLabel','regime','direction'],4.0],
+    [['assetClass','strategyLabel','regime','direction'],3.4],
+    [['assetClass','strategyLabel','direction'],2.8],
+    [['strategyLabel','regime','direction'],2.4],
+    [['assetClass','regime','direction'],2.0],
+    [['assetClass','direction'],1.4],
+    [['regime','direction'],1.0],
+  ];
+  let eNum=0,pNum=0,pfNum=0,wSum=0,support=0;
+  for(let i=0;i<specs.length;i++){
+    const [cols,factor]=specs[i],st=bootcampWeightedStatsV2681(history,r=>bootcampMatchesV2681(bootcampRowFeaturesV2681(r),f,cols),now);
+    if(!st||st.neff<3.5)continue;
+    if(i<4)support=Math.max(support,st.neff);
+    const shrink=st.neff/(st.neff+5),e=shrink*st.exp+(1-shrink)*prior.exp,p=shrink*st.p+(1-shrink)*prior.p,pf=shrink*Math.min(3,Number(st.pf||0))+(1-shrink)*Math.min(3,Number(prior.pf||0)),w=factor*Math.min(1,st.neff/12);
+    eNum+=w*e;pNum+=w*p;pfNum+=w*pf;wSum+=w;
+  }
+  let exp=wSum>0?eNum/wSum:prior.exp,p=wSum>0?pNum/wSum:prior.p,pf=wSum>0?pfNum/wSum:Number(prior.pf||0);
+  for(const c of ['oi','taker','depth']){
+    const v=String(f[c]||'NA');if(v==='NA')continue;
+    const st=bootcampWeightedStatsV2681(history,r=>String(bootcampRowFeaturesV2681(r)[c]||'NA')===v,now);
+    if(st&&st.neff>=8){const sh=st.neff/(st.neff+25);exp+=.30*sh*(st.exp-global.exp);p+=.30*sh*(st.p-global.p)}
+  }
+  const cost=Number.isFinite(Number(levels.costRatio))?Number(levels.costRatio):9;
+  if(cost>.08){exp-=Math.min(1.4,(cost-.08)*1.35);p-=Math.min(.20,(cost-.08)*.16)}
+  else if(cost<.03)exp+=Math.min(.035,(.03-cost)*1.2);
+    if(f.regime==='UNKNOWN'){exp-=.05;p-=.01}
+  const recentPulse=(hours)=>bootcampWeightedStatsV2681(history,r=>{const rt=new Date(r?.resultAt||0).getTime(),rf=bootcampRowFeaturesV2681(r);return rt>now-hours*3_600_000&&rt<now&&rf.assetClass===f.assetClass&&rf.direction===f.direction},now);
+  for(const [hours,factor,minN] of [[6,.55,6],[12,.30,10]]){const st=recentPulse(hours);if(st&&st.n>=minN){if(st.exp<-.10){exp+=factor*Math.max(-.45,st.exp);p+=factor*Math.max(-.10,st.p-.5)}else if(st.exp>.10){exp+=factor*.12*Math.min(.35,st.exp);p+=factor*.08*Math.min(.08,st.p-.5)}}}
+  const strategyPulse=bootcampWeightedStatsV2681(history,r=>{const rt=new Date(r?.resultAt||0).getTime(),rf=bootcampRowFeaturesV2681(r);return rt>now-12*3_600_000&&rt<now&&rf.assetClass===f.assetClass&&rf.strategyLabel===f.strategyLabel&&rf.direction===f.direction},now);
+  if(strategyPulse&&strategyPulse.n>=8&&strategyPulse.exp<-.10){exp+=.30*Math.max(-.35,strategyPulse.exp);p-=.02}
+  const failureRisk=bootcampStrengthFailureRiskV2681(t);exp-=failureRisk*.34;p-=failureRisk*.10;
+  p=bootcampClampV2681(p,.05,.95);const low=bootcampWilsonLowV2681(p,support||prior.neff||global.neff);
+  const out={ready:history.length>=SHADOW_BOOTCAMP_MIN_HISTORY_V2681,history:history.length,p,low,exp,pf,support,costRatio:cost,features:f,strengthFailureRisk:failureRisk,global:{p:global.p,exp:global.exp,pf:global.pf,neff:global.neff},prior:{p:prior.p,exp:prior.exp,pf:prior.pf,neff:prior.neff}};
+  shadowBootcampCacheV2681.set(cacheKey,{at:now,value:out});if(shadowBootcampCacheV2681.size>120){const first=shadowBootcampCacheV2681.keys().next().value;shadowBootcampCacheV2681.delete(first)}
+  return out;
+}
+function bootcampDecisionV2681(t,legacy,{reentry=false}={}){
+  const inst=legacy?.institutionalEdge&&typeof legacy.institutionalEdge==='object'?legacy.institutionalEdge:null,m=bootcampModelV2681(t,{reentry}),coverage=Number(t?.dataHealth?.coveragePct),confidence=Number(t?.dataHealth?.confidencePct),aMissing=[],bMissing=[];
+  const blockers=Array.isArray(legacy?.blockers)?legacy.blockers:[],hardText=blockers.join('｜'),hardReason=/價差>|高波動價差|ADL高風險|Funding擁擠|結構失效|資料完整度<72|資料可信度<65|跨交易所趨勢逆向|清算行情山寨/i.test(hardText);
+  const mentorHard=inst?.hardBlock===true;
+  if(hardReason||mentorHard)return {tier:'BLOCKED',grade:null,reason:'Champion execution/risk blocker',model:m,aMissing:['硬風控未通過'],bMissing:['硬風控未通過'],institutional:inst||null};
+  if(!m.ready){aMissing.push(`訓練樣本<${SHADOW_BOOTCAMP_MIN_HISTORY_V2681}`);bMissing.push(`訓練樣本<${SHADOW_BOOTCAMP_MIN_HISTORY_V2681}`)}
+    if(m.support<10)aMissing.push('同型態有效支持<10');if(m.support<8)bMissing.push('同型態有效支持<8');
+  if(m.p<SHADOW_BOOTCAMP_A_P_V2681)aMissing.push(`後驗勝率<${Math.round(SHADOW_BOOTCAMP_A_P_V2681*100)}%`);
+  if(m.exp<SHADOW_BOOTCAMP_A_EXP_V2681)aMissing.push(`淨期望<+${SHADOW_BOOTCAMP_A_EXP_V2681.toFixed(2)}R`);
+  if(m.pf<SHADOW_BOOTCAMP_A_PF_V2681)aMissing.push(`淨PF<${SHADOW_BOOTCAMP_A_PF_V2681.toFixed(2)}`);
+  if(m.costRatio>SHADOW_BOOTCAMP_A_COST_V2681)aMissing.push(`成本/1R>${Math.round(SHADOW_BOOTCAMP_A_COST_V2681*100)}%`);
+  if(m.strengthFailureRisk>.16)aMissing.push('強轉弱風險>16%');
+  if(m.features.regime==='UNKNOWN')aMissing.push('A級需已知市場狀態');
+  if(Number.isFinite(coverage)&&coverage<82)aMissing.push('資料完整度<82%');if(Number.isFinite(confidence)&&confidence<78)aMissing.push('資料可信度<78%');
+  if(m.p<SHADOW_BOOTCAMP_B_P_V2681)bMissing.push(`後驗勝率<${Math.round(SHADOW_BOOTCAMP_B_P_V2681*100)}%`);
+  if(m.exp<SHADOW_BOOTCAMP_B_EXP_V2681)bMissing.push(`淨期望<+${SHADOW_BOOTCAMP_B_EXP_V2681.toFixed(2)}R`);
+  if(m.pf<SHADOW_BOOTCAMP_B_PF_V2681)bMissing.push(`淨PF<${SHADOW_BOOTCAMP_B_PF_V2681.toFixed(2)}`);
+  if(m.costRatio>SHADOW_BOOTCAMP_B_COST_V2681)bMissing.push(`成本/1R>${Math.round(SHADOW_BOOTCAMP_B_COST_V2681*100)}%`);
+  if(m.strengthFailureRisk>.28)bMissing.push('強轉弱風險>28%');
+  if(m.features.regime==='UNKNOWN'&&(m.support<10||m.exp<.12))bMissing.push('UNKNOWN需支持>=10且淨期望>=+0.12R');
+  if(Number.isFinite(coverage)&&coverage<76)bMissing.push('資料完整度<76%');if(Number.isFinite(confidence)&&confidence<70)bMissing.push('資料可信度<70%');
+  // Legacy Mentor alpha gates are observation-only here; exported data showed they were not net-profit calibrated. Only explicit hardBlock above survives as a safety veto.
+  const tier=aMissing.length===0?'HIGH':bMissing.length===0?'NORMAL':'VALID',grade=tier==='HIGH'?'A':tier==='NORMAL'?'B':null;
+  return {tier,grade,reason:grade?`Challenger ${grade}：淨期望 ${m.exp>=0?'+':''}${m.exp.toFixed(2)}R｜PF ${m.pf.toFixed(2)}｜後驗 ${(m.p*100).toFixed(1)}%`:'Challenger 未達正式A/B',model:m,aMissing,bMissing,institutional:inst?{version:inst.version||null,capA:inst.capA===true,costGateA:inst.costGateA!==false,costGateB:inst.costGateB!==false,forwardStatus:String(inst?.forward?.status||'')||null}:null};
+}
+function bootcampFinalizeTierV2681(t,legacy,{reentry=false}={}){
+  const decision=bootcampDecisionV2681(t,legacy,{reentry});bootcampAuditDecisionV2681(t,decision,legacy);
+  const m=decision.model;
+  return {...legacy,tier:decision.tier,rate:m?Number((m.p*100).toFixed(1)):legacy.rate,low:m?Number((m.low*100).toFixed(1)):legacy.low,highMissing:decision.aMissing,normalMissing:decision.bMissing,bootcamp:{version:SHADOW_BOOTCAMP_VERSION_V2681,grade:decision.grade,reason:decision.reason,posteriorWinRate:m?Number((m.p*100).toFixed(1)):null,conservativeLow:m?Number((m.low*100).toFixed(1)):null,netExpectancyR:m?Number(m.exp.toFixed(3)):null,netProfitFactor:m?Number(m.pf.toFixed(2)):null,costRatio:m?Number(m.costRatio.toFixed(3)):null,support:m?Number(m.support.toFixed(1)):null,history:m?.history??0,strengthFailureRisk:m?Number(m.strengthFailureRisk.toFixed(3)):null,assetClass:m?.features?.assetClass||null,assetSession:m?.features?.assetSession||null,institutional:decision.institutional||null}};
+}
+function bootcampAuditReadV2681(){const x=loadJson(SHADOW_BOOTCAMP_AUDIT_FILE_V2681,{events:[]});return x&&typeof x==='object'?x:{events:[]}}
+function bootcampAuditAppendV2681(event){
+  try{const x=bootcampAuditReadV2681();x.version=SHADOW_BOOTCAMP_VERSION_V2681;x.updatedAt=new Date().toISOString();x.events=Array.isArray(x.events)?x.events:[];x.events.unshift(event);x.events=x.events.slice(0,500);saveJson(SHADOW_BOOTCAMP_AUDIT_FILE_V2681,x)}catch(e){console.warn('[v2681] audit',String(e?.message||e))}
+}
+function bootcampAuditDecisionV2681(t,decision,legacy){
+  try{
+    const now=Date.now(),key=[t?.symbol,t?.direction].join('|'),sig=[decision?.tier,decision?.grade,decision?.model?.p?.toFixed?.(3),decision?.model?.exp?.toFixed?.(3),legacy?.tier].join('|'),old=shadowBootcampAuditMemoV2681.get(key);
+    if(old&&old.sig===sig&&now-old.at<10*60_000)return;shadowBootcampAuditMemoV2681.set(key,{sig,at:now});
+    bootcampAuditAppendV2681({at:new Date(now).toISOString(),kind:'DECISION',symbol:t?.symbol,direction:t?.direction,tier:decision?.tier,grade:decision?.grade,legacyTier:legacy?.tier,reason:decision?.reason,p:decision?.model?.p??null,low:decision?.model?.low??null,netExpR:decision?.model?.exp??null,netProfitFactor:decision?.model?.pf??null,costRatio:decision?.model?.costRatio??null,support:decision?.model?.support??null,strengthFailureRisk:decision?.model?.strengthFailureRisk??null});
+  }catch{}
+}
+function bootcampPushAuditV2681(payload,target,out){
+  const formal=target?.testSignal===true,core=['OPEN','ADD','REDUCE','CLOSE'].includes(String(target?.eventType||'').toUpperCase())&&String(target?.traderId||'')===CORE_TRADER_ID;if(!formal&&!core)return;
+  bootcampAuditAppendV2681({at:new Date().toISOString(),kind:formal?'FORMAL_SHADOW_PUSH':'CORE_TRADER_PUSH',symbol:target?.symbol||null,direction:target?.direction||null,eventType:String(target?.eventType||''),tier:String(target?.testSignalTier||''),title:String(payload?.title||''),records:Number(out?.records||0),eligible:Number(out?.eligible||0),sent:Number(out?.sent||0),failed:Number(out?.failed||0),filtered:Number(out?.filtered||0),noSubscription:Number(out?.records||0)===0});
+}
+function bootcampSummaryV2681(){
+  const history=bootcampHistoryV2681(Date.now()),audit=bootcampAuditReadV2681();
+  return {ok:true,version:SHADOW_BOOTCAMP_VERSION_V2681,mode:'Profit-first Champion + adaptive Challenger',history:history.length,training:SHADOW_BOOTCAMP_TRAINING_V2681,thresholds:{A:{p:SHADOW_BOOTCAMP_A_P_V2681,netExpR:SHADOW_BOOTCAMP_A_EXP_V2681,minPf:SHADOW_BOOTCAMP_A_PF_V2681,maxCostRatio:SHADOW_BOOTCAMP_A_COST_V2681,minSupport:10},B:{p:SHADOW_BOOTCAMP_B_P_V2681,netExpR:SHADOW_BOOTCAMP_B_EXP_V2681,minPf:SHADOW_BOOTCAMP_B_PF_V2681,maxCostRatio:SHADOW_BOOTCAMP_B_COST_V2681,minSupport:8}},recentAudit:(audit.events||[]).slice(0,100)};
+}
+
 function testSignalTier(t,{reentry=false}={}) {
+  const assetClass=assetClassForSymbolV2612(t?.symbol),tradfi=assetClass==='TRADFI';
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||0),low=Number(cal.conservativeLow||0);
   const rawScore=Number(reentry?t.reentryScore:(t.monitorScore??t.qualityScore??0)),learning=reentry?{adjustment:0,active:false,stats:{sample:0}}:stateLearningAdjustment(t),score=clamp(Math.round(rawScore+Number(learning.adjustment||0)),0,100),rank=Number(t.rank||99),ev=t.monitorEvidence||t.lastCheck||{};
   const spread=finiteMetric(ev.spreadBps),chaseAtr=finiteMetric(ev.chaseAtr),adlRisk=String(ev.adlRisk||'unknown').toLowerCase(),fundingCrowded=ev.fundingCrowded===true;
@@ -4364,26 +5115,31 @@ function testSignalTier(t,{reentry=false}={}) {
   if(ev.adverse15)blockers.push('15分逆向');
   if(ev.adverse30)blockers.push('30分逆向');
   if(ev.adverse1h)blockers.push('1小時逆向');
-  if(ev.adverseMarket)blockers.push('BTC/ETH大盤逆向');
+  if(ev.adverseMarket)blockers.push(tradfi?'美股大盤逆向':'BTC/ETH大盤逆向');
   if(!noSpreadRisk)blockers.push(`價差>${TEST_SIGNAL_MAX_SPREAD_BPS}bps`);
   if(!noChase)blockers.push(`距離回踩區>${TEST_SIGNAL_FIRST_MAX_CHASE_ATR.toFixed(2)}ATR`);
   if(adlRisk==='high')blockers.push('ADL高風險');
   if(fundingCrowded)blockers.push('Funding擁擠');
-  if(t.status==='INVALID'||t.status==='DROPPED')blockers.push('結構失效');
-  if(t.monitorState==='WEAKENING')blockers.push('目前轉弱');
+  if(t.status==='DROPPED'||t?.structureV2?.state==='DESTROYED')blockers.push('結構徹底破壞');
   const coverage=Number(t.dataHealth?.coveragePct),dataConfidence=Number(t.dataHealth?.confidencePct),sources=t.dataHealth?.sources||{},cross=t.dataHealth?.crossExchange||{},dir=testSignalDirection(t.direction);
   if(Number.isFinite(coverage)&&coverage<72)blockers.push('資料完整度<72%');
   if(Number.isFinite(dataConfidence)&&dataConfidence<65)blockers.push('資料可信度<65%');
-  if(Number(cross?.available||0)>0&&Number(cross?.consensus||0)===-dir)blockers.push('跨交易所趨勢逆向');
+  if(!tradfi&&Number(cross?.available||0)>0&&Number(cross?.consensus||0)===-dir)blockers.push('跨交易所趨勢逆向');
   const regime=String(t.marketRegime||ev.marketRegime||'NORMAL');
-  if(regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol)&&score<90)blockers.push('清算行情山寨品質<90');
+  if(!tradfi&&regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol)&&score<90)blockers.push('清算行情山寨品質<90');
   if(['LIQUIDATION','HIGH_VOL'].includes(regime)&&Number.isFinite(spread)&&spread>8)blockers.push('高波動價差>8bps');
+  const institutional=institutionalMentorEdgeV2622(t);for(const b of institutional.hardBlockReasons||[])if(!blockers.includes(b))blockers.push(b);
   const hardSafe=blockers.length===0;
   const highMissing=[];
+  if(institutional.edgeScore<SHADOW_EDGE_A_MIN_V2621)highMissing.push(`Edge<${SHADOW_EDGE_A_MIN_V2621}`);
+  if(!institutional.costGateA)highMissing.push(`成本/停損比>${SHADOW_EDGE_A_COST_RATIO_V2621.toFixed(2)}`);
+  if(institutional.capA)highMissing.push('機構Edge封頂B');
+  if(t?.structureV2?.state==='DAMAGED')highMissing.push('結構受損待收復');
+  if(t?.structureV2?.state==='RECLAIMING')highMissing.push('結構收復中');
   if(Number.isFinite(coverage)&&coverage<90)highMissing.push('資料完整度<90%');
   if(Number.isFinite(dataConfidence)&&dataConfidence<86)highMissing.push('資料可信度<86%');
   for(const k of ['k5','k15','k30','h1','oi15','oi1h','taker','depth','funding','mark','market','backtest'])if(sources[k]!==true)highMissing.push(`關鍵資料缺:${k}`);
-  if(!(sources.topPos===true||sources.topAccount===true))highMissing.push('關鍵資料缺:大戶');
+  if(!tradfi&&!(sources.topPos===true||sources.topAccount===true))highMissing.push('關鍵資料缺:大戶');
   if(rate<TEST_SIGNAL_HIGH_RATE)highMissing.push(`校準勝率<${TEST_SIGNAL_HIGH_RATE}%`);
   if(low<50)highMissing.push('保守下界<50%');
   if(score<TEST_SIGNAL_HIGH_SCORE)highMissing.push(`品質<${TEST_SIGNAL_HIGH_SCORE}`);
@@ -4392,6 +5148,8 @@ function testSignalTier(t,{reentry=false}={}) {
   if(regime==='CHOP'&&score<90)highMissing.push('震盪行情品質<90');
   if(['LIQUIDATION','HIGH_VOL'].includes(regime)&&(coverage<95||dataConfidence<90))highMissing.push('高波動需完整度95/可信度90');
   const normalMissing=[];
+  if(institutional.edgeScore<SHADOW_EDGE_B_MIN_V2621)normalMissing.push(`Edge<${SHADOW_EDGE_B_MIN_V2621}`);
+  if(!institutional.costGateB)normalMissing.push(`成本/停損比>${SHADOW_EDGE_B_COST_RATIO_V2621.toFixed(2)}`);
   if(Number.isFinite(coverage)&&coverage<80)normalMissing.push('資料完整度<80%');
   if(Number.isFinite(dataConfidence)&&dataConfidence<76)normalMissing.push('資料可信度<76%');
   for(const k of ['k5','k15','k30','h1','depth','mark','market','backtest'])if(sources[k]!==true)normalMissing.push(`關鍵資料缺:${k}`);
@@ -4401,11 +5159,11 @@ function testSignalTier(t,{reentry=false}={}) {
   if(score<TEST_SIGNAL_NORMAL_SCORE)normalMissing.push(`品質<${TEST_SIGNAL_NORMAL_SCORE}`);
   if(rank>9)normalMissing.push('市場熱度排名>9');
   if(regime==='CHOP'&&score<84)normalMissing.push('震盪行情品質<84');
-  if(regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol))normalMissing.push('清算行情山寨只允許最高級確認');
-  if(!hardSafe)return {tier:'BLOCKED',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
-  if(highMissing.length===0)return {tier:'HIGH',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
-  if(normalMissing.length===0)return {tier:'NORMAL',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
-  return {tier:'VALID',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,rank,blockers,highMissing,normalMissing};
+  if(!tradfi&&regime==='LIQUIDATION'&&!['BTCUSDT','ETHUSDT'].includes(t.symbol))normalMissing.push('清算行情山寨只允許最高級確認');
+  if(!hardSafe)return bootcampFinalizeTierV2681(t,{tier:'BLOCKED',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,institutionalEdge:institutional,rank,blockers,highMissing,normalMissing},{reentry});
+  if(highMissing.length===0)return bootcampFinalizeTierV2681(t,{tier:'HIGH',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,institutionalEdge:institutional,rank,blockers,highMissing,normalMissing},{reentry});
+  if(normalMissing.length===0)return bootcampFinalizeTierV2681(t,{tier:'NORMAL',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,institutionalEdge:institutional,rank,blockers,highMissing,normalMissing},{reentry});
+  return bootcampFinalizeTierV2681(t,{tier:'VALID',rate,low,rawScore,score,learningAdjustment:Number(learning.adjustment||0),learning,institutionalEdge:institutional,rank,blockers,highMissing,normalMissing},{reentry});
 }
 function testPushCopy(t,statusLabel='') {
   const cal=testCalibratedWinRate(t,{dynamic:true}),rate=Number(cal.rate||t.confirmedWinRate||0),zone=testCurrentEntryZone(t);
@@ -4424,22 +5182,23 @@ async function sendTestLifecyclePush(t, code, explicitTitle, explicitBody, optio
   t.lifecycleNotifications=t.lifecycleNotifications&&typeof t.lifecycleNotifications==='object'?t.lifecycleNotifications:{};
   if(t.lifecycleNotifications[code])return {processed:true,duplicate:true,sent:0};
   const tier=String(options.tier||(options.reentry?t.reentryNotificationTier:t.confirmNotificationTier)||t.confirmNotificationTier||testSignalTier(t,{reentry:!!options.reentry}).tier);
-  if(tier==='BLOCKED')return {processed:false,blocked:true,sent:0};
   const entryType=code==='CONFIRMED'||(options.reentry&&String(options.statusLabel||'').includes('二次確認'));
+  if(!entryType){t.lifecycleNotifications[code]=new Date().toISOString();return {processed:true,filteredPolicy:true,sent:0,tier,reason:'V2611_ENTRY_ONLY'};}
+  if(!['HIGH','NORMAL'].includes(tier))return {processed:false,blocked:true,sent:0,tier,reason:'V2611_HIGH_NORMAL_ONLY'};
   if(entryType&&TEST_ENTRY_DEBOUNCE_MS>0){await new Promise(r=>setTimeout(r,TEST_ENTRY_DEBOUNCE_MS));const px=finiteMetric(realtimeBestPrice(t.symbol)),stop=finiteMetric(options.reentry?t.reentryStop:t.stop),zone=testCurrentEntryZone(t),atr=finiteMetric(t.setup?.atr5);if(px!=null&&stop!=null){const dir=testSignalDirection(t.direction),target=finiteMetric(options.reentry?t.reentryTarget1R:t.target1R),invalid=dir>0?px<=stop:px>=stop;if(invalid)return {processed:false,blocked:true,sent:0,tier,reason:'debounce-invalidated'};if(target!=null){const passed=dir>0?px>=target:px<=target,rr=dir*(target-px)/Math.max(1e-12,Math.abs(px-stop));if(passed||rr<.85)return {processed:false,blocked:true,sent:0,tier,reason:passed?'debounce-target-passed':'debounce-rr-degraded'};}}if(px!=null&&zone&&atr>0){const dist=t.direction==='LONG'?Math.max(0,px-Number(zone.high)):Math.max(0,Number(zone.low)-px);if(dist/atr>TEST_SIGNAL_FIRST_MAX_CHASE_ATR)return {processed:false,blocked:true,sent:0,tier,reason:'debounce-chased'};}}
-  const {title,body}=testLifecycleMessage(t,explicitTitle,explicitBody,options.statusLabel||'');
+    const {body}=testLifecycleMessage(t,explicitTitle,explicitBody,options.statusLabel||'');const grade=shadowGradeV2616(tier);if(!entryType||!grade){t.lifecycleNotifications[code]=new Date().toISOString();return {processed:true,filteredPolicy:true,sent:0,tier,reason:'V2616_AB_ENTRY_ONLY'}};const title=`自動影子｜${grade}級｜${t.symbol} ${t.direction==='SHORT'?'做空':'做多'}`;
   const noticeId=`notice-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,noticeSentAt=new Date().toISOString(),noticeSnapshot=realtimeSnapshot(t.symbol),noticeEntryPrice=finiteMetric(realtimeBestPrice(t.symbol))??finiteMetric(options.reentry?t.reentryEntryPrice:t.confirmationPrice),noticeZone=testCurrentEntryZone(t),noticePreferredZone=testPreferredEntryZone(t),noticeStop=finiteMetric(options.reentry?t.reentryStop:t.stop),noticeTarget=finiteMetric(options.reentry?t.reentryTarget1R:t.target1R),route=testMonitorRoute(t),sep=route.includes('?')?'&':'?';
   const pushStarted=Date.now();
-  const delivery=await sendPush({title,body,tag:`test-life-${code}-${t.symbol}-${t.direction}-${Date.now()}`,renotify:true,data:{url:`${route}${sep}notice=${encodeURIComponent(noticeId)}`,noticeId,serverSentAt:noticeSentAt}},{testSignal:true,testSignalTier:tier});
+  const delivery=await sendPush({title,body,tag:`shadow-${t.symbol}-${t.direction}`,renotify:false,data:{url:`${route}${sep}notice=${encodeURIComponent(noticeId)}`,noticeId,serverSentAt:noticeSentAt}},{testSignal:true,testSignalTier:tier});
   const pushAcceptedAt=new Date().toISOString(),pushServiceMs=Date.now()-pushStarted;
   // 被使用者通知模式過濾＝事件已處理；若本來符合推播但傳送失敗，保留下一輪重試機會。
-  if(delivery.sent>0||delivery.eligible===0)t.lifecycleNotifications[code]=new Date().toISOString();
+  if(delivery.sent>0||(Number(delivery.records||0)>0&&delivery.eligible===0))t.lifecycleNotifications[code]=new Date().toISOString();
   t.lastPushAttemptAt=new Date().toISOString();t.lastPushTier=tier;t.lastPushDelivery={...delivery,pushServiceMs};
   if(delivery.sent>0){
     if(entryType){t.lastEntryNotificationAt=noticeSentAt;t.lastEntryNotificationId=noticeId;t.lastEntryNotificationTier=tier;t.lastEntryNotificationPhase=options.reentry?'REENTRY':'FIRST_ENTRY';t.lastEntryNotificationPrice=noticeEntryPrice??null;t.lastEntryNotificationZoneLow=finiteMetric(noticeZone?.low);t.lastEntryNotificationZoneHigh=finiteMetric(noticeZone?.high);t.lastEntryNotificationPreferredLow=finiteMetric(noticePreferredZone?.low);t.lastEntryNotificationPreferredHigh=finiteMetric(noticePreferredZone?.high);t.lastEntryNotificationStop=noticeStop??null;t.lastEntryNotificationTarget=noticeTarget??null;}
     shadowMarkNotified(t,noticeId,tier);performanceRecordForNotification(t,code,tier,delivery,{...options,noticeId,noticeSentAt,noticeSnapshot,noticeEntryPrice,pushAcceptedAt,pushServiceMs});
   }
-  return {processed:delivery.sent>0||delivery.eligible===0,tier,pushServiceMs,...delivery};
+  return {processed:delivery.sent>0||(Number(delivery.records||0)>0&&delivery.eligible===0),tier,pushServiceMs,...delivery};
 }
 function testMonitorEvidence({dir,last,prev,t5,t15,t30,t1h,rsiNow,rsiPrev,macdNow,macdPrev,deriv,market,breakoutLevel,micro}) {
   const belowBreakout2=Number.isFinite(breakoutLevel)&&(dir>0?(last.close<breakoutLevel&&prev.close<breakoutLevel):(last.close>breakoutLevel&&prev.close>breakoutLevel));
@@ -4531,11 +5290,8 @@ async function updateInvalidMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,ma
   const last15=rows15.at(-1),prev15=rows15.at(-2),orig=Number(t.setup?.invalidation);
   const hard15=Number.isFinite(orig)&&last15&&prev15?(dir>0?(last15.close<orig&&prev15.close<orig):(last15.close>orig&&prev15.close>orig)):false;
   const atr15=Number(t.setup?.atr15||t15.atr14||0),deepBreak=Number.isFinite(orig)&&atr15>0?(dir>0?last.close<orig-atr15*.65:last.close>orig+atr15*.65):false;
-  if(hard15||(deepBreak&&evidence.weakFlags>=Math.max(TEST_MONITOR_WEAK_FLAGS,4))){
-    return testDropTracker(t,{reason:'原始結構已明確破壞',last,dir,entry});
-  }
-  if(Number(t.badScoreStreak||0)>=TEST_MONITOR_BAD_BARS&&evidence.adverse15&&(evidence.adverse30||evidence.adverse1h||evidence.adverseMarket)){
-    return testDropTracker(t,{reason:`連續 ${TEST_MONITOR_BAD_BARS} 根5分K低於強度 ${TEST_MONITOR_BAD_SCORE}，且15分/大盤同步轉弱`,last,dir,entry});
+  if(t?.structureV2?.state==='DESTROYED'&&hard15&&(evidence.adverse30||evidence.adverse1h||evidence.adverseMarket)){
+    return testDropTracker(t,{reason:'Structure V2：15分連續收破＋高週期確認，原始結構徹底破壞',last,dir,entry});
   }
   if(Number(t.recoverStreak||0)>=TEST_MONITOR_STATE_BARS){
     const now=new Date().toISOString();t.status='CONFIRMED';t.statusLabel='未破確認';t.reactivatedAt=now;t.updatedAt=now;t.reactivateUntil=null;
@@ -4546,7 +5302,9 @@ async function updateInvalidMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,ma
     t.monitorCycle=Number(t.monitorCycle||0)+1;return t;
   }
   if(t.reactivateUntil&&Date.now()>=new Date(t.reactivateUntil).getTime()){
-    return testDropTracker(t,{reason:'失效後 30 分鐘仍未重新收復保護結構',last,dir,entry});
+    if(t?.structureV2?.state==='DESTROYED')return testDropTracker(t,{reason:'Structure V2：收復期限後仍為徹底破壞',last,dir,entry});
+    // Keep recoverable structure alive; the timer is not evidence of destruction.
+    t.reactivateUntil=new Date(Date.now()+TEST_MONITOR_REACTIVATE_MS).toISOString();
   }
   t.updatedAt=new Date().toISOString();return t;
 }
@@ -4570,8 +5328,8 @@ async function updateConfirmedMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,
   const protection=Number(t.structureProtection||t.stop),last15=rows15.at(-1),prev15=rows15.at(-2);
   const closeBreak2=dir>0?(last.close<protection&&prev.close<protection):(last.close>protection&&prev.close>protection);
   const close15Break=last15&&prev15?(dir>0?(last15.close<protection&&prev15.close<protection):(last15.close>protection&&prev15.close>protection)):false;
-  if(t.breakoutAt&&(close15Break||(closeBreak2&&evidence.weakFlags>=TEST_MONITOR_WEAK_FLAGS))){
-    return testEnterInvalidation(t,{reason:'STRUCTURE',last,protection,entry,dir});
+  if(t?.structureV2?.state==='DESTROYED'){
+    return testEnterInvalidation(t,{reason:'STRUCTURE_V2_DESTROYED',last,protection:t.structureV2?.levels?.originalInvalidation??protection,entry,dir});
   }
   if(newBar){
     if(evidence.weakFlags>=TEST_MONITOR_WEAK_FLAGS)t.weakStreak=Number(t.weakStreak||0)+1;else t.weakStreak=0;
@@ -4599,12 +5357,11 @@ async function updateConfirmedMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,
   }
   if(t.monitorState==='WEAKENING'){
     const weakAge=t.weakSince?Date.now()-new Date(t.weakSince).getTime():0;
-    if(Number(t.badScoreStreak||0)>=TEST_MONITOR_BAD_BARS&&evidence.adverse15&&(evidence.adverse30||evidence.adverse1h||evidence.adverseMarket)){
-      return testDropTracker(t,{reason:`連續 ${TEST_MONITOR_BAD_BARS} 根5分K低於強度 ${TEST_MONITOR_BAD_SCORE}，且高週期同步轉弱`,last,dir,entry});
+    if(t?.structureV2?.state==='DESTROYED'){
+      return testDropTracker(t,{reason:'Structure V2：高週期結構確認徹底破壞',last,dir,entry});
     }
-    if(weakAge>=TEST_MONITOR_WEAK_MAX_MS){
-      return testDropTracker(t,{reason:'轉弱狀態持續 30 分鐘仍未完成重新轉強確認',last,dir,entry});
-    }
+    // DAMAGED / RECLAIMING / OPPORTUNITY are kept alive; elapsed time alone is not structural invalidation.
+    if(weakAge>=TEST_MONITOR_WEAK_MAX_MS&&t?.structureV2?.state==='INTACT'){t.weakSince=new Date().toISOString();}
   }
   return t;
 }
@@ -4766,12 +5523,12 @@ async function analyzeTestTracker(t, market) {
   };
   const sourceDetails={
     k5:{source:ksrc('5m',500)?.source||null,fallback:ksrc('5m',500)?.fallback===true,error:ksrc('5m',500)?.error||null},k15:{source:ksrc('15m',260)?.source||null,fallback:ksrc('15m',260)?.fallback===true,error:ksrc('15m',260)?.error||null},k30:{source:ksrc('30m',220)?.source||null,fallback:ksrc('30m',220)?.fallback===true,error:ksrc('30m',220)?.error||null},h1:{source:ksrc('1h',180)?.source||null,fallback:ksrc('1h',180)?.fallback===true,error:ksrc('1h',180)?.error||null},
-    oi:{source:deriv?._source?.oi||null,error:deriv?._errors?.oi||deriv?._errors?.oiFallback||null},oi15:{source:deriv?._source?.oi||null,error:oi15Ok?null:(deriv?._errors?.oi||deriv?._errors?.oiFallback||'15分鐘 OI 變化缺值')},oi1h:{source:deriv?._source?.oi||null,error:oi1hOk?null:(deriv?._errors?.oi||deriv?._errors?.oiFallback||'1小時 OI 變化缺值')},taker:{source:deriv?._source?.taker||null,error:deriv?._errors?.taker||deriv?._errors?.takerFallback||deriv?._errors?.takerBybitFallback||null},globalLs:{source:deriv?._source?.globalLs||null,error:deriv?._errors?.global||deriv?._errors?.globalFallback||null},topPos:{source:deriv?._source?.topPos||null,error:deriv?._errors?.top||null},topAccount:{source:deriv?._source?.topAccount||null,error:deriv?._errors?.topAccount||null},depth:{source:micro?._source?.depth||null,error:micro?._errors?.depth||null},funding:{source:riskCtx?._source?.funding||null,error:riskCtx?._errors?.premium||riskCtx?._errors?.bybitTicker||null},basis:{source:riskCtx?._source?.basis||null,error:riskCtx?._errors?.basis||null},adl:{source:riskCtx?._source?.adl||null,error:riskCtx?._errors?.adl||null},mark:{source:riskCtx?._source?.mark||(Number.isFinite(liveMark)&&liveMark>0?'Binance':null),error:riskCtx?._errors?.premium||null},market:{source:'Binance BTC/ETH'},backtest:{source:'Binance K線自算',sample:btSample}
+    oi:{source:deriv?._source?.oi||null,error:deriv?._errors?.oi||deriv?._errors?.oiFallback||null},oi15:{source:deriv?._source?.oi||null,error:oi15Ok?null:(deriv?._errors?.oi||deriv?._errors?.oiFallback||'15分鐘 OI 變化缺值')},oi1h:{source:deriv?._source?.oi||null,error:oi1hOk?null:(deriv?._errors?.oi||deriv?._errors?.oiFallback||'1小時 OI 變化缺值')},taker:{source:deriv?._source?.taker||null,error:deriv?._errors?.taker||deriv?._errors?.takerFallback||deriv?._errors?.takerBybitFallback||null},globalLs:{source:deriv?._source?.globalLs||null,error:deriv?._errors?.global||deriv?._errors?.globalFallback||null},topPos:{source:deriv?._source?.topPos||null,error:deriv?._errors?.top||null},topAccount:{source:deriv?._source?.topAccount||null,error:deriv?._errors?.topAccount||null},depth:{source:micro?._source?.depth||null,error:micro?._errors?.depth||null},funding:{source:riskCtx?._source?.funding||null,error:riskCtx?._errors?.premium||riskCtx?._errors?.bybitTicker||null},basis:{source:riskCtx?._source?.basis||null,error:riskCtx?._errors?.basis||null},adl:{source:riskCtx?._source?.adl||null,error:riskCtx?._errors?.adl||null},mark:{source:riskCtx?._source?.mark||(Number.isFinite(liveMark)&&liveMark>0?'Binance':null),error:riskCtx?._errors?.premium||null},market:{source:assetClassForSymbolV2612(t.symbol)==='TRADFI'?'Binance 美股永續廣度':'Binance BTC/ETH'},backtest:{source:'Binance K線自算',sample:btSample}
   };
   for(const [k,d] of Object.entries(sourceDetails)){d.status=sourceFlags[k]===true?'OK':d?.error?'FETCH_ERROR':'MISSING';}
   sourceDetails.realtime={source:realtime?.source||null,status:(realtime?.markAgeMs!=null&&realtime.markAgeMs<=REALTIME_STALE_MS)?'OK':'STALE_OR_FALLBACK',markAgeMs:realtime?.markAgeMs??null,bookAgeMs:realtime?.bookAgeMs??null,takerAgeMs:realtime?.takerAgeMs??null};
   // OI 是一個資料類別，但 15分 / 1小時各佔半格；缺其中一個不再誤顯示 100%。
-  const qualityWeights={k5:1,k15:1,k30:1,h1:1,oi15:.5,oi1h:.5,taker:1,globalLs:1,topPos:1,topAccount:1,depth:1,funding:1,basis:1,adl:1,mark:1,market:1,backtest:1};
+  const tradfiQualityV2612=assetClassForSymbolV2612(t.symbol)==='TRADFI';const qualityWeights=tradfiQualityV2612?{k5:1,k15:1,k30:1,h1:1,oi15:.5,oi1h:.5,taker:1,depth:1,funding:1,mark:1,market:1,backtest:1}:{k5:1,k15:1,k30:1,h1:1,oi15:.5,oi1h:.5,taker:1,globalLs:1,topPos:1,topAccount:1,depth:1,funding:1,basis:1,adl:1,mark:1,market:1,backtest:1};
   const qualityKeys=Object.keys(qualityWeights),totalWeight=Object.values(qualityWeights).reduce((a,b)=>a+b,0),validWeight=qualityKeys.reduce((sum,k)=>sum+(sourceFlags[k]?qualityWeights[k]:0),0);
   const validCount=qualityKeys.filter(k=>sourceFlags[k]).length,coveragePct=Math.round(validWeight/totalWeight*100);
   const fallbackCount=Object.values(sourceDetails).filter(x=>x?.fallback||String(x?.source||'').includes('備援')).length;
@@ -4779,6 +5536,11 @@ async function analyzeTestTracker(t, market) {
   if(btSample>0&&btSample<20)confidencePct-=8;else if(btSample>=20&&btSample<50)confidencePct-=3;
   confidencePct-=Math.min(8,fallbackCount*2);confidencePct=Math.max(0,Math.min(100,Math.round(confidencePct)));
   t.dataHealth={coveragePct,confidencePct,validCount,total:qualityKeys.length,validWeight,totalWeight,fallbackCount,sources:sourceFlags,details:sourceDetails,checkedAt:evaluatedAt,backtestSample:btSample,backtestLevel:btSample>=50?'充足':btSample>=20?'可用':'樣本偏少',crossExchange:crossCtx,adlNote:'ADL Risk 使用 Binance 公開端點（約30分鐘更新）；主資料抓取失敗時，允許 Bybit / OKX 或 Binance 成交資料作明確標示的備援，不再用 0 或中性值假裝有效'};
+
+  t.structureV2=structureV2Assess(t,{rows5,rows15,rows30,rows1h,t5,t15,t30,t1h,deriv,micro,market});
+  structureV2Observe(t,t.structureV2,{rows5,rows15,rows30,rows1h});
+  // Separate early structure-watch alert: informative only, never counted as an entry notification.
+  void structureV2MaybeNotify(t,t.structureV2).catch(()=>{});
 
   if(t.status==='INVALID'){
     t=await updateInvalidMonitorState(t,{rows5,rows15,t5,t15,t30,t1h,deriv,market,rsi,macd,micro});
@@ -4956,7 +5718,7 @@ function testStrategyPlaybooks(t,ctx){
   const swZone=testPlaybookZone(sweepLevel,atr,.22),swInvalid=Number.isFinite(sweepLevel)?sweepLevel-dir*atr*.72:null;
   const sw=mk('LIQUIDITY_SWEEP','流動性掃盤反轉',swFit,swItems,swReady,swZone,swInvalid,'等掃高/掃低後收回＋短週期翻向',{sweepLevel});
 
-  const moItems=[{label:'15分強趨勢',ok:trend15&&adxStrong,weight:14},{label:'30分同向',ok:trend30,weight:9},{label:'1H同向',ok:trend1h,weight:9},{label:'價格貼近突破區',ok:nearMomentumBreak,weight:12},{label:'5分量能放大',ok:volumeStrong,weight:10},{label:'OI增加',ok:oiPositive,weight:10},{label:'Taker同向',ok:derivDir>0,weight:10},{label:'大戶不反向',ok:topDir>=0,weight:6},{label:'委託簿不反向',ok:depthOk,weight:6},{label:'BTC/ETH同向',ok:marketOk,weight:6},{label:'MACD續強',ok:macdImprove,weight:5},{label:'價差/擁擠安全',ok:safe,weight:3}];
+  const moItems=[{label:'15分強趨勢',ok:trend15&&adxStrong,weight:14},{label:'30分同向',ok:trend30,weight:9},{label:'1H同向',ok:trend1h,weight:9},{label:'價格貼近突破區',ok:nearMomentumBreak,weight:12},{label:'5分量能放大',ok:volumeStrong,weight:10},{label:'OI增加',ok:oiPositive,weight:10},{label:'Taker同向',ok:derivDir>0,weight:10},{label:'大戶不反向',ok:topDir>=0,weight:6},{label:'委託簿不反向',ok:depthOk,weight:6},{label:'大盤同向',ok:marketOk,weight:6},{label:'MACD續強',ok:macdImprove,weight:5},{label:'價差/擁擠安全',ok:safe,weight:3}];
   const moFit=['TREND_UP','TREND_DOWN'].includes(regime)?100:regime==='NORMAL'?78:48;
   const moReady=trend15&&adxStrong&&trend30&&trend1h&&nearMomentumBreak&&volumeStrong&&oiPositive&&derivDir>0&&topDir>=0&&depthOk&&marketOk&&macdImprove&&safe;
   const moZone=testPlaybookZone(momentumLevel,atr,.24),moInvalid=Number.isFinite(momentumLevel)?momentumLevel-dir*atr*.82:null;
@@ -4995,9 +5757,10 @@ function publicTestTracker(t) {
   const confirmedRate=Number.isFinite(Number(t.confirmedWinRate))?Number(t.confirmedWinRate):null;
   const currentRate=Number.isFinite(Number(calibrated.rate))?Number(calibrated.rate):confirmedRate;
   return {
-    key:t.key,symbol:t.symbol,direction:t.direction,label:t.direction==='LONG'?'做多':'做空',rank:t.rank,rankAtConfirm:t.rankAtConfirm??null,rankHeat:Number(rankHeat.toFixed(0)),priorityScore:Number(priorityScore.toFixed(1)),status:t.status,statusLabel:testTrackerStatusLabel(t),
+    key:t.key,symbol:t.symbol,assetClass:assetClassForSymbolV2612(t.symbol),assetSession:assetSessionV2612(t.symbol),assetSessionLabel:assetSessionLabelV2612(assetSessionV2612(t.symbol)),direction:t.direction,label:t.direction==='LONG'?'做多':'做空',rank:t.rank,rankAtConfirm:t.rankAtConfirm??null,rankHeat:Number(rankHeat.toFixed(0)),priorityScore:Number(priorityScore.toFixed(1)),status:t.status,statusLabel:testTrackerStatusLabel(t),
     monitorState:t.monitorState||'WATCHING',monitorLabel:testMonitorStateLabel(t.monitorState,t.status),monitorClass:testMonitorStateClass(t.monitorState,t.status),monitorScore:t.monitorScore??null,
-    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,rawScore:tier.rawScore,score:tier.score,learningAdjustment:tier.learningAdjustment||0,learning:tier.learning||null,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,lastEntryNotificationAt:t.lastEntryNotificationAt??t.notificationSentAt??null,lastEntryNotificationId:t.lastEntryNotificationId??null,lastEntryNotificationTier:t.lastEntryNotificationTier??t.confirmNotificationTier??null,lastEntryNotificationPhase:t.lastEntryNotificationPhase??(t.notificationSentAt?'FIRST_ENTRY':null),lastEntryNotificationPrice:t.lastEntryNotificationPrice??null,lastEntryNotificationZoneLow:t.lastEntryNotificationZoneLow??null,lastEntryNotificationZoneHigh:t.lastEntryNotificationZoneHigh??null,lastEntryNotificationPreferredLow:t.lastEntryNotificationPreferredLow??null,lastEntryNotificationPreferredHigh:t.lastEntryNotificationPreferredHigh??null,lastEntryNotificationStop:t.lastEntryNotificationStop??null,lastEntryNotificationTarget:t.lastEntryNotificationTarget??null,monitorExpiresAt:(t.lastEntryNotificationAt||t.notificationSentAt)?new Date(new Date(t.lastEntryNotificationAt||t.notificationSentAt).getTime()+SYSTEM_MONITOR_TTL_MS).toISOString():null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,observationProgress:Number(t.observationProgress||0),strategyProfile:t.strategyProfile||null,strategyAtConfirm:t.strategyAtConfirm||null,
+    structureV2:t.structureV2||null,structureState:t.structureV2?.state||null,structureLabel:t.structureV2?.label||null,structureHealth:t.structureV2?.health??null,structureAction:t.structureV2?.action||null,
+    notificationTier:tier.tier,notificationGate:{blockers:tier.blockers||[],highMissing:tier.highMissing||[],normalMissing:tier.normalMissing||[],rate:tier.rate,conservativeLow:tier.low,rawScore:tier.rawScore,score:tier.score,learningAdjustment:tier.learningAdjustment||0,learning:tier.learning||null,institutionalEdge:tier.institutionalEdge||null,rank:tier.rank},confirmNotificationTier:t.confirmNotificationTier??null,reentryNotificationTier:t.reentryNotificationTier??null,lastPushAttemptAt:t.lastPushAttemptAt??null,lastPushTier:t.lastPushTier??null,lastPushDelivery:t.lastPushDelivery??null,lastEntryNotificationAt:t.lastEntryNotificationAt??t.notificationSentAt??null,lastEntryNotificationId:t.lastEntryNotificationId??null,lastEntryNotificationTier:t.lastEntryNotificationTier??t.confirmNotificationTier??null,lastEntryNotificationPhase:t.lastEntryNotificationPhase??(t.notificationSentAt?'FIRST_ENTRY':null),lastEntryNotificationPrice:t.lastEntryNotificationPrice??null,lastEntryNotificationZoneLow:t.lastEntryNotificationZoneLow??null,lastEntryNotificationZoneHigh:t.lastEntryNotificationZoneHigh??null,lastEntryNotificationPreferredLow:t.lastEntryNotificationPreferredLow??null,lastEntryNotificationPreferredHigh:t.lastEntryNotificationPreferredHigh??null,lastEntryNotificationStop:t.lastEntryNotificationStop??null,lastEntryNotificationTarget:t.lastEntryNotificationTarget??null,monitorExpiresAt:(t.lastEntryNotificationAt||t.notificationSentAt)?new Date(new Date(t.lastEntryNotificationAt||t.notificationSentAt).getTime()+SYSTEM_MONITOR_TTL_MS).toISOString():null,entryStrategy:testEntryStrategy(t),entryZone,preferredEntryZone,observationProgress:Number(t.observationProgress||0),strategyProfile:t.strategyProfile||null,strategyAtConfirm:t.strategyAtConfirm||null,
     calibratedWinRate:currentRate,confirmedWinRate:confirmedRate,currentWinRate:currentRate,winRateDelta:confirmedRate!=null&&currentRate!=null?Number((currentRate-confirmedRate).toFixed(1)):null,winRateMeta:dynamic?calibrated:(t.winRateMetaAtConfirm||calibrated),
     freshness,marketRegime:t.marketRegime||t.lastCheck?.marketRegime||null,realtime:realtimeSnapshot(t.symbol),lastEvaluatedAt:t.lastEvaluatedAt??null,lastEvaluatedBarAt:t.lastEvaluatedBarAt??null,lastEvaluationError:t.lastEvaluationError??null,lastEvaluationErrorAt:t.lastEvaluationErrorAt??null,priceUpdatedAt:markPriceUpdatedAt??null,
     eventAt,stateChangedAt:t.stateChangedAt??null,finishedAt:t.finishedAt??null,invalidatedAt:t.invalidatedAt??null,invalidReason:t.invalidReason??null,reactivateUntil:t.reactivateUntil??null,reactivatedAt:t.reactivatedAt??null,droppedAt:t.droppedAt??null,targetReachedAt:t.targetReachedAt??null,reentryStage:t.reentryStage??null,reentryStageAt:t.reentryStageAt??null,reentryZoneLow:t.reentryZoneLow??null,reentryZoneHigh:t.reentryZoneHigh??null,reentryZoneMid:t.reentryZoneMid??null,reentryInvalidation:t.reentryInvalidation??null,reentryConfirmAt:t.reentryConfirmAt??null,reentryEntryPrice:t.reentryEntryPrice??null,reentryStop:t.reentryStop??null,reentryTarget1R:t.reentryTarget1R??null,reentryScore:t.reentryScore??null,reentryReasons:t.reentryReasons||[],reentryResult:t.reentryResult??null,reentryResultAt:t.reentryResultAt??null,
@@ -5011,12 +5774,13 @@ function publicTestTracker(t) {
   };
 }
 
+function testTradfiMarketContextV2612(){const sm=marketFlowCache?.data?.assetViews?.tradfi?.summary||{},dir=sm.direction==='LONG'?1:sm.direction==='SHORT'?-1:0,valid=Number(sm.advancers||0)+Number(sm.decliners||0);return {raw:Number(sm.weightedChangePct||0),dir,ok:valid>0,valid,total:Math.max(1,valid),source:'BINANCE_TRADFI_BREADTH'}}
 async function runTestSignalScan(force=false) {
   if(testSignalBusy)return;const now=Date.now();if(!force&&now-testSignalLastRunAt<TEST_SIGNAL_SCAN_MS*.75)return;testSignalBusy=true;
   try{
     const [ideas,market]=await Promise.all([getRankedIdeas(),testMarketContext().catch(()=>({raw:0,dir:0,ok:false,valid:0,total:6}))]);syncTestIdeas(ideas);
     const active=[...testSignalTrackers.values()].filter(t=>!terminalTestStatus(t.status)).sort((a,b)=>(a.rank||99)-(b.rank||99)).slice(0,TEST_SIGNAL_MAX);
-    await mapPool(active,3,async t=>{try{const next=await analyzeTestTracker(t,market);testSignalTrackers.set(t.key,next)}catch(e){t.lastError=String(e?.message||e);t.lastEvaluationError=t.lastError;t.lastEvaluationErrorAt=new Date().toISOString();testSignalTrackers.set(t.key,t)}});
+    await mapPool(active,3,async t=>{try{const next=await analyzeTestTracker(t,assetClassForSymbolV2612(t.symbol)==='TRADFI'?testTradfiMarketContextV2612():market);testSignalTrackers.set(t.key,next)}catch(e){t.lastError=String(e?.message||e);t.lastEvaluationError=t.lastError;t.lastEvaluationErrorAt=new Date().toISOString();testSignalTrackers.set(t.key,t)}});
     testSignalLastRunAt=Date.now();testSignalLastError=null;persistTestSignals();
   }catch(e){testSignalLastError=String(e?.message||e);console.warn(`[test-signal] ${testSignalLastError}`)}finally{testSignalBusy=false}
 }
@@ -5036,8 +5800,29 @@ function testMonitorHistory(limit=30){
       actualTrade:actual?{id:actual.id,status:actual.status,firstOutcome:actual.firstOutcome,signalKey:actual.signalKey,notificationId:actual.notificationId,symbol:actual.symbol,direction:actual.direction,strategyId:actual.strategyId,strategyLabel:actual.strategyLabel,marketRegime:actual.marketRegime,notificationTier:actual.notificationTier,signalSnapshot:actual.signalSnapshot,entryPrice:actual.entryPrice,tp1:actual.tp1,tp2:actual.tp2,sp1:actual.sp1,sp2:actual.sp2,margin:actual.margin,quantity:actual.quantity,leverage:actual.leverage,lastPrice:actual.lastPrice,lastPriceAt:actual.lastPriceAt,revisionCount:Number(actual.revisionCount||0)}:null};
   });
 }
+/* ACTUAL_MONITOR_V2610
+ * Surface user-entered Actual Trades inside /api/test-signals so Monitor can always show them,
+ * even after the source opportunity leaves B/observation/history. This is display-only plumbing:
+ * trade tracking, TP/SP first-touch and learning rules remain unchanged.
+ */
+const ACTUAL_MONITOR_HISTORY_MS_V2610=Math.max(60*60*1000,Math.min(72*60*60*1000,Number(process.env.ACTUAL_MONITOR_HISTORY_MS||24*60*60*1000)));
+const ACTUAL_MONITOR_ACTIVE_LIMIT_V2610=Math.max(4,Math.min(30,Number(process.env.ACTUAL_MONITOR_ACTIVE_LIMIT||16)));
+const ACTUAL_MONITOR_HISTORY_LIMIT_V2610=Math.max(10,Math.min(60,Number(process.env.ACTUAL_MONITOR_HISTORY_LIMIT||30)));
+function actualMonitorTimeV2610(x){const v=x?.resultAt||x?.updatedAt||x?.createdAt;const t=v?Date.parse(v):0;return Number.isFinite(t)?t:0}
+function actualMonitorViewV2610(x){
+  const last=finiteMetric(x?.lastPrice),livePnl=last>0?actualTradePnlAt(x,last):null;
+  return {id:x.id,signalKey:x.signalKey||null,notificationId:x.notificationId||null,symbol:x.symbol,direction:x.direction,strategyId:x.strategyId||null,strategyLabel:x.strategyLabel||null,marketRegime:x.marketRegime||null,notificationTier:x.notificationTier||null,createdAt:x.createdAt,updatedAt:x.updatedAt,resultAt:x.resultAt||null,status:x.status,result:x.result||null,firstOutcome:x.firstOutcome||null,firstOutcomeAt:x.firstOutcomeAt||null,entryPrice:x.entryPrice,tp1:x.tp1,tp2:x.tp2,sp1:x.sp1,sp2:x.sp2,margin:x.margin,quantity:x.quantity,leverage:x.leverage,notional:x.notional,lastPrice:x.lastPrice,lastPriceAt:x.lastPriceAt,tp1Hit:x.tp1Hit===true,tp2Hit:x.tp2Hit===true,sp1Hit:x.sp1Hit===true,sp2Hit:x.sp2Hit===true,estimatedPnl:x.estimatedPnl,livePnl:Number.isFinite(Number(livePnl))?Number(livePnl):null,exitPrice:x.exitPrice??null,revisionCount:Number(x.revisionCount||0)};
+}
+function actualMonitorPayloadV2610(now=Date.now()){
+  const all=actualTrades.filter(x=>x?.version==='V10.2.6');
+  const active=all.filter(x=>x.status==='ACTIVE').sort((a,b)=>actualMonitorTimeV2610(b)-actualMonitorTimeV2610(a)).slice(0,ACTUAL_MONITOR_ACTIVE_LIMIT_V2610).map(actualMonitorViewV2610);
+  const cutoff=now-ACTUAL_MONITOR_HISTORY_MS_V2610;
+  const recent=all.filter(x=>x.status!=='ACTIVE'&&actualMonitorTimeV2610(x)>=cutoff).sort((a,b)=>actualMonitorTimeV2610(b)-actualMonitorTimeV2610(a)).slice(0,ACTUAL_MONITOR_HISTORY_LIMIT_V2610).map(actualMonitorViewV2610);
+  return {version:'V2.6.10',active,recent,historyMs:ACTUAL_MONITOR_HISTORY_MS_V2610,historyHours:Math.round(ACTUAL_MONITOR_HISTORY_MS_V2610/3600000),activeLimit:ACTUAL_MONITOR_ACTIVE_LIMIT_V2610,historyLimit:ACTUAL_MONITOR_HISTORY_LIMIT_V2610};
+}
+
 function testSignalResponse() {
-  const now=Date.now(),visible=[...testSignalTrackers.values()].filter(t=>now-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<8*60*60*1000||testMonitorPersistedNotification(t,now));
+  const now=Date.now(),visible=[...testSignalTrackers.values()].filter(t=>now-new Date(t.updatedAt||t.firstSeenAt||0).getTime()<5*60*1000||testMonitorPersistedNotification(t,now));
   const sorter=(a,b)=>{const ta=terminalTestStatus(a.status),tb=terminalTestStatus(b.status);if(ta!==tb)return ta?1:-1;const p=testMonitorPriority(b)-testMonitorPriority(a);if(Math.abs(p)>.01)return p;const wa=Number(testCalibratedWinRate(a,{dynamic:['CONFIRMED','INVALID'].includes(a.status)}).rate||0),wb=Number(testCalibratedWinRate(b,{dynamic:['CONFIRMED','INVALID'].includes(b.status)}).rate||0);return wb-wa||(a.rank||99)-(b.rank||99)};
   visible.sort(sorter);
   // 一般觀察維持前 24 筆，但任何「真正成功通知」且仍在監控期限內的訊號都強制保留，避免被觀察榜擠掉。
@@ -5048,7 +5833,7 @@ function testSignalResponse() {
   const scanAgeMs=testSignalLastRunAt?Math.max(0,now-testSignalLastRunAt):null,priceAgeMs=markPriceUpdatedAt?Math.max(0,now-new Date(markPriceUpdatedAt).getTime()):null;
   const staleCount=rows.filter(r=>r.freshness?.state==='STALE').length,delayedCount=rows.filter(r=>r.freshness?.state==='DELAYED').length;
   const health={scanAgeMs,priceAgeMs,delayedCount,staleCount,tracked:rows.length,derivativeCacheEntries:testDerivCache.size,candleCacheEntries:testCandleCache.size,microCacheEntries:testMicroCache.size,lastError:testSignalLastError,realtime:realtimeHealthSnapshot(),radar:realtimeRadarSummary()};
-  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,monitor:{ttlMs:SYSTEM_MONITOR_TTL_MS,ttlMinutes:Math.round(SYSTEM_MONITOR_TTL_MS/60000),persistUntilManualDismiss:true,independentFromTraderRadar:true,autoClearMode:'C',autoClearBadBars:TEST_MONITOR_BAD_BARS},notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,monitorHistory:testMonitorHistory(40),liveStats:testLiveAggregate(),notificationPerformance:performanceAggregate(signalPerformance,false),recent:testSignalHistory.slice(0,12),methodology:'V10.2.7 SOLO MAX：監控採 C 模式。真正成功送出的 HIGH / NORMAL 獨立佇列以手動 × 為主；誤按可從通知歷史恢復。只有硬結構失守，或連續弱勢K達門檻且高週期同步轉弱後，才自動移出；其餘最長保留 4 小時。通知歷史可重新修改仍在追蹤中的實際建倉設定；修改保留 revisions 稽核。',error:testSignalLastError};
+  return {ok:true,generatedAt:new Date(testSignalLastRunAt||Date.now()).toISOString(),structureEngine:structureV2Summary(),scanMs:TEST_SIGNAL_SCAN_MS,freshness:{delayMs:TEST_MONITOR_DELAY_MS,staleMs:TEST_MONITOR_STALE_MS,priceUpdatedAt:markPriceUpdatedAt},confirmScore:TEST_SIGNAL_CONFIRM_SCORE,badScore:TEST_MONITOR_BAD_SCORE,badBars:TEST_MONITOR_BAD_BARS,reactivateMinutes:Math.round(TEST_MONITOR_REACTIVATE_MS/60000),rearmScore:TEST_REARM_SCORE,monitor:{ttlMs:SYSTEM_MONITOR_TTL_MS,ttlMinutes:Math.round(SYSTEM_MONITOR_TTL_MS/60000),persistUntilManualDismiss:true,independentFromTraderRadar:true,autoClearMode:'C',autoClearBadBars:TEST_MONITOR_BAD_BARS},notifyThresholds:{highRate:TEST_SIGNAL_HIGH_RATE,normalRate:TEST_SIGNAL_NORMAL_RATE,highScore:TEST_SIGNAL_HIGH_SCORE,normalScore:TEST_SIGNAL_NORMAL_SCORE,maxChaseAtr:TEST_SIGNAL_FIRST_MAX_CHASE_ATR,highMaxChaseAtr:TEST_SIGNAL_HIGH_MAX_CHASE_ATR,maxSpreadBps:TEST_SIGNAL_MAX_SPREAD_BPS,highCoverage:90,normalCoverage:80,blockCoverage:72,highConfidence:86,normalConfidence:76,blockConfidence:65},notifyStats,health,rows,monitorHistory:testMonitorHistory(40),actualMonitor:actualMonitorPayloadV2610(now),liveStats:testLiveAggregate(),notificationPerformance:performanceAggregate(signalPerformance,false),recent:testSignalHistory.slice(0,12),methodology:'V10.2.7 SOLO MAX：監控採 C 模式。真正成功送出的 HIGH / NORMAL 獨立佇列以手動 × 為主；誤按可從通知歷史恢復。Structure Engine V2 將深回踩、受損、收復與徹底破壞分開；wick/0.786/單純價格觸碰不再直接判死，只有15/30/60分結構確認破壞才以結構理由阻擋或移出。通知歷史可重新修改仍在追蹤中的實際建倉設定；修改保留 revisions 稽核。',error:testSignalLastError};
 }
 
 
@@ -5145,7 +5930,7 @@ async function dailyBriefLoop() {
       const brief=await getDailyBrief(false); // 每日 08:05 先整理一次，不依賴是否開通知
       const dayKey=dailyBriefDayKey(), records=loadSubRecords(), keep=[];
       for(const rec of records){
-        if(rec.dailyBriefEnabled!==true){keep.push(rec);continue}
+        if(true){keep.push(rec);continue} // V2616: Today data stays; phone push disabled
         if(rec.lastDailyBriefPushDay===dayKey){keep.push(rec);continue}
         try{
           await webpush.sendNotification(rec.subscription,JSON.stringify({
@@ -5153,7 +5938,7 @@ async function dailyBriefLoop() {
             body:`${brief.title||'今日市場整理'}${brief.action?`｜${brief.action}`:''}`.slice(0,180),
             tag:`daily-brief-${dayKey}`,
             renotify:false,
-            data:{url:'/'},
+            data:{url:'/?page=today'},
           }),{TTL:300,urgency:'normal'});
           rec.lastDailyBriefPushAt=new Date().toISOString();
           rec.lastDailyBriefPushDay=dayKey;
@@ -5166,6 +5951,800 @@ async function dailyBriefLoop() {
   dailyBriefTimer=setTimeout(dailyBriefLoop,5*60*1000);
 }
 
+
+/* MANUAL_MODE_V263_20260902 */
+const MANUAL_MODE_PREF_FILE=path.join(DATA_DIR,'manual-mode-preferences.json');
+const MANUAL_MODE_REFRESH_MS=Math.max(30_000,Number(process.env.MANUAL_MODE_REFRESH_MS||60_000));
+const MANUAL_MODE_NOTIFY_COOLDOWN_MS=Math.max(20*60_000,Number(process.env.MANUAL_MODE_NOTIFY_COOLDOWN_MS||90*60_000));
+let manualOpportunityTimer=null,manualOpportunityBusy=false,manualOpportunityCache={at:0,data:null};
+
+function manualPrefRows(){const a=loadJson(MANUAL_MODE_PREF_FILE,[]);return Array.isArray(a)?a:[]}
+function manualSavePrefs(rows){saveJson(MANUAL_MODE_PREF_FILE,(rows||[]).slice(0,50))}
+function manualNotifyMode(_v){return 'AB'}
+function manualPrefAllows(pref,grade){
+  if(pref?.enabled!==true)return false;
+  const mode=notificationCustomPrefsV2673().formalMode;
+  const g=String(grade||'').toUpperCase();
+  return mode==='A'?g==='A':['A','B'].includes(g);
+}
+function manualFinite(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function manualCleanSnapshot(x){
+  if(!x||typeof x!=='object')return null;
+  return {
+    rank:manualFinite(x.rank),rankScore:manualFinite(x.rankScore),estimatedWinRate:manualFinite(x.estimatedWinRate),calibratedWinRate:manualFinite(x.calibratedWinRate),notificationTier:String(x.notificationTier||'').slice(0,20)||null,
+    observationProgress:manualFinite(x.observationProgress),dataCoverage:manualFinite(x.dataCoverage),dataConfidence:manualFinite(x.dataConfidence),structureState:String(x.structureState||'').slice(0,30)||null,
+    structureHealth:manualFinite(x.structureHealth),structureLearningAdjustment:manualFinite(x.structureLearningAdjustment),shadowSample:manualFinite(x.shadowSample),shadowHitRate:manualFinite(x.shadowHitRate),shadowProfitFactor:manualFinite(x.shadowProfitFactor),
+    rr:manualFinite(x.rr),freshnessAgeMs:manualFinite(x.freshnessAgeMs),entryZoneLow:manualFinite(x.entryZoneLow),entryZoneHigh:manualFinite(x.entryZoneHigh),stop:manualFinite(x.stop),target:manualFinite(x.target),target2:manualFinite(x.target2)
+  };
+}
+function manualGradeStats(rows){
+  const all=rows||[],decisive=all.filter(x=>['WIN','LOSS'].includes(x.firstOutcome)),wins=decisive.filter(x=>x.firstOutcome==='WIN').length,losses=decisive.filter(x=>x.firstOutcome==='LOSS').length,resolved=all.filter(x=>x.status==='RESOLVED');
+  const pnls=resolved.map(x=>Number(x.estimatedPnl)).filter(Number.isFinite),profits=pnls.filter(x=>x>0).reduce((a,b)=>a+b,0),lossSum=Math.abs(pnls.filter(x=>x<0).reduce((a,b)=>a+b,0));
+  return {sample:all.length,active:all.filter(x=>x.status==='ACTIVE').length,resolved:resolved.length,decisive:decisive.length,wins,losses,hitRate:decisive.length?Number((wins/decisive.length*100).toFixed(1)):null,profitFactor:lossSum>0?Number((profits/lossSum).toFixed(2)):(profits>0?99:null),estimatedPnl:pnls.length?Number(pnls.reduce((a,b)=>a+b,0).toFixed(2)):0};
+}
+function manualActualBreakdown(){
+  const rows=actualTrades.filter(x=>x?.version==='V10.2.6'&&(x.manualMode===true||['A','B','C'].includes(String(x.manualGrade||''))));
+  const byGrade=['A','B','C'].map(key=>({key,...manualGradeStats(rows.filter(x=>String(x.manualGrade||'')===key))}));
+  const bucket=x=>{const r=Number(x.manualRank);return r>0&&r<=3?'排名1–3':r>3&&r<=6?'排名4–6':r>6?'排名7+':'無排名'};
+  const byRank=['排名1–3','排名4–6','排名7+','無排名'].map(key=>({key,...manualGradeStats(rows.filter(x=>bucket(x)===key))}));
+  return {...manualGradeStats(rows),byGrade,byRank};
+}
+function manualShadowEvidence(t,direction,regime,strategyId,symbol=''){
+  const assetClass=assetClassForSymbolV2612(t?.symbol||symbol),all=shadowPerformance.filter(x=>x?.version==='V10.2.2'&&x.status==='RESOLVED'&&['WIN','LOSS','TIMEOUT'].includes(x.result)&&String(x.direction||'')===direction&&assetClassForSymbolV2612(x.symbol)===assetClass);
+  let rows=all.filter(x=>String(x.strategyId||'')===String(strategyId||'')&&String(x.marketRegime||'')===String(regime||'')),level='同資產·策略×狀態';
+  if(rows.length<8){rows=all.filter(x=>String(x.marketRegime||'')===String(regime||''));level='同資產·狀態'}if(rows.length<8){rows=all;level='同資產·方向'}
+  const stats=shadowStats(rows),hit=manualFinite(stats.hitRate),pf=manualFinite(stats.profitFactor);let adjustment=0;if(stats.sample>=12&&hit!=null&&pf!=null){if(hit>=58&&pf>=1.15)adjustment=4;else if(hit>=53&&pf>=1.03)adjustment=2;else if(hit<=42||pf<.82)adjustment=-4;else if(hit<=47||pf<.93)adjustment=-2}return {sample:Number(stats.sample||0),hitRate:hit,profitFactor:pf,expectancyR:manualFinite(stats.expectancyR),level,adjustment,assetClass};
+}
+function manualOpportunityId(idea,t){
+  const epoch=t?.firstSeenAt||t?.confirmedAt||t?.createdAt||'';
+  return ['manual-v263',cleanFuturesSymbol(idea?.symbol),String(idea?.direction||'LONG'),epoch||Math.floor(Date.now()/3600000)].join('|');
+}
+function manualOpportunityOne(idea,rank,ideasGeneratedAt){
+  const direction=idea.direction==='SHORT'?'SHORT':'LONG',key=testSignalKey(idea.symbol,direction),t=testSignalTrackers.get(key)||null,now=Date.now();
+  const strategy=t?.strategyAtConfirm||t?.strategyProfile||{},regime=String(t?.marketRegime||t?.lastCheck?.marketRegime||'UNKNOWN'),structure=t?.structureV2||null,st=String(structure?.state||'UNKNOWN');
+  const tier=t?testSignalTier(t):null,cal=t?testCalibratedWinRate(t,{dynamic:['CONFIRMED','INVALID'].includes(t.status)}):null,calRate=manualFinite(cal?.rate)??manualFinite(idea.estimatedWinRate),rankScore=Math.max(0,Math.min(100,Number(idea.rankScore||0)));
+  const progress=Math.max(0,Math.min(100,Number(t?.observationProgress||0))),coverage=Math.max(0,Math.min(100,Number(t?.dataHealth?.coveragePct||0))),confidence=Math.max(0,Math.min(100,Number(t?.dataHealth?.confidencePct||0))),structureHealth=Math.max(0,Math.min(100,Number(structure?.health||0)));
+  const evaluatedAt=t?.lastEvaluatedAt||t?.updatedAt||ideasGeneratedAt,ageMs=evaluatedAt?Math.max(0,now-new Date(evaluatedAt).getTime()):99999999;
+  const status=String(t?.status||'NO_TRACKER'),reentryActive=Boolean(t?.targetReachedAt),reentryReady=reentryActive&&String(t?.reentryStage||'')==='READY',executionConfirmed=reentryActive?reentryReady:status==='CONFIRMED';
+  const zone=t?(testCurrentEntryZone(t)||t.strategyProfile?.entryZone||t.setup?.entryZone||null):null,zl=manualFinite(zone?.low??t?.setup?.zoneLow),zh=manualFinite(zone?.high??t?.setup?.zoneHigh);
+  const normalEntry=zl!=null&&zh!=null?(zl+zh)/2:(manualFinite(t?.confirmationPrice)??manualFinite(t?.currentPrice)??manualFinite(idea.price));
+  const entry=reentryReady?(manualFinite(t?.reentryEntryPrice)??normalEntry):normalEntry,stop=reentryReady?(manualFinite(t?.reentryStop)??manualFinite(t?.reentryInvalidation)):(manualFinite(t?.structureProtection)??manualFinite(t?.stop)??manualFinite(t?.setup?.invalidation));
+  const sign=direction==='SHORT'?-1:1,risk=entry!=null&&stop!=null?Math.abs(entry-stop):null,target1=reentryReady?manualFinite(t?.reentryTarget1R):manualFinite(t?.target1R),target2=!reentryReady?manualFinite(t?.target15R):null,target2Final=target2??(entry!=null&&risk!=null?entry+sign*risk*1.5:null),rr=entry!=null&&stop!=null&&target2Final!=null&&risk>0?sign*(target2Final-entry)/risk:null;
+  const shadow=manualShadowEvidence(t,direction,regime,strategy.id||'',idea.symbol),abcLearning=abcShadowLearningForTracker(t,direction,regime,strategy.id||''),institutional=institutionalMentorEdgeV2622(t),blockers=Array.isArray(tier?.blockers)?tier.blockers:[],lc=t?.lastCheck||{},ev=structure?.evidence||{},monitor=String(t?.monitorState||'WATCHING');
+  const reclaimConfirmed=st!=='OPPORTUNITY'||ev.reclaim15===true||ev.reclaim5===true||ev.wickSweep===true;
+  const structureForA=st==='INTACT'||(st==='RECLAIMING'&&executionConfirmed)||(st==='OPPORTUNITY'&&executionConfirmed&&reclaimConfirmed);
+  let score=rankScore*.24+((manualFinite(tier?.score)??manualFinite(t?.monitorScore)??55))*0.24+structureHealth*.18+coverage*.08+confidence*.08+progress*.08+(calRate??50)*.06+50*.04+shadow.adjustment+Number(abcLearning.adjustment||0);
+  if(executionConfirmed)score+=6;else if(status==='TOUCHING'||String(t?.reentryStage||'')==='TOUCHING')score+=1;else score-=4;
+  if(st==='INTACT')score+=4;else if(st==='RECLAIMING')score-=2;else if(st==='OPPORTUNITY')score+=reclaimConfirmed?1:-4;else if(st==='DAMAGED')score-=12;else if(st==='DESTROYED')score-=35;else score-=8;
+  if(rr!=null){if(rr>=1.8)score+=4;else if(rr>=1.5)score+=2;else if(rr<1)score-=18;else if(rr<1.25)score-=8}
+  if(ageMs>120_000)score-=8;if(ageMs>300_000)score-=20;if(monitor==='WEAKENING')score-=12;if(Number(lc.chaseAtr)>.45)score-=8;if(Number(lc.chaseAtr)>.70)score-=10;if(blockers.length)score-=Math.min(18,blockers.length*5);
+  score=Math.round(Math.max(0,Math.min(100,score)));
+  const hardC=!t||st==='DESTROYED'||ageMs>300_000||(rr!=null&&rr<1)||['DROPPED','EXPIRED','LOSS','WIN','TIMEOUT'].includes(status)||(status==='INVALID'&&st!=='RECLAIMING'&&st!=='OPPORTUNITY');
+  const aReady=!hardC&&executionConfirmed&&ageMs<=120_000&&coverage>=78&&confidence>=72&&progress>=72&&structureForA&&(rr==null||rr>=1.5)&&blockers.length===0&&monitor!=='WEAKENING'&&Number(lc.chaseAtr||0)<=.45&&shadow.adjustment>-3&&score>=78;
+  const institutionalA=!institutional.hardBlock&&!institutional.capA&&institutional.costGateA&&institutional.edgeScore>=SHADOW_EDGE_A_MIN_V2621;const institutionalB=!institutional.hardBlock&&institutional.costGateB&&institutional.edgeScore>=SHADOW_EDGE_B_MIN_V2621;let grade=(aReady&&institutionalA)?'A':(!hardC&&score>=60&&institutionalB?'B':'C');
+  const legacyManualGradeV2681=grade,bootcampManualTierV2681=testSignalTier(t);if(legacyManualGradeV2681==='A'&&bootcampManualTierV2681.tier==='HIGH')grade='A';else if(['A','B'].includes(legacyManualGradeV2681)&&['HIGH','NORMAL'].includes(bootcampManualTierV2681.tier))grade='B';else grade='C';if(st==='DAMAGED'&&grade==='A')grade='B';if(st==='RECLAIMING'&&!executionConfirmed&&grade==='A')grade='B';if(st==='OPPORTUNITY'&&!reclaimConfirmed&&grade==='A')grade='B';
+  const reasons=[];const risks=[];reasons.push(`機構 Edge ${institutional.edgeScore} · ${institutional.level}`);if(institutional.cost?.ratio!=null)reasons.push(`成本/停損比 ${institutional.cost.ratio.toFixed(2)}`);if(institutional.capA)risks.push('Edge 模型封頂 B');if(institutional.hardBlockReasons?.length)risks.push(...institutional.hardBlockReasons);
+  if(bootcampManualTierV2681?.bootcamp?.reason)reasons.push('魔鬼訓練營｜'+bootcampManualTierV2681.bootcamp.reason);if(bootcampManualTierV2681?.bootcamp?.strengthFailureRisk>=.18)risks.push('強轉弱風險 '+Math.round(bootcampManualTierV2681.bootcamp.strengthFailureRisk*100)+'%');
+  reasons.push('建議排名 #'+rank+' · '+rankScore.toFixed(0)+'分');
+  if(t)reasons.push('觀察完成度 '+Math.round(progress)+'% · '+(reentryActive?('二次進場 '+String(t.reentryStage||'等待')):status));else risks.push('尚無完整觀察追蹤，不能列 A');
+  if(structure)reasons.push('結構 '+(structure.label||st)+' · '+Math.round(structureHealth)+'分'+(Number(structure.learning?.adjustment||0)!==0?' · 學習 '+(Number(structure.learning.adjustment)>0?'+':'')+Number(structure.learning.adjustment):''));else risks.push('Structure V2 尚未完成');
+  if(shadow.adjustment<=-3)risks.push('同類 Shadow 實績偏弱，A級封頂');if(shadow.sample)reasons.push('Shadow '+shadow.sample+'筆 · 命中 '+(shadow.hitRate==null?'—':shadow.hitRate.toFixed(1)+'%')+' · PF '+(shadow.profitFactor==null?'—':shadow.profitFactor.toFixed(2)));else risks.push('同類 Shadow 樣本不足');
+  if(rr!=null)reasons.push('TP2 RR '+rr.toFixed(2));else risks.push('RR 尚未建立');
+  if(ageMs>120_000)risks.push('判讀已超過2分鐘');if(ageMs>300_000)risks.push('判讀超過5分鐘，降 C');if(st==='DAMAGED')risks.push('結構受損，先等收復');if(st==='RECLAIMING'&&!executionConfirmed)risks.push('結構仍在收復，未完成進場確認');if(reentryActive&&!reentryReady)risks.push('第一段已達標；只等二次回踩 READY，不追價');if(st==='OPPORTUNITY'&&!reclaimConfirmed)risks.push('深回踩尚未出現收復證據');if(st==='DESTROYED')risks.push('結構徹底破壞');if(monitor==='WEAKENING')risks.push('目前轉弱');if(blockers.length)risks.push(...blockers.slice(0,3));if(Number(lc.chaseAtr)>.45)risks.push('目前價格離建議區偏遠，不追價');if(coverage<78||confidence<72)risks.push('資料完整/可信度不足 A 級');
+  const id=manualOpportunityId(idea,t),recent=actualTrades.find(x=>x?.version==='V10.2.6'&&x.manualOpportunityId===id)||null;
+  return {
+    id,grade,quoteVolume:manualFinite(idea.quoteVolume),fundingPct:manualFinite(idea.fundingPct),marketMetrics:idea.metrics||null,trackerStatus:status,executionConfirmed,reentryReady,monitorState:monitor,chaseAtr:manualFinite(lc.chaseAtr),blockers:blockers.slice(0,6),executionScore:score,generatedAt:new Date().toISOString(),evaluatedAt:evaluatedAt||null,rank,symbol:idea.symbol,direction,rankScore:Number(rankScore.toFixed(1)),modelScore:manualFinite(idea.modelScore),estimatedWinRate:manualFinite(idea.estimatedWinRate),historicalHitRate:manualFinite(idea.historicalHitRate),backtestSample:Number(idea.backtestSample||0),calibratedWinRate:calRate,notificationTier:String(tier?.tier||'').toUpperCase()||null,observationProgress:progress,
+    freshnessAgeMs:ageMs,freshness:ageMs<=90_000?'LIVE':ageMs<=180_000?'DELAYED':'STALE',
+    structure:structure?{state:st,label:structure.label,health:manualFinite(structure.health),confidence:manualFinite(structure.confidence),pattern:structure.pattern,learningAdjustment:manualFinite(structure.learning?.adjustment),learningActive:structure.learning?.active===true,reasons:(structure.reasons||[]).slice(0,4)}:null,
+    shadow:{sample:shadow.sample,hitRate:shadow.hitRate,profitFactor:shadow.profitFactor,expectancyR:shadow.expectancyR,level:shadow.level,adjustment:shadow.adjustment},abcLearning:{sample:abcLearning.sample,hitRate:abcLearning.hitRate,profitFactor:abcLearning.profitFactor,expectancyR:abcLearning.expectancyR,level:abcLearning.level,adjustment:abcLearning.adjustment,active:abcLearning.active},institutionalEdge:{version:institutional.version,score:institutional.edgeScore,confidence:institutional.confidenceScore,level:institutional.level,sample:institutional.sample,netProfitFactor:institutional.stats?.netProfitFactor??null,netExpectancyR:institutional.stats?.netExpectancyR??null,wilsonLow:institutional.stats?.wilsonLow??null,costRatio:institutional.cost?.ratio??null,costGateA:institutional.costGateA,costGateB:institutional.costGateB,capA:institutional.capA,hardBlock:institutional.hardBlock,watchEligible:institutional.watchEligible,stability:{score:institutional.stability?.score,positiveFolds:institutional.stability?.positiveFolds,totalFolds:institutional.stability?.totalFolds},concentration:{score:institutional.concentration?.score,top2Share:institutional.concentration?.top2Share,topSymbols:institutional.concentration?.topSymbols},forward:{sample:institutional.forward?.sample,status:institutional.forward?.status,target:institutional.forward?.target,netProfitFactor:institutional.forward?.stats?.netProfitFactor,netExpectancyR:institutional.forward?.stats?.netExpectancyR},strategyStats:institutional.strategyStats},dataHealth:{coverage,confidence},
+    entry:{price:entry,zoneLow:zl,zoneHigh:zh,stop,target:target1,target2:target2Final,rr:rr==null?null:Number(rr.toFixed(2)),currentPrice:manualFinite(realtimeBestPrice(idea.symbol))??manualFinite(idea.price)},
+    signalKey:t?.key||null,strategyId:String(strategy?.id||''),strategyLabel:String(strategy?.label||''),marketRegime:regime,reasons:reasons.slice(0,7),risks:[...new Set(risks)].slice(0,8),
+    trade:recent?{id:recent.id,status:recent.status,firstOutcome:recent.firstOutcome,result:recent.result,createdAt:recent.createdAt,estimatedPnl:recent.estimatedPnl}:null
+  };
+}
+async function manualOpportunityResponseBaseV2664(force=false){
+  const now=Date.now();if(!force&&manualOpportunityCache.data&&now-manualOpportunityCache.at<20_000)return manualOpportunityCache.data;
+  const ideas=await getRankedIdeas(),rows=selectManualIdeasV2612(ideas).map((x,i)=>manualOpportunityOne(x,Number(x.assetRank||x.globalRank||i+1),ideas.generatedAt)).sort((a,b)=>(({A:3,B:2,C:1}[b.grade]||0)-({A:3,B:2,C:1}[a.grade]||0))||Number(b.institutionalEdge?.score||0)-Number(a.institutionalEdge?.score||0)||b.executionScore-a.executionScore||a.rank-b.rank);
+  const abcCapture=abcShadowCapture(rows),shadowLearning=abcShadowLearningSummary();const data={ok:true,version:'V2.6.5',generatedAt:new Date().toISOString(),ideasGeneratedAt:ideas.generatedAt,stale:ideas.stale===true,methodology:'建議排名＋觀察/通知閘門＋Structure V2＋全自動 ABC Shadow＋資料新鮮度＋TP2 RR。未確認候選若尚無 TP1，研究影子會用成本到 SP 的等距 1R 作追蹤目標；不改實際建議 TP，也不放寬通知硬門檻。',stats:manualActualBreakdown(),shadowLearning,abcCapture,counts:{A:rows.filter(x=>x.grade==='A').length,B:rows.filter(x=>x.grade==='B').length,C:rows.filter(x=>x.grade==='C').length},rows};
+  manualOpportunityCache={at:now,data};return data;
+}
+const MANUAL_CANDIDATE_MAX_V2664=5;
+const MANUAL_CANDIDATE_CONFIRM_SCANS_V2664=2;
+const MANUAL_CANDIDATE_MIN_SCORE_V2664=59;
+const MANUAL_CANDIDATE_MIN_WIN_V2664=53;
+const MANUAL_CANDIDATE_HARD_FLOOR_V2664=52;
+const MANUAL_CANDIDATE_HOLD_MS_V2664=15*60*1000;
+const MANUAL_CANDIDATE_MISS_MS_V2664=10*60*1000;
+const MANUAL_CANDIDATE_REPLACE_EDGE_V2664=4;
+const MANUAL_CANDIDATE_STATE_FILE_V2664=path.join(DATA_DIR,'manual-candidate-state-v2664.json');
+
+function manualCandidateKeyV2664(x){return [String(x?.symbol||''),String(x?.direction||'')].join('|')}
+function manualCandidateLoadStateV2664(){
+  const rows=loadJson(MANUAL_CANDIDATE_STATE_FILE_V2664,[]);
+  const map=new Map();
+  for(const x of Array.isArray(rows)?rows:[]){
+    if(!x?.key)continue;
+    map.set(String(x.key),{
+      firstSeen:Number(x.firstSeen||0),lastSeen:Number(x.lastSeen||0),confirm:Number(x.confirm||0),
+      selected:x.selected===true,selectedAt:Number(x.selectedAt||0),snapshot:x.snapshot||null,metric:x.metric||null
+    });
+  }
+  return map;
+}
+let manualCandidateStateV2664=manualCandidateLoadStateV2664();
+function manualCandidateSaveStateV2664(){
+  const rows=[...manualCandidateStateV2664.entries()].map(([key,x])=>({
+    key,firstSeen:x.firstSeen,lastSeen:x.lastSeen,confirm:x.confirm,selected:x.selected===true,
+    selectedAt:x.selectedAt,snapshot:x.snapshot,metric:x.metric
+  })).slice(0,24);
+  saveJson(MANUAL_CANDIDATE_STATE_FILE_V2664,rows);
+}
+function manualCandidateScoreV2664(x){
+  const cal=manualFinite(x?.calibratedWinRate)??manualFinite(x?.estimatedWinRate)??50;
+  const sh=manualFinite(x?.shadow?.hitRate)??50;
+  const exec=manualFinite(x?.executionScore)??0;
+  const rank=manualFinite(x?.rankScore)??0;
+  const structure=manualFinite(x?.structure?.health)??45;
+  const coverage=manualFinite(x?.dataHealth?.coverage)??40;
+  const confidence=manualFinite(x?.dataHealth?.confidence)??40;
+  const pf=manualFinite(x?.shadow?.profitFactor);
+  const sample=Math.max(0,Number(x?.shadow?.sample||0));
+  const rel=Math.min(1,sample/30);
+  const learn=manualFinite(x?.structure?.learningAdjustment)??0;
+  const qv=manualFinite(x?.quoteVolume);
+  const vr=manualFinite(x?.marketMetrics?.volumeRatio);
+  const taker=manualFinite(x?.marketMetrics?.takerRatio);
+  const top=manualFinite(x?.marketMetrics?.topRatio);
+  const dir=String(x?.direction||'LONG')==='SHORT'?-1:1;
+  let marketAdj=0;
+  if(qv!=null){if(qv<5_000_000)marketAdj-=12;else if(qv<20_000_000)marketAdj-=4;else if(qv>=500_000_000)marketAdj+=4;else if(qv>=100_000_000)marketAdj+=3;else if(qv>=30_000_000)marketAdj+=1.5}
+  if(vr!=null){if(vr>=1.5)marketAdj+=3;else if(vr>=1.15)marketAdj+=1.5;else if(vr<.65)marketAdj-=4}
+  if(taker!=null){const z=(taker-1)*dir;if(z>=.04)marketAdj+=2;else if(z<=-.06)marketAdj-=2}
+  if(top!=null){const z=(top-1)*dir;if(z>=.04)marketAdj+=1.5;else if(z<=-.08)marketAdj-=1.5}
+  const pfAdj=pf==null?0:Math.max(-7,Math.min(8,(pf-1)*8));
+  const blockerPenalty=Math.min(8,(Array.isArray(x?.blockers)?x.blockers.length:0)*1.25);
+  const score=cal*.30+sh*.18*rel+50*.18*(1-rel)+exec*.13+rank*.13+structure*.09+coverage*.045+confidence*.045+pfAdj+learn*.85+marketAdj-blockerPenalty;
+  const win=sample>=8?(cal*.62+sh*.38):sample>=4?(cal*.78+sh*.22):cal;
+  return {
+    score:Number(Math.max(0,Math.min(100,score)).toFixed(1)),
+    win:Number(Math.max(0,Math.min(100,win)).toFixed(1)),
+    sample,
+    liquidity:qv,
+    marketAdj:Number(marketAdj.toFixed(1))
+  };
+}
+
+const MANUAL_CANDIDATE_TTL_MS_V2667=30*60*1000;
+const MANUAL_CANDIDATE_ARCHIVE_FILE_V2667=path.join(DATA_DIR,'manual-candidate-archive-v2667.json');
+function manualCandidateArchiveRowsV2667(){
+  const rows=loadJson(MANUAL_CANDIDATE_ARCHIVE_FILE_V2667,[]);
+  if(!Array.isArray(rows))return [];
+  const now=Date.now(),ttl=typeof MANUAL_CANDIDATE_BACKEND_RETENTION_MS_V2671==='number'?MANUAL_CANDIDATE_BACKEND_RETENTION_MS_V2671:7*24*60*60*1000;
+  return rows
+    .filter(r=>{const t=new Date(r?.archivedAt||0).getTime();return Number.isFinite(t)&&now-t<=ttl})
+    .sort((a,b)=>new Date(b?.archivedAt||0).getTime()-new Date(a?.archivedAt||0).getTime())
+    .slice(0,300);
+}
+function manualCandidateArchiveV2667(st,x,m,reason,details='',now=Date.now()){
+  if(!st||!x)return;
+  const selectedAt=Number(st.selectedAt||0),key=manualCandidateKeyV2664(x),archiveId=key+'|'+selectedAt;
+  const rows=manualCandidateArchiveRowsV2667();
+  if(rows.some(r=>r?.archiveId===archiveId))return;
+  const cls=manualCandidateBlockClassV2665(x,m||manualCandidateScoreV2664(x));
+  rows.unshift({
+    archiveId,
+    archivedAt:new Date(now).toISOString(),
+    reason:String(reason||'EXPIRED'),
+    details:String(details||'').slice(0,220),
+    selectedAt:selectedAt?new Date(selectedAt).toISOString():null,
+    durationMs:selectedAt?Math.max(0,now-selectedAt):null,
+    symbol:x.symbol,
+    direction:x.direction,
+    candidateScore:Number(m?.score??x?.candidateScore??0),
+    candidateWinRate:Number(m?.win??x?.candidateWinRate??0),
+    candidateBand:String(st.band||x?.candidateBand||'WATCH'),
+    originalGrade:String(x?.grade||x?.originalGrade||'C'),
+    rank:Number(x?.rank||0),
+    rankScore:Number(x?.rankScore||0),
+    shadow:{
+      sample:Number(x?.shadow?.sample||0),
+      hitRate:manualFinite(x?.shadow?.hitRate),
+      profitFactor:manualFinite(x?.shadow?.profitFactor),
+      level:String(x?.shadow?.level||'')
+    },
+    structure:x?.structure?{
+      state:String(x.structure.state||''),
+      label:String(x.structure.label||''),
+      health:manualFinite(x.structure.health)
+    }:null,
+    softWait:cls.soft.slice(0,6),
+    hardBlockers:cls.hard.slice(0,6)
+  });
+  saveJson(MANUAL_CANDIDATE_ARCHIVE_FILE_V2667,rows.slice(0,500));
+}
+function manualCandidateArchiveReasonV2667(reason){
+  return ({TTL_EXPIRED:'超過30分鐘未建倉，自動歸檔',BUILT:'已建立實際建倉追蹤',PROMOTED:'已升級正式 A/B',HARD_INVALID:'結構或風險硬失效'})[reason]||String(reason||'歸檔');
+}
+const MANUAL_CANDIDATE_SKIP_FILE_V2671=path.join(DATA_DIR,'manual-candidate-skip-v2671.json');
+const MANUAL_CANDIDATE_SKIP_MS_V2671=60*60*1000;
+const MANUAL_CANDIDATE_BACKEND_RETENTION_MS_V2671=7*24*60*60*1000;
+const MANUAL_CANDIDATE_VISIBLE_HISTORY_MS_V2671=24*60*60*1000;
+
+function manualCandidateSkipRowsV2671(){
+  const raw=loadJson(MANUAL_CANDIDATE_SKIP_FILE_V2671,{});
+  const now=Date.now(),out={};
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    for(const [k,v] of Object.entries(raw)){
+      const until=Number(v?.until||v||0);
+      if(until>now)out[k]={until,at:Number(v?.at||0),reason:String(v?.reason||'MANUAL_DISMISS')};
+    }
+  }
+  return out;
+}
+function manualCandidateSaveSkipsV2671(rows){saveJson(MANUAL_CANDIDATE_SKIP_FILE_V2671,rows)}
+function manualCandidateSkipKeyV2671(key,reason='MANUAL_DISMISS',ms=MANUAL_CANDIDATE_SKIP_MS_V2671){
+  const rows=manualCandidateSkipRowsV2671(),now=Date.now();
+  rows[String(key)]={at:now,until:now+Math.max(60_000,Number(ms)||MANUAL_CANDIDATE_SKIP_MS_V2671),reason};
+  manualCandidateSaveSkipsV2671(rows);
+}
+function manualCandidateUnskipV2671(key){
+  const rows=manualCandidateSkipRowsV2671();delete rows[String(key)];manualCandidateSaveSkipsV2671(rows);
+}
+function manualCandidateIsSkippedV2671(x){
+  const key=typeof x==='string'?x:manualCandidateKeyV2664(x);
+  return Boolean(manualCandidateSkipRowsV2671()[String(key)]);
+}
+function manualCandidateHistoryRowsV2671(){
+  const now=Date.now();
+  return manualCandidateArchiveRowsV2667()
+    .filter(r=>{const t=new Date(r?.archivedAt||0).getTime();return Number.isFinite(t)&&now-t<=MANUAL_CANDIDATE_VISIBLE_HISTORY_MS_V2671})
+    .slice(0,80)
+    .map(r=>({...r,candidateKey:manualCandidateKeyV2664(r)}));
+}
+function manualCandidateFallbackArchiveV2671(body,now=Date.now()){
+  const s=body?.snapshot&&typeof body.snapshot==='object'?body.snapshot:{};
+  const x={
+    symbol:String(body?.symbol||s.symbol||'').toUpperCase(),
+    direction:String(body?.direction||s.direction||'LONG').toUpperCase(),
+    grade:String(s.originalGrade||s.grade||'C').toUpperCase(),
+    originalGrade:String(s.originalGrade||s.grade||'C').toUpperCase(),
+    candidateBand:String(s.candidateBand||'WATCH'),
+    rank:Number(s.rank||0),rankScore:Number(s.rankScore||0),
+    candidateScore:Number(s.candidateScore||0),candidateWinRate:Number(s.candidateWinRate||0),
+    shadow:s.shadow||{},structure:s.structure||null,
+    blockers:[],candidateSoftWait:Array.isArray(s.softWait)?s.softWait:[],
+    trackerStatus:'NO_TRACKER',notificationTier:'BLOCKED',
+    quoteVolume:Number(s.quoteVolume||0)||null
+  };
+  if(!x.symbol)return false;
+  const m={score:Number(s.candidateScore||0),win:Number(s.candidateWinRate||0)};
+  const st={selectedAt:now,firstSeen:now,lastSeen:now,band:x.candidateBand};
+  manualCandidateArchiveV2667(st,x,m,'MANUAL_DISMISS','使用者主動移出候選',now);
+  return true;
+}
+function manualCandidateBlockClassV2665(x,m){
+  const hard=[],soft=[],push=(a,v)=>{v=String(v||'').trim();if(v&&!a.includes(v))a.push(v)};
+  if(!x){push(hard,'資料不存在');return {hard,soft}}
+  if(x?.trade?.status==='ACTIVE')push(hard,'已有實際建倉追蹤');
+
+  const status=String(x?.trackerStatus||'NO_TRACKER').toUpperCase();
+  const st=String(x?.structure?.state||'UNKNOWN').toUpperCase();
+
+  // Candidate is a NEW research cycle. A previous terminal tracker must not permanently erase the symbol.
+  if(['DROPPED','EXPIRED','LOSS','WIN','TIMEOUT'].includes(status))push(soft,'上一輪追蹤已結束，等待新一輪確認');
+
+  if(st==='DESTROYED')push(hard,'結構徹底破壞');
+  const rr=manualFinite(x?.entry?.rr);
+  if(rr!=null&&rr<1)push(hard,'TP2 RR < 1');
+
+  const qv=manualFinite(x?.quoteVolume);
+  if(qv!=null&&qv<5_000_000)push(hard,'24h成交額過低');
+  else if(qv!=null&&qv<20_000_000)push(soft,'流動性普通，需更嚴格等盤');
+
+  const shN=Math.max(0,Number(x?.shadow?.sample||0)),shHit=manualFinite(x?.shadow?.hitRate),shPf=manualFinite(x?.shadow?.profitFactor);
+  if(shN>=12&&((shPf!=null&&shPf<.75)||(shHit!=null&&shHit<40)))push(hard,'Shadow 同類樣本明顯負期望');
+  else if(shN>=8&&shPf!=null&&shPf<.90)push(soft,'Shadow 同類 PF 偏弱');
+
+  // IMPORTANT: candidate win rate is a RANKING signal, not a safety hazard.
+  // Formal A/B still keeps its own threshold. Candidate never auto-pushes.
+  if(m?.win!=null&&Number(m.win)<52)push(soft,'候選勝率尚未達正式門檻');
+
+  const coverage=manualFinite(x?.dataHealth?.coverage),confidence=manualFinite(x?.dataHealth?.confidence);
+  if(status==='NO_TRACKER'||['DROPPED','EXPIRED','LOSS','WIN','TIMEOUT'].includes(status)){
+    push(soft,'等待最新 tracker / Structure 更新');
+  }else{
+    const age=Math.max(0,Number(x?.freshnessAgeMs||0));
+    if(age>20*60_000)push(soft,'即時判讀已久，保留到候選自動歸檔');
+    else if(age>5*60_000)push(soft,'即時判讀超過5分鐘，等待刷新');
+    if(coverage!=null&&coverage<45)push(hard,'資料完整度過低');
+    else if(coverage!=null&&coverage<72)push(soft,'資料完整度尚未達通知門檻');
+    if(confidence!=null&&confidence<45)push(hard,'資料可信度過低');
+    else if(confidence!=null&&confidence<65)push(soft,'資料可信度尚未達通知門檻');
+  }
+
+  if(!x?.structure)push(soft,'Structure V2 尚未完成');
+
+  if(x?.institutionalEdge?.hardBlock===true){
+    const rs=Array.isArray(x?.institutionalEdge?.hardBlockReasons)?x.institutionalEdge.hardBlockReasons:[];
+    if(rs.length)for(const r of rs)push(hard,'機構風險：'+r);else push(hard,'機構風險硬阻擋');
+  }
+
+  const blockers=(Array.isArray(x?.blockers)?x.blockers:[]).map(v=>String(v));
+  const has30=blockers.some(v=>/30分逆向/.test(v)),has1h=blockers.some(v=>/1小時逆向/.test(v));
+  if(has30&&has1h)push(hard,'30分＋1小時同步逆向');
+
+  for(const b of blockers){
+    if(/距離回踩區|目前轉弱|15分逆向/.test(b)){push(soft,b);continue}
+    if(/30分逆向|1小時逆向/.test(b)){if(!(has30&&has1h))push(soft,b);continue}
+    if(/資料完整度|資料可信度/.test(b)){push(soft,b);continue}
+    if(/價差|spread|ADL|Funding|擁擠|BTC\/ETH大盤逆向|跨交易所趨勢逆向|清算行情山寨|高波動價差|結構失效/i.test(b)){push(hard,b);continue}
+    push(soft,b);
+  }
+
+  if(String(x?.notificationTier||'').toUpperCase()==='BLOCKED'&&!blockers.length)push(soft,'目前通知閘門未通過，候選層先保留研究');
+  return {hard,soft};
+}
+function manualCandidateFormalVisibleV2665(x,m){
+  if(!['A','B'].includes(String(x?.grade||'').toUpperCase()))return false;
+  if(x?.trade?.status==='ACTIVE')return false;
+  if(String(x?.notificationTier||'').toUpperCase()==='BLOCKED')return false;
+  if(x?.institutionalEdge?.hardBlock===true)return false;
+  return manualCandidateBlockClassV2665(x,m).hard.length===0;
+}
+function manualCandidateBandV2665(x,m){
+  if(!x||manualCandidateBlockClassV2665(x,m).hard.length)return 'DROP';
+  if(manualCandidateFormalVisibleV2665(x,m))return 'FORMAL';
+  if(typeof manualCandidateIsSkippedV2671==='function'&&manualCandidateIsSkippedV2671(x))return 'DROP';
+
+  const cal=manualFinite(x?.calibratedWinRate)??manualFinite(x?.estimatedWinRate)??0;
+  const rank=Number(x?.rank||99),rankScore=Number(x?.rankScore||0),sample=Math.max(0,Number(x?.shadow?.sample||0));
+
+  if(m.score>=66&&m.win>=57&&(sample>=6||cal>=60))return 'PRIME';
+  if(m.score>=59&&m.win>=53&&(rank<=18||rankScore>=60||cal>=56||sample>=6))return 'WATCH';
+  if(m.score>=54&&m.win>=50&&(rank<=24||rankScore>=52))return 'RELATIVE';
+  if(rank<=15&&m.score>=50&&m.win>=48)return 'RESEARCH';
+  if(rank<=8&&m.score>=48&&m.win>=47)return 'RESEARCH';
+  return 'DROP';
+}
+function manualCandidateRejectSummaryV2665(rows){
+  const h=new Map(),s=new Map();
+  for(const x of rows||[]){
+    const m=manualCandidateScoreV2664(x),c=manualCandidateBlockClassV2665(x,m);
+    for(const r of c.hard)h.set(r,(h.get(r)||0)+1);
+    for(const r of c.soft)s.set(r,(s.get(r)||0)+1);
+  }
+  const top=map=>[...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,6).map(([reason,count])=>({reason,count}));
+  return {hard:top(h),soft:top(s)};
+}
+function manualNotificationEligibleV2665(pref,row){
+  if(!row||row.candidate===true)return false;
+  if(!manualPrefAllows(pref,row.grade))return false;
+  if(!['A','B'].includes(String(row.grade||'').toUpperCase()))return false;
+  if(String(row.notificationTier||'').toUpperCase()==='BLOCKED')return false;
+  if(row?.institutionalEdge?.hardBlock===true)return false;
+  if(row.freshness==='STALE'||row.trade?.status==='ACTIVE')return false;
+  const m=manualCandidateScoreV2664(row);
+  return manualCandidateBlockClassV2665(row,m).hard.length===0;
+}
+function manualCandidateHardInvalidV2664(x,m){
+  return manualCandidateBlockClassV2665(x,m||manualCandidateScoreV2664(x)).hard.length>0;
+}
+function manualCandidateQualifiedV2664(x,m){
+  return !['DROP','FORMAL'].includes(manualCandidateBandV2665(x,m));
+}
+function manualCandidateGapV2664(x){
+  const toB=[],toA=[],st=String(x?.structure?.state||'UNKNOWN'),status=String(x?.trackerStatus||'NO_TRACKER');
+  const age=Number(x?.freshnessAgeMs||0),coverage=Number(x?.dataHealth?.coverage||0),confidence=Number(x?.dataHealth?.confidence||0);
+  const progress=Number(x?.observationProgress||0),score=Number(x?.executionScore||0),rr=manualFinite(x?.entry?.rr),chase=manualFinite(x?.chaseAtr);
+  if(status==='NO_TRACKER')toB.push('還沒有完整 tracker；正式 B 需要即時觀察資料');
+  if(age>300000)toB.push('要重新取得 5 分鐘內的判讀；目前過期會直接卡 C');
+  if(score<60)toB.push('正式 B 執行分需 ≥60；目前 '+Math.round(score));
+  if(!x?.structure)toB.push('Structure V2 尚未完成');
+  if(st==='DAMAGED')toB.push('結構仍受損，先等收復');
+  if(rr!=null&&rr<1.25)toB.push('RR 偏低；最好回到至少 1.25');
+  if(!toB.length)toB.push('主要差在正式即時閘門重新確認，不是歷史勝率不足');
+
+  if(x?.executionConfirmed!==true)toA.push('A 級需要正式進場確認');
+  if(age>120000)toA.push('A 級要求判讀 ≤2 分鐘');
+  if(coverage<78)toA.push('資料完整度需 ≥78；目前 '+Math.round(coverage));
+  if(confidence<72)toA.push('資料可信度需 ≥72；目前 '+Math.round(confidence));
+  if(progress<72)toA.push('觀察完成度需 ≥72；目前 '+Math.round(progress));
+  if(!['INTACT','RECLAIMING','OPPORTUNITY'].includes(st))toA.push('結構還沒回到 A 級可接受狀態');
+  if(rr!=null&&rr<1.5)toA.push('A 級 TP2 RR 需 ≥1.50；目前 '+rr.toFixed(2));
+  if(String(x?.monitorState||'')==='WEAKENING')toA.push('目前仍在轉弱');
+  if(chase!=null&&chase>.45)toA.push('離建議區太遠；A 級不允許追價');
+  if(Array.isArray(x?.blockers)&&x.blockers.length)toA.push('通知閘門仍有阻擋：'+x.blockers.slice(0,2).join(' / '));
+  if(!toA.length)toA.push('A 級主要只差即時確認維持');
+  return {toB:toB.slice(0,5),toA:toA.slice(0,7)};
+}
+function manualCandidateCautionV2664(x){
+  const a=[],e=x?.entry||{},st=String(x?.structure?.state||''),age=Number(x?.freshnessAgeMs||0),rr=manualFinite(e?.rr),chase=manualFinite(x?.chaseAtr);
+  a.push('候選不是正式 A/B；最安全仍是等上面缺口補齊');
+  if(age>300000)a.push('判讀已過期：進場前重新確認 5m/15m 沒有反向 BOS / CHoCH');
+  if(chase!=null&&chase>.45)a.push('離建議區偏遠，不追；等回踩再看');
+  if(st==='DAMAGED'||st==='RECLAIMING')a.push('結構未完整；只接受收復後回踩，不直接追');
+  if(e?.zoneLow!=null&&e?.zoneHigh!=null)a.push('只在 '+e.zoneLow+'～'+e.zoneHigh+' 附近執行，離區就重評');
+  if(e?.stop!=null)a.push('SP '+e.stop+' 為失效參考；失效不要硬扛');
+  if(rr!=null&&rr<1.5)a.push('TP2 RR '+rr.toFixed(2)+'，報酬風險比仍不漂亮');
+  return a.slice(0,6);
+}
+function manualCandidateReasonsV2664(x,m){
+  const a=[],sh=x?.shadow||{};
+  a.push('Shadow '+Number(sh.sample||0)+'筆 · 命中 '+(manualFinite(sh.hitRate)==null?'—':Number(sh.hitRate).toFixed(1)+'%')+' · PF '+(manualFinite(sh.profitFactor)==null?'—':Number(sh.profitFactor).toFixed(2)));
+  a.push('校準勝率 '+(manualFinite(x.calibratedWinRate)==null?'—':Number(x.calibratedWinRate).toFixed(1)+'%')+' · Shadow 共識分 '+m.score);
+  a.push('目前建議排名 #'+(x.rank??'—')+' · 排名分 '+Math.round(Number(x.rankScore||0)));
+  if(x?.structure?.label)a.push('結構 '+x.structure.label+' · '+Math.round(Number(x.structure.health||0))+'分');
+  return a.slice(0,5);
+}
+function manualCandidateDecorateV2664(x,st,m,now){
+  const out={...x},cls=manualCandidateBlockClassV2665(x,m);
+  let band=manualCandidateBandV2665(x,m);
+  if(band==='DROP'&&st?.selected===true)band='COOLING';
+  out.candidate=true;
+  out.candidateKey=manualCandidateKeyV2664(x);
+  out.candidateScore=m.score;
+  out.candidateWinRate=m.win;
+  out.candidateBand=band;
+  out.candidateSince=st.selectedAt||st.firstSeen||now;
+  out.candidateExpiresAt=(st.selectedAt||now)+MANUAL_CANDIDATE_TTL_MS_V2667;
+  out.candidateRemainingMs=Math.max(0,out.candidateExpiresAt-now);
+  out.candidateStable=true;
+  out.originalGrade=String(x.grade||'C');
+  out.candidateHardBlockers=cls.hard;
+  out.candidateSoftWait=cls.soft;
+  out.candidateEvidence={
+    calibratedWinRate:manualFinite(x.calibratedWinRate),
+    shadowSample:Number(x?.shadow?.sample||0),shadowHitRate:manualFinite(x?.shadow?.hitRate),
+    shadowProfitFactor:manualFinite(x?.shadow?.profitFactor),shadowLevel:String(x?.shadow?.level||''),
+    score:m.score,liquidity:manualFinite(x?.quoteVolume),marketAdj:m.marketAdj
+  };
+  out.formalGap=manualCandidateGapV2664(x);
+  out.tradeCautions=[
+    ...(cls.soft.length?['目前屬於等待型候選：'+cls.soft.slice(0,2).join(' / ')]:[]),
+    ...manualCandidateCautionV2664(x)
+  ].slice(0,7);
+  out.candidateReasons=[
+    '候選層級 '+band+' · 相對排名 '+m.score+'分',
+    ...manualCandidateReasonsV2664(x,m)
+  ].slice(0,6);
+  return out;
+}
+function manualStableCandidatesV2664(rows){
+  const now=Date.now(),current=new Map(),formal=new Set();
+  for(const x of rows||[]){
+    const k=manualCandidateKeyV2664(x),m=manualCandidateScoreV2664(x),band=manualCandidateBandV2665(x,m),hardInvalid=manualCandidateHardInvalidV2664(x,m),formalVisible=manualCandidateFormalVisibleV2665(x,m);
+    if(formalVisible)formal.add(k);
+    current.set(k,{row:x,metric:m,band,qualified:!['DROP','FORMAL'].includes(band),hardInvalid,formalVisible});
+    let st=manualCandidateStateV2664.get(k);
+    if(!st)st={firstSeen:now,lastSeen:0,confirm:0,selected:false,selectedAt:0,snapshot:null,metric:null,band:null};
+    const consecutive=st.lastSeen&&now-st.lastSeen<150000;
+    st.confirm=consecutive?st.confirm+1:1;
+    st.lastSeen=now;st.snapshot=x;st.metric=m;st.band=band;
+    manualCandidateStateV2664.set(k,st);
+  }
+
+  for(const [k,st] of [...manualCandidateStateV2664]){
+    const cur=current.get(k),x=cur?.row||st.snapshot,m=cur?.metric||st.metric;
+    if(!st.selected){
+      if(formal.has(k)||cur?.hardInvalid||now-(st.lastSeen||0)>2*60*60*1000)manualCandidateStateV2664.delete(k);
+      continue;
+    }
+    if(!x||!m){manualCandidateStateV2664.delete(k);continue}
+
+    if(x?.trade?.status==='ACTIVE'){
+      manualCandidateArchiveV2667(st,x,m,'BUILT','使用者已建立實際建倉追蹤',now);
+      manualCandidateStateV2664.delete(k);
+      continue;
+    }
+    if(formal.has(k)){
+      manualCandidateArchiveV2667(st,x,m,'PROMOTED','候選升級為正式 '+String(x.grade||'A/B'),now);
+      manualCandidateStateV2664.delete(k);
+      continue;
+    }
+    if(cur?.hardInvalid){
+      const cls=manualCandidateBlockClassV2665(x,m);
+      manualCandidateArchiveV2667(st,x,m,'HARD_INVALID',cls.hard.slice(0,3).join(' / '),now);
+      manualCandidateStateV2664.delete(k);
+      continue;
+    }
+    if(now-Number(st.selectedAt||now)>=MANUAL_CANDIDATE_TTL_MS_V2667){
+      manualCandidateArchiveV2667(st,x,m,'TTL_EXPIRED','30分鐘內未建倉、也未升級正式 A/B',now);
+      manualCandidateStateV2664.delete(k);
+      continue;
+    }
+  }
+
+  let selected=[...manualCandidateStateV2664.entries()].filter(([k,st])=>st.selected&&!formal.has(k));
+  const bandWeight={PRIME:4,WATCH:3,RELATIVE:2,RESEARCH:1,DROP:0,FORMAL:0};
+  const challengers=[...current.entries()]
+    .filter(([k,v])=>{
+      if(formal.has(k)||!v.qualified||manualCandidateStateV2664.get(k)?.selected)return false;
+      const cf=manualCandidateStateV2664.get(k)?.confirm||0;
+      return ['RELATIVE','RESEARCH'].includes(v.band)?cf>=1:cf>=MANUAL_CANDIDATE_CONFIRM_SCANS_V2664;
+    })
+    .sort((a,b)=>(bandWeight[b[1].band]-bandWeight[a[1].band])||b[1].metric.score-a[1].metric.score||b[1].metric.win-a[1].metric.win||Number(a[1].row.rank||99)-Number(b[1].row.rank||99));
+
+  while(selected.length<MANUAL_CANDIDATE_MAX_V2664&&challengers.length){
+    const [k]=challengers.shift(),st=manualCandidateStateV2664.get(k);
+    st.selected=true;st.selectedAt=now;manualCandidateStateV2664.set(k,st);
+    selected.push([k,st]);
+  }
+
+  const output=[];
+  for(const [k,st] of manualCandidateStateV2664){
+    if(!st.selected||formal.has(k))continue;
+    const cur=current.get(k),x=cur?.row||st.snapshot,m=cur?.metric||st.metric;
+    if(!x||!m)continue;
+    output.push(manualCandidateDecorateV2664(x,st,m,now));
+  }
+  output.sort((a,b)=>Number(a.candidateSince||0)-Number(b.candidateSince||0)||Number(b.candidateScore||0)-Number(a.candidateScore||0));
+  manualCandidateSaveStateV2664();
+  return output.slice(0,MANUAL_CANDIDATE_MAX_V2664);
+}
+
+function selectManualIdeasV2612(ideas){const rows=Array.isArray(ideas?.rows)?ideas.rows:[],picked=new Map();for(const x of rows.slice(0,10))picked.set(testSignalKey(x.symbol,x.direction),x);for(const cls of ['CRYPTO','TRADFI'])for(const x of rows.filter(y=>assetClassForSymbolV2612(y.symbol)===cls).slice(0,6))picked.set(testSignalKey(x.symbol,x.direction),x);return [...picked.values()].sort((a,b)=>Number(a.globalRank||99)-Number(b.globalRank||99)).slice(0,16)}
+async function manualOpportunityResponseV2681Base(force=false){
+  const base=await manualOpportunityResponseBaseV2664(force);
+  const baseRows=Array.isArray(base?.rows)?base.rows:[];
+  const ideas=rankedIdeasCache?.data?{...rankedIdeasCache.data,stale:(Date.now()-Number(rankedIdeasCache.lastGoodAt||rankedIdeasCache.at||0))>IDEA_CACHE_MS,cacheAgeMs:Math.max(0,Date.now()-Number(rankedIdeasCache.lastGoodAt||rankedIdeasCache.at||Date.now()))}:null;
+
+  const candidateUniverse=[...baseRows],seen=new Set(baseRows.map(x=>manualCandidateKeyV2664(x)));
+  for(const [i,idea] of (Array.isArray(ideas?.rows)?ideas.rows:[]).slice(0,30).entries()){
+    try{
+      const row=manualOpportunityOne(idea,i+1,ideas?.generatedAt);
+      if(!row)continue;
+      const key=manualCandidateKeyV2664(row);
+      if(seen.has(key))continue;
+      seen.add(key);candidateUniverse.push(row);
+    }catch{}
+  }
+
+  const candidates=manualStableCandidatesV2664(candidateUniverse);
+  const byKey=new Map(candidates.map(x=>[x.candidateKey,x]));
+  const rows=baseRows.map(x=>byKey.get(manualCandidateKeyV2664(x))||x);
+  for(const c of candidates)if(!rows.some(x=>manualCandidateKeyV2664(x)===c.candidateKey))rows.push(c);
+
+  const scored=candidateUniverse.map(x=>{const m=manualCandidateScoreV2664(x);return {x,m,cls:manualCandidateBlockClassV2665(x,m),formal:manualCandidateFormalVisibleV2665(x,m),band:manualCandidateBandV2665(x,m)}});
+  const rejects=manualCandidateRejectSummaryV2665(candidateUniverse);
+  const visibleA=baseRows.filter(x=>String(x.grade||'')==='A'&&manualCandidateFormalVisibleV2665(x,manualCandidateScoreV2664(x))).length;
+  const visibleB=baseRows.filter(x=>String(x.grade||'')==='B'&&manualCandidateFormalVisibleV2665(x,manualCandidateScoreV2664(x))).length;
+  const archive=manualCandidateArchiveRowsV2667();
+
+  const pipeline={
+    radarLimit:typeof RADAR_MAX_SYMBOLS==='number'?RADAR_MAX_SYMBOLS:null,
+    deepAnalyzed:Number(ideas?.analyzed||0),
+    candidateUniverse:candidateUniverse.length,
+    formalUniverse:baseRows.length,
+    hardSafe:scored.filter(v=>v.cls.hard.length===0).length,
+    hardBlocked:scored.filter(v=>v.cls.hard.length>0).length,
+    softWaiting:scored.filter(v=>v.cls.hard.length===0&&v.cls.soft.length>0).length,
+    formalA:visibleA,formalB:visibleB,candidate:candidates.length,
+    prime:scored.filter(v=>v.band==='PRIME').length,
+    watch:scored.filter(v=>v.band==='WATCH').length,
+    relative:scored.filter(v=>v.band==='RELATIVE').length,
+    research:scored.filter(v=>v.band==='RESEARCH').length,
+    topRejects:rejects.hard,topWaits:rejects.soft,radar:ideas?.radar||null,
+    candidateArchiveCount:archive.length,recentArchived:archive.slice(0,5)
+  };
+
+  return {
+    ...base,
+    version:'V2.6.69',
+    methodology:'大範圍市場雷達後，前40名做深度分析；正式A/B維持原門檻，候選從前30個深析結果做安全層後相對排名。只要存在沒有硬風險、候選勝率>=52%的相對前段標的，就能進研究候選；研究候選永不自動通知。',
+    counts:{...(base?.counts||{}),A:visibleA,B:visibleB,C:rows.filter(x=>String(x.grade||'')==='C'&&x.candidate!==true).length,candidate:candidates.length},
+    pipeline,
+    rows
+  };
+}
+
+/* WORTH_WATCH_V2682_20260905
+ * B = 值得打開圖看，由使用者自己扣扳機；不是自動進場確認。
+ * A 維持 V2.6.81 嚴格正式確認。Shadow/Bootcamp 對 B 改為負面否決器，不再要求先證明 +0.10R / PF1.15 才准使用者看圖。
+ */
+const WORTH_WATCH_AUDIT_FILE_V2682=path.join(DATA_DIR,'worth-watch-audit-v2682.json');
+let worthWatchLastSnapshotV2682={generatedAt:null,eligible:0,selected:0,selectedRows:[],rejected:[]};
+let worthWatchAuditSigV2682='';
+function worthWatchKeyV2682(x){return [String(x?.symbol||''),String(x?.direction||'')].join('|')}
+function worthWatchBootcampV2682(row){
+  try{
+    const key=testSignalKey(row?.symbol,row?.direction),t=testSignalTrackers.get(key);if(!t)return null;
+    const tier=testSignalTier(t);return tier?.bootcamp&&typeof tier.bootcamp==='object'?tier.bootcamp:null;
+  }catch{return null}
+}
+function worthWatchAuditWriteV2682(snapshot){
+  try{
+    const sig=JSON.stringify([snapshot?.selectedRows?.map(x=>[x.symbol,x.direction,x.score,x.mode]),snapshot?.eligible,snapshot?.selected]);
+    if(sig===worthWatchAuditSigV2682)return;worthWatchAuditSigV2682=sig;
+    const old=loadJson(WORTH_WATCH_AUDIT_FILE_V2682,{events:[]}),out=old&&typeof old==='object'?old:{events:[]};
+    out.version='V2.6.82';out.updatedAt=new Date().toISOString();out.lastSnapshot=snapshot;out.events=Array.isArray(out.events)?out.events:[];
+    out.events.unshift({at:out.updatedAt,eligible:snapshot.eligible,selected:snapshot.selected,selectedRows:snapshot.selectedRows});out.events=out.events.slice(0,200);saveJson(WORTH_WATCH_AUDIT_FILE_V2682,out);
+  }catch(e){console.warn('[v2682] worth-watch audit',String(e?.message||e))}
+}
+function worthWatchPromoteRowV2682(row,decision){
+  const toA=Array.isArray(row?.formalGap?.toA)?row.formalGap.toA:[];
+  return {...row,
+    grade:'B',candidate:false,originalCandidate:true,originalCandidateBand:row.candidateBand||null,
+    notificationTier:'NORMAL',
+    worthWatch:{version:'V2.6.82',mode:'WORTH_WATCH',selectionMode:decision.mode,score:decision.score,notes:decision.notes,metrics:decision.metrics},
+    reasons:['B級值得看｜'+Number(decision.score||0).toFixed(1)+'分',...(decision.notes||[]),...(row.reasons||[])].filter(Boolean).slice(0,8),
+    risks:['B級＝值得打開圖，不是進場確認；由你看盤後決定是否扣扳機',...(row.risks||[])].filter(Boolean).slice(0,8),
+    formalGap:{...(row.formalGap||{}),toB:['已升 B｜值得看；不要求策略 ready 才讓你看到'],toA}
+  };
+}
+
+async function manualOpportunityResponse(force=false){
+  const base=await manualOpportunityResponseV2681Base(force),rows0=Array.isArray(base?.rows)?base.rows:[];
+  const evaluated=[];
+  for(const row of rows0){
+    if(row?.candidate!==true||row?.trade?.status==='ACTIVE')continue;
+    const bootcamp=worthWatchBootcampV2682(row),decision=evaluateWorthWatchV2682(row,bootcamp);
+    evaluated.push({row,decision,bootcamp});
+  }
+  const selected=selectWorthWatchV2682(evaluated,{max:WORTH_WATCH_DEFAULTS_V2682.maxVisibleB}),selectedByKey=new Map(selected.map(x=>[worthWatchKeyV2682(x.row),x.decision]));
+  const rows=rows0.map(row=>{const d=selectedByKey.get(worthWatchKeyV2682(row));return d&&row?.candidate===true?worthWatchPromoteRowV2682(row,d):row});
+  const countA=rows.filter(x=>String(x?.grade||'')==='A'&&x?.candidate!==true).length,countB=rows.filter(x=>String(x?.grade||'')==='B'&&x?.candidate!==true).length,countCandidate=rows.filter(x=>x?.candidate===true).length;
+  const selectedRows=selected.map(x=>({symbol:x.row.symbol,direction:x.row.direction,score:x.decision.score,mode:x.decision.mode,band:x.decision.band,structure:x.decision.metrics.structureState,health:x.decision.metrics.structureHealth,progress:x.decision.metrics.progress}));
+  const rejected=evaluated.filter(x=>!x.decision.eligible).sort((a,b)=>Number(b.decision.score||0)-Number(a.decision.score||0)).slice(0,8).map(x=>({symbol:x.row.symbol,direction:x.row.direction,band:x.decision.band,score:x.decision.score,blockers:x.decision.blockers.slice(0,4)}));
+  worthWatchLastSnapshotV2682={generatedAt:new Date().toISOString(),eligible:evaluated.filter(x=>x.decision.eligible).length,selected:selected.length,selectedRows,rejected};worthWatchAuditWriteV2682(worthWatchLastSnapshotV2682);
+  const pipeline={...(base?.pipeline||{}),formalA:countA,formalB:countB,candidate:countCandidate,worthWatchEligible:worthWatchLastSnapshotV2682.eligible,worthWatchSelected:selected.length};
+  return {...base,version:'V2.6.82',methodology:'V2.6.82：A 維持嚴格正式確認；B 改為 Shadow 從候選中挑出的「值得看」。B 必須通過硬風控、資料、新鮮度與 Structure 存活/收復檢查；策略尚未 ready 不再單獨阻止 B。Bootcamp 對 B 只否決有足夠樣本且明顯負期望/低 PF 的型態。B 是開圖通知，由使用者自行看盤扣扳機，不是自動進場。',counts:{...(base?.counts||{}),A:countA,B:countB,candidate:countCandidate},pipeline,worthWatch:{version:'V2.6.82',...worthWatchLastSnapshotV2682},rows};
+}
+
+
+/* ABC_SHADOW_LEARNING_V265_20260902
+ * Purpose: every valid A/B/C opportunity is shadow-tracked even when the user never trades it.
+ * The records live in the existing V10.2.2 shadow ledger so the already-audited state-learning
+ * engine can learn from them after the normal de-correlation gate. Hard blockers are untouched.
+ */
+const ABC_SHADOW_SOURCE='ABC_AUTO_V264';
+const ABC_SHADOW_EPISODE_MS=Math.max(20*60_000,Math.min(2*60*60_000,Number(process.env.ABC_SHADOW_EPISODE_MS||STATE_LEARNING_DEDUP_MS||45*60_000)));
+const ABC_SHADOW_MIN_GRADE_SAMPLE=Math.max(12,Math.min(60,Number(process.env.ABC_SHADOW_MIN_GRADE_SAMPLE||20)));
+const ABC_SHADOW_MAX_BONUS=Math.max(1,Math.min(5,Number(process.env.ABC_SHADOW_MAX_BONUS||4)));
+
+function abcShadowTagged(x){return x?.version==='V10.2.2'&&x?.shadowSource===ABC_SHADOW_SOURCE}
+function abcShadowGrade(v){const g=String(v||'C').toUpperCase();return ['A','B','C'].includes(g)?g:'C'}
+function abcShadowStats(rows){return shadowStats((rows||[]).filter(x=>x?.status==='RESOLVED'&&['WIN','LOSS','TIMEOUT'].includes(x.result)))}
+function abcShadowAdjustmentFromStats(stats){
+  const sample=Number(stats?.sample||0);if(sample<ABC_SHADOW_MIN_GRADE_SAMPLE)return 0;
+  const base=stateLearningAdjustmentFromStats(stats),cap=sample>=100?ABC_SHADOW_MAX_BONUS:sample>=50?Math.min(3,ABC_SHADOW_MAX_BONUS):Math.min(2,ABC_SHADOW_MAX_BONUS);
+  return clamp(Number(base||0),-cap,cap);
+}
+function abcShadowLearningForTracker(t,direction,regime,strategyId){
+  const assetClass=mentorAssetForTrackerV2622(t),all=edgeRowsV2621().filter(x=>abcShadowTagged(x)&&String(x.direction||'')===String(direction||'')),same=all.filter(x=>mentorAssetV2622(x)===assetClass);
+  let rows=edgeDedupV2621(same.filter(x=>String(x.strategyId||'')===String(strategyId||'')&&String(x.marketRegime||'')===String(regime||'')),x=>cleanFuturesSymbol(x.symbol)),level='同資產·策略×狀態';if(rows.length<ABC_SHADOW_MIN_GRADE_SAMPLE){rows=edgeDedupV2621(same.filter(x=>String(x.strategyId||'')===String(strategyId||'')),x=>cleanFuturesSymbol(x.symbol));level='同資產·策略'}if(rows.length<ABC_SHADOW_MIN_GRADE_SAMPLE){rows=edgeDedupV2621(same,x=>String(cleanFuturesSymbol(x.symbol))+'|'+String(x.strategyId||''));level='同資產·方向'}
+  let st=edgeStatsV2621(rows),adjustment=edgeAdjFromStatsV2621(st,rows.length>=100?4:rows.length>=50?3:2),crossAsset=false;if(st.sample<ABC_SHADOW_MIN_GRADE_SAMPLE){const g=edgeDedupV2621(all,x=>String(cleanFuturesSymbol(x.symbol))+'|'+String(x.strategyId||'')),gs=edgeStatsV2621(g);if(gs.sample>=Math.max(50,ABC_SHADOW_MIN_GRADE_SAMPLE*2)){st=gs;adjustment=clamp(edgeAdjFromStatsV2621(gs,1),-1,1);level='跨資產弱參考';crossAsset=true}else adjustment=0}
+  return {sample:Number(st.sample||0),hitRate:manualFinite(st.hitRate),profitFactor:manualFinite(st.netProfitFactor),expectancyR:manualFinite(st.netExpectancyR),adjustment,level,active:st.sample>=ABC_SHADOW_MIN_GRADE_SAMPLE,assetClass,crossAsset,netOfCost:true};
+}
+function abcShadowLearningSummary(){
+  const all=shadowPerformance.filter(abcShadowTagged),resolved=all.filter(x=>x.status==='RESOLVED'),eligible=resolved.filter(x=>x.learningEligible!==false),byGrade=['A','B','C'].map(key=>{const rows=eligible.filter(x=>abcShadowGrade(x.manualGradeAtEntry)===key),stats=abcShadowStats(rows);return {key,...stats,adjustment:abcShadowAdjustmentFromStats(stats)}});
+  const overall=abcShadowStats(eligible),active=all.filter(x=>x.status==='ACTIVE').length;
+  return {version:'V2.6.5',source:ABC_SHADOW_SOURCE,sample:all.length,active,resolved:resolved.length,learningEligibleResolved:eligible.length,minSample:ABC_SHADOW_MIN_GRADE_SAMPLE,maxBonus:ABC_SHADOW_MAX_BONUS,episodeMinutes:Math.round(ABC_SHADOW_EPISODE_MS/60000),overall,byGrade};
+}
+function abcShadowEpisodeRecord(row,now=Date.now()){
+  const symbol=cleanFuturesSymbol(row?.symbol),direction=row?.direction==='SHORT'?'SHORT':'LONG';
+  if(!symbol)return null;
+  return shadowPerformance.find(x=>abcShadowTagged(x)&&x.symbol===symbol&&x.direction===direction&&Math.abs(now-new Date(x.shadowAt||0).getTime())<ABC_SHADOW_EPISODE_MS)||null;
+}
+function abcShadowLevels(row){
+  const referenceEntry=manualFinite(row?.entry?.price),liveEntry=manualFinite(row?.entry?.currentPrice),stop=manualFinite(row?.entry?.stop),suppliedTarget=manualFinite(row?.entry?.target),dir=row?.direction==='SHORT'?-1:1;
+  const useLive=liveEntry>0,entry=useLive?liveEntry:referenceEntry;
+  if(!(entry>0&&stop>0&&dir*(stop-entry)<0))return null;
+  const risk=Math.abs(entry-stop);if(!(risk>0))return null;
+  const suppliedValid=suppliedTarget>0&&dir*(suppliedTarget-entry)>0;
+  const target=suppliedValid?suppliedTarget:entry+dir*risk;
+  return {entry,stop,target,risk,targetDerived:!suppliedValid,referenceEntry,entrySource:useLive?'CURRENT_PRICE':'REFERENCE_ENTRY'};
+}
+function abcShadowLevelsValid(row){return Boolean(abcShadowLevels(row))}
+function abcShadowCapture(rows){
+  const now=Date.now(),audit={seen:0,created:0,updated:0,skippedNoTracker:0,skippedNoLevels:0,learningEligible:0,derivedTargets:0,currentPriceEntries:0,referenceEntries:0};
+  for(const row of rows||[]){
+    audit.seen++;
+    const t=row?.signalKey?testSignalTrackers.get(row.signalKey):null;if(!t){audit.skippedNoTracker++;continue}
+    const levels=abcShadowLevels(row);if(!levels){audit.skippedNoLevels++;continue}
+    const existing=abcShadowEpisodeRecord(row,now);
+    if(existing){
+      const grade=abcShadowGrade(row.grade),old=abcShadowGrade(existing.manualGradeCurrent||existing.manualGradeAtEntry);
+      if(old!==grade){existing.gradeTimeline=Array.isArray(existing.gradeTimeline)?existing.gradeTimeline:[];existing.gradeTimeline.push({at:new Date(now).toISOString(),from:old,to:grade,score:Number(row.executionScore||0)});existing.gradeTimeline=existing.gradeTimeline.slice(-12)}
+      existing.manualGradeCurrent=grade;existing.manualExecutionScoreCurrent=Number(row.executionScore||0);existing.manualRankCurrent=Number(row.rank||0)||null;existing.structureStateCurrent=String(row.structure?.state||'UNKNOWN');existing.structureHealthCurrent=manualFinite(row.structure?.health);existing.abcLastSeenAt=new Date(now).toISOString();
+      audit.updated++;continue;
+    }
+    const {entry,stop,target,risk,targetDerived,referenceEntry,entrySource}=levels;if(targetDerived)audit.derivedTargets++;if(entrySource==='CURRENT_PRICE')audit.currentPriceEntries++;else audit.referenceEntries++;
+    const features=stateLearningFeatures(t),keys=stateLearningKeys(features),learning=stateLearningAdjustment(t),mentor=institutionalMentorEdgeV2622(t),grade=abcShadowGrade(row.grade),learningEligible=row.freshness!=='STALE'&&Number(row.dataHealth?.coverage||0)>=55&&Number(row.dataHealth?.confidence||0)>=50;
+    const id=`abc-shadow-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
+    const rec={id,version:'V10.2.2',shadowSource:ABC_SHADOW_SOURCE,signalKey:t.key,symbol:t.symbol,assetClass:features.assetClass,assetSession:features.assetSession,assetFamily:features.assetFamily,direction:t.direction,phase:'ABC_GRADE',shadowAt:new Date(now).toISOString(),entryPrice:entry,stop,target,riskDistance:risk,targetR:Number((testSignalDirection(t.direction)*(target-entry)/risk).toFixed(3)),strategyId:features.strategyId,strategyLabel:features.strategyLabel,marketRegime:features.regime,stateFeatures:features,stateKeys:keys,stateLabel:`ABC ${grade}｜${features.strategyLabel}｜${features.regime}｜${features.direction}`,rawScore:Number(row.executionScore||0),adjustedScore:Number(row.executionScore||0),learningAdjustmentAtEntry:Number(learning.adjustment||0),mentorModelVersion:SHADOW_MENTOR_VERSION_V2622,institutionalEdgeAtEntry:Number(mentor?.edgeScore||0),mentorConfidenceAtEntry:Number(mentor?.confidenceScore||0),mentorForwardStatusAtEntry:String(mentor?.forward?.status||'COLLECTING'),tierAtEntry:String(row.notificationTier||'VALID'),learningEligible,shadowProgress:manualFinite(row.observationProgress),blockReasons:Array.isArray(row.risks)?row.risks.slice(0,8):[],notified:Boolean(t.lastEntryNotificationAt||t.notificationSentAt),notificationId:t.lastEntryNotificationId||null,
+      manualGradeAtEntry:grade,manualGradeCurrent:grade,manualExecutionScoreAtEntry:Number(row.executionScore||0),manualExecutionScoreCurrent:Number(row.executionScore||0),manualRankAtEntry:Number(row.rank||0)||null,manualRankCurrent:Number(row.rank||0)||null,structureStateAtEntry:String(row.structure?.state||'UNKNOWN'),structureStateCurrent:String(row.structure?.state||'UNKNOWN'),structureHealthAtEntry:manualFinite(row.structure?.health),structureHealthCurrent:manualFinite(row.structure?.health),structureLearningAdjustmentAtEntry:manualFinite(row.structure?.learningAdjustment),abcCreatedWithoutManualTrade:true,abcTargetDerived:targetDerived,abcEntryPriceSource:entrySource,abcReferenceEntryPrice:referenceEntry,abcLastSeenAt:new Date(now).toISOString(),gradeTimeline:[],
+      status:'ACTIVE',result:null,resultAt:null,exitPrice:null,grossReturnPct:null,netReturnPct:null,realizedR:null,mfePct:0,maePct:0,maxR:0,minR:0,snapshots:{},lastPrice:entry,lastPriceAt:new Date(now).toISOString(),lastSource:'abc-shadow-entry',costBps:PERF_ROUND_TRIP_COST_BPS};
+    shadowPerformance.unshift(rec);shadowActiveSymbols.add(cleanFuturesSymbol(rec.symbol));scheduleShadowPerformanceSave();shadowOnPrice(rec.symbol,entry,now,'abc-shadow-entry');audit.created++;if(learningEligible)audit.learningEligible++;
+  }
+  return audit;
+}
+
+/* ABC_SHADOW_UI_HISTORY_V268
+ * UI-only recent history. Learning ledgers are NOT deleted when these rows disappear from the screen.
+ * Keeps /api/manual-opportunities small; detail rows are fetched only when the user opens History/SAMPLE.
+ */
+const ABC_SHADOW_UI_HISTORY_MINUTES_V268=360;
+const ABC_SHADOW_UI_HISTORY_LIMIT_V268=30;
+const ABC_SHADOW_UI_SAMPLE_LIMIT_V268=12;
+function abcShadowUiTimeV268(v){const n=v?Date.parse(v):0;return Number.isFinite(n)?n:0}
+function abcShadowUiRecentV268(){
+  const now=Date.now(),cutoff=now-ABC_SHADOW_UI_HISTORY_MINUTES_V268*60_000;
+  const rows=shadowPerformance.filter(x=>abcShadowTagged(x)&&abcShadowUiTimeV268(x.shadowAt)>=cutoff)
+    .sort((a,b)=>abcShadowUiTimeV268(b.shadowAt)-abcShadowUiTimeV268(a.shadowAt))
+    .slice(0,ABC_SHADOW_UI_HISTORY_LIMIT_V268)
+    .map(x=>({
+      id:x.id,symbol:x.symbol,direction:x.direction==='SHORT'?'SHORT':'LONG',
+      gradeAtEntry:abcShadowGrade(x.manualGradeAtEntry),gradeCurrent:abcShadowGrade(x.manualGradeCurrent||x.manualGradeAtEntry),
+      shadowAt:x.shadowAt,lastSeenAt:x.abcLastSeenAt||x.lastPriceAt||x.shadowAt,status:x.status,result:x.result,resultAt:x.resultAt,
+      learningEligible:x.learningEligible!==false,
+      sampleEligible:x.status==='RESOLVED'&&x.learningEligible!==false&&['WIN','LOSS','TIMEOUT'].includes(String(x.result||'')),
+      entryPrice:Number.isFinite(Number(x.entryPrice))?Number(x.entryPrice):null,
+      stop:Number.isFinite(Number(x.stop))?Number(x.stop):null,
+      target:Number.isFinite(Number(x.target))?Number(x.target):null
+    }));
+  return {ok:true,version:'V2.6.8',generatedAt:new Date(now).toISOString(),historyMinutes:ABC_SHADOW_UI_HISTORY_MINUTES_V268,limit:ABC_SHADOW_UI_HISTORY_LIMIT_V268,sampleLimit:ABC_SHADOW_UI_SAMPLE_LIMIT_V268,rows};
+}
+app.get('/api/manual-shadow-history',(_req,res)=>{res.set('cache-control','private, max-age=30');res.json(abcShadowUiRecentV268())});
+
+async function manualOpportunityLoop(){
+  if(manualOpportunityBusy){manualOpportunityTimer=setTimeout(manualOpportunityLoop,MANUAL_MODE_REFRESH_MS);return}
+  manualOpportunityBusy=true;
+  try{
+    const data=await manualOpportunityResponse(true),prefs=manualPrefRows(),subs=loadSubRecords(),byEndpoint=new Map(subs.map(x=>[x.endpoint,x])),now=Date.now();let dirty=false;
+    for(const pref of prefs){
+      if(pref?.enabled!==true)continue;const rec=byEndpoint.get(pref.endpoint);if(!rec?.subscription)continue;pref.lastSent=pref.lastSent&&typeof pref.lastSent==='object'?pref.lastSent:{};
+      const notifyRowsV2682=(Array.isArray(data?.rows)?data.rows:[]).filter(row=>row?.candidate!==true&&['A','B'].includes(String(row?.grade||'').toUpperCase())).sort((a,b)=>{const pa=String(a?.grade||'')==='A'?3:(a?.worthWatch?.mode==='WORTH_WATCH'?2:1),pb=String(b?.grade||'')==='A'?3:(b?.worthWatch?.mode==='WORTH_WATCH'?2:1);return pb-pa||Number(b?.worthWatch?.score||b?.executionScore||0)-Number(a?.worthWatch?.score||a?.executionScore||0)});
+      for(const row of notifyRowsV2682.slice(0,20)){
+        if(!manualNotificationEligibleV2665(pref,row))continue;
+        const tag=[row.symbol,row.direction,row.grade].join(':'),last=Number(pref.lastSent[tag]||0);if(last&&now-last<MANUAL_MODE_NOTIFY_COOLDOWN_MS)continue;
+        try{
+          const isWorthWatchV2682=row?.worthWatch?.mode==='WORTH_WATCH';
+          const body=isWorthWatchV2682?('值得看 '+Number(row?.worthWatch?.score||row.executionScore||0).toFixed(1)+'分｜'+(row.structure?.label||'等待結構')+(row.entry?.rr?'｜TP2 RR '+row.entry.rr:'')+'｜開圖後由你決定是否扣扳機'):('執行 '+row.executionScore+'分｜'+(row.structure?.label||'等待結構')+(row.entry?.rr?'｜TP2 RR '+row.entry.rr:'')+'｜手動篩選，非自動進場');
+          const title=isWorthWatchV2682?('影子精選｜B級值得看｜'+row.symbol+' '+(row.direction==='SHORT'?'做空':'做多')):('手動影子｜'+row.grade+'級｜'+row.symbol+' '+(row.direction==='SHORT'?'做空':'做多'));
+          await webpush.sendNotification(rec.subscription,JSON.stringify({title,body,tag:'shadow-'+row.symbol+'-'+row.direction,renotify:false,data:{url:'/?page=ideas&manual=1'}}),{TTL:180,urgency:row.grade==='A'?'high':'normal'});
+          noticeDedupMarkV2616(rec.endpoint,row.symbol,row.direction,now);pref.lastSent[tag]=now;dirty=true;
+        }catch(e){if([404,410].includes(e?.statusCode)){pref.enabled=false;dirty=true}}
+      }
+    }
+    if(dirty)manualSavePrefs(prefs);
+  }catch(e){console.warn('[manual-v263]',String(e?.message||e))}
+  finally{manualOpportunityBusy=false;manualOpportunityTimer=setTimeout(manualOpportunityLoop,MANUAL_MODE_REFRESH_MS);manualOpportunityTimer.unref?.()}
+}
+
+app.get('/api/manual-candidate-archive',(_req,res)=>res.json({ok:true,version:'V2.6.67',rows:manualCandidateArchiveRowsV2667()}));
+
+app.get('/api/manual-candidate-history',(_req,res)=>{
+  res.json({ok:true,version:'V2.6.71',visibleHours:24,backendDays:7,rows:manualCandidateHistoryRowsV2671()});
+});
+app.post('/api/manual-candidate-dismiss',(req,res)=>{
+  try{
+    const body=req.body||{},action=String(body.action||'dismiss').toLowerCase(),key=String(body.candidateKey||'').trim();
+    if(!key)return res.status(400).json({error:'candidateKey required'});
+    if(action==='restore'){
+      manualCandidateUnskipV2671(key);
+      return res.json({ok:true,action:'restore',candidateKey:key});
+    }
+    const now=Date.now(),st=manualCandidateStateV2664.get(key);
+    if(st?.snapshot){
+      const m=st.metric||manualCandidateScoreV2664(st.snapshot);
+      manualCandidateArchiveV2667(st,st.snapshot,m,'MANUAL_DISMISS','使用者主動移出候選',now);
+      manualCandidateStateV2664.delete(key);manualCandidateSaveStateV2664();
+    }else{
+      manualCandidateFallbackArchiveV2671(body,now);
+    }
+    manualCandidateSkipKeyV2671(key,'MANUAL_DISMISS');
+    res.json({ok:true,action:'dismiss',candidateKey:key,skipMinutes:60});
+  }catch(e){res.status(500).json({error:String(e?.message||e)})}
+});
+app.get('/api/worth-watch-v2682',(_req,res)=>{
+  try{
+    const audit=loadJson(WORTH_WATCH_AUDIT_FILE_V2682,{events:[]});
+    res.json({ok:true,version:'V2.6.82',definition:'B=值得打開圖，由使用者自己扣扳機；A=高完成度正式確認',thresholds:WORTH_WATCH_DEFAULTS_V2682,current:worthWatchLastSnapshotV2682,recent:(audit?.events||[]).slice(0,50)});
+  }catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}
+});
+app.get('/api/manual-opportunities',async(req,res)=>{try{res.json(await manualOpportunityResponse(String(req.query?.force||'')==='1'))}catch(e){res.status(503).json({ok:false,error:String(e?.message||e)})}});
+app.get('/api/manual-preferences',(req,res)=>{const endpoint=String(req.query?.endpoint||'');const p=manualPrefRows().find(x=>x.endpoint===endpoint);res.json({ok:true,enabled:p?.enabled===true,mode:manualNotifyMode(p?.mode)})});
+app.post('/api/manual-preferences',(req,res)=>{const endpoint=String(req.body?.endpoint||'');if(!endpoint)return res.status(400).json({ok:false,error:'MISSING_ENDPOINT'});const rows=manualPrefRows(),idx=rows.findIndex(x=>x.endpoint===endpoint),old=idx>=0?rows[idx]:{},next={...old,endpoint,enabled:req.body?.enabled===true,mode:manualNotifyMode(req.body?.mode),updatedAt:new Date().toISOString(),lastSent:old.lastSent&&typeof old.lastSent==='object'?old.lastSent:{}};if(idx>=0)rows[idx]=next;else rows.push(next);manualSavePrefs(rows);res.json({ok:true,enabled:next.enabled,mode:next.mode})});
 
 app.get('/api/market-flow', async (_req, res) => {
   try {
@@ -5196,10 +6775,12 @@ app.get('/api/symbol-analysis', async (req, res) => {
   } catch (err) { res.status(503).json({ok:false,error:String(err?.message||err)}); }
 });
 
+app.get('/api/structure-learning',(_req,res)=>res.json({ok:true,generatedAt:new Date().toISOString(),summary:structureV2Summary(),recent:structureLearning.filter(x=>x?.version===STRUCTURE_ENGINE_VERSION).slice(0,300)}));
+app.get('/api/structure-learning.csv',(_req,res)=>{const cols=['at','symbol','direction','assetClass','pattern','marketEpisodeId','strategyId','strategyLabel','marketRegime','state','rawState','label','rawHealth','learningAdjustment','health','confidence','retracementRatio','retracementBucket','reasonCodes','reasons','price','entryPrice','originalInvalidation','protection','poc15','protectedSwing15','protectedSwing30','primaryLevel','successPrice','failurePrice','traderLastAction','traderAddsDuringEpisode','traderReducesDuringEpisode','status','outcome','outcomeAt','maxFavorablePct','maxAdversePct'];const rows=structureLearning.filter(x=>x?.version===STRUCTURE_ENGINE_VERSION),csv=[cols.join(','),...rows.map(x=>cols.map(k=>structureV2CsvEscape(x[k])).join(','))].join('\n');res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition','attachment; filename=structure-learning-v2-'+new Date().toISOString().slice(0,10)+'.csv');res.send('\uFEFF'+csv)});
 app.get('/api/actual-trades',(_req,res)=>res.json({ok:true,generatedAt:new Date().toISOString(),summary:actualTradeAggregate(),records:actualTrades.filter(x=>x?.version==='V10.2.6').slice(0,300)}));
 app.post('/api/actual-trades',(req,res)=>{try{const out=actualTradeRecord(req.body||{});if(out.error)return res.status(400).json({ok:false,error:out.error});res.json({ok:true,record:out.rec,summary:actualTradeAggregate()})}catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}});
 app.patch('/api/actual-trades/:id',(req,res)=>{const id=String(req.params?.id||''),rec=actualTrades.find(x=>x?.version==='V10.2.6'&&x.id===id);if(!rec)return res.status(404).json({ok:false,error:'not found'});if(req.body?.action==='update'){const out=actualTradeUpdateRecord(rec,req.body||{});if(out.error)return res.status(400).json({ok:false,error:out.error});return res.json({ok:true,record:out.rec,summary:actualTradeAggregate()})}if(req.body?.action==='close'&&rec.status==='ACTIVE'){const px=finiteMetric(req.body?.price)??finiteMetric(realtimeBestPrice(rec.symbol))??finiteMetric(rec.lastPrice);if(!(px>0))return res.status(400).json({ok:false,error:'no price'});rec.status='RESOLVED';rec.result='MANUAL';rec.resultAt=new Date().toISOString();rec.exitPrice=px;rec.estimatedPnl=actualTradePnlAt(rec,px);rec.updatedAt=rec.resultAt;if(!actualTrades.some(x=>x!==rec&&x.status==='ACTIVE'&&x.symbol===rec.symbol))actualTradeActiveSymbols.delete(rec.symbol);scheduleActualTradeSave();return res.json({ok:true,record:rec})}res.status(400).json({ok:false,error:'unsupported action'})});
-app.get('/api/actual-trades.csv',(_req,res)=>{const cols=['createdAt','symbol','direction','strategyId','strategyLabel','marketRegime','notificationTier','entryPrice','tp1','tp2','sp1','sp2','margin','quantity','leverage','notional','status','firstOutcome','firstOutcomeAt','result','resultAt','exitPrice','mfePct','maePct','estimatedProfitTp1','estimatedProfitTp2','estimatedLossSp1','estimatedLossSp2','estimatedPnl'];const rows=actualTrades.filter(x=>x?.version==='V10.2.6'),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=actual-trades-v1026-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv)});
+app.get('/api/actual-trades.csv',(_req,res)=>{const cols=['createdAt','symbol','assetClass','assetSession','direction','strategyId','strategyLabel','marketRegime','notificationTier','entryPrice','tp1','tp2','sp1','sp2','margin','quantity','leverage','manualMode','manualGrade','manualGradeScore','manualGradeAt','manualOpportunityId','manualRank','manualStructureState','manualStructureHealth','manualShadowHitRate','manualShadowProfitFactor','manualRr','notional','status','firstOutcome','firstOutcomeAt','result','resultAt','exitPrice','mfePct','maePct','estimatedProfitTp1','estimatedProfitTp2','estimatedLossSp1','estimatedLossSp2','estimatedPnl'];const rows=actualTrades.filter(x=>x?.version==='V10.2.6'),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=actual-trades-v1026-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv)});
 app.get('/api/performance', (_req,res)=>res.json(performanceResponse()));
 app.get('/api/performance.csv', (_req,res)=>{
   const cols=['notificationAt','receivedAt','clickedAt','symbol','direction','phase','tier','strategyLabel','strategyId','observationProgress','marketRegime','entryPrice','stop','target','targetR','calibratedWinRate','dataCoverage','dataConfidence','status','result','resultAt','exitPrice','mfePct','maePct','realizedR','grossReturnPct','netReturnPct','signalToPushMs','pushServiceMs','deliveryLatencyMs','clickLatencyMs','notificationPriceSource'];
@@ -5208,13 +6789,15 @@ app.get('/api/performance.csv', (_req,res)=>{
   res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=signal-performance-v10-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
 });
 app.get('/api/shadow-performance.csv', (_req,res)=>{
-  const cols=['shadowAt','symbol','direction','strategyLabel','marketRegime','stateLabel','tierAtEntry','finalTier','notified','learningEligible','shadowProgress','blockReasons','stateKeyCore','stateKeyBroad','rawScore','learningAdjustmentAtEntry','adjustedScore','entryPrice','stop','target','status','result','resultAt','mfePct','maePct','realizedR','grossReturnPct','netReturnPct'];
+  const cols=['shadowAt','symbol','assetClass','assetSession','direction','strategyLabel','marketRegime','stateLabel','tierAtEntry','finalTier','notified','learningEligible','shadowProgress','blockReasons','stateKeyCore','stateKeyBroad','rawScore','learningAdjustmentAtEntry','adjustedScore','entryPrice','stop','target','status','result','resultAt','mfePct','maePct','realizedR','grossReturnPct','netReturnPct','researchRevisionAtEntry','coreBuildAtEntry','assetClass','primaryBlockClass','blockClassFlags','scoreMeaning','scoreBucket','netR','mentorModelVersion','institutionalEdgeAtEntry','costRatioAtEntry','strategyNetPfAtEntry','strategyNetExpRAtEntry','mentorConfidenceAtEntry','mentorForwardStatusAtEntry'];
   const escCsv=v=>{if(v==null)return'';const x=String(v);return /[",\n\r]/.test(x)?`"${x.replace(/"/g,'""')}"`:x};
-  const rows=shadowPerformance.filter(x=>x?.version==='V10.2.2').map(x=>({...x,blockReasons:Array.isArray(x.blockReasons)?x.blockReasons.join('｜'):x.blockReasons||'',stateKeyCore:x.stateKeys?.core||'',stateKeyBroad:x.stateKeys?.broad||''})),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');
-  res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=shadow-performance-v1022-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
+  const rows=shadowPerformance.filter(x=>x?.version==='V10.2.2').map(x=>({...x,blockReasons:Array.isArray(x.blockReasons)?x.blockReasons.join('｜'):x.blockReasons||'',stateKeyCore:x.stateKeys?.core||'',stateKeyBroad:x.stateKeys?.broad||'',assetClass:x.assetClassAtEntry||researchAssetClass(x.symbol),primaryBlockClass:x.primaryBlockClassAtEntry||researchPrimaryBlockClass(x),blockClassFlags:Array.isArray(x.blockClassFlagsAtEntry)?x.blockClassFlagsAtEntry.join('|'):researchBlockClasses(x).join('|'),scoreMeaning:x.scoreMeaning||RESEARCH_LAYER_SCORE_MEANING,scoreBucket:researchScoreBucket(x.rawScore),netR:researchNetR(x)})),csv=[cols.join(','),...rows.map(x=>cols.map(k=>escCsv(x[k])).join(','))].join('\n');
+  res.setHeader('Content-Type','text/csv; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename=shadow-performance-v1022-research-${new Date().toISOString().slice(0,10)}.csv`);res.send('\uFEFF'+csv);
 });
 app.post('/api/notification-received',(req,res)=>{const id=String(req.body?.id||'');if(!id)return res.status(400).json({ok:false});const found=performanceApplyNotificationAck('received',id,req.body?.at);res.json({ok:true,found});});
 app.post('/api/notification-click',(req,res)=>{const id=String(req.body?.id||'');if(!id)return res.status(400).json({ok:false});const found=performanceApplyNotificationAck('clicked',id,req.body?.at);res.json({ok:true,found});});
+app.get('/api/research-diagnostics',(_req,res)=>{try{res.json({ok:true,...researchDiagnostics(true)})}catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}});
+app.get('/api/research-audit',(_req,res)=>{try{const audit=researchEnsureAudit({checkpoint:true});res.json({ok:true,revision:RESEARCH_LAYER_REVISION,releaseDate:RESEARCH_LAYER_RELEASE_DATE,coreBuild:BUILD_VERSION,coreRulesChanged:false,audit})}catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}});
 app.get('/api/realtime', (_req,res)=>res.json({ok:true,generatedAt:new Date().toISOString(),...realtimeHealthSnapshot()}));
 
 app.get('/api/self-test', async (req,res)=>{
@@ -5230,11 +6813,27 @@ app.get('/api/self-test', async (req,res)=>{
   res.json({ok:checks.every(x=>x.ok),version:BUILD_VERSION,live,generatedAt:new Date().toISOString(),checks,liveRows,realtime,performance:{records:signalPerformance.filter(x=>x.version==='V10.0').length,shadowRecords:shadowPerformance.filter(x=>x.version==='V10.2.2').length}});
 });
 
-app.get('/api/test-signals', async (req, res) => {
+/* TEST_SIGNALS_NONBLOCKING_V256_20260902 */
+app.get('/api/test-signals', (req, res) => {
   try {
     const force = String(req.query?.force || '') === '1';
-    if (force || !testSignalLastRunAt || Date.now() - testSignalLastRunAt > TEST_SIGNAL_SCAN_MS * 1.5) await runTestSignalScan(force);
-    res.json(testSignalResponse());
+    const stale = !testSignalLastRunAt || Date.now() - testSignalLastRunAt > TEST_SIGNAL_SCAN_MS * 1.5;
+    const shouldScan = force || stale;
+
+    // Critical stability rule: UI/API callers receive the latest completed snapshot immediately.
+    // Network-heavy multi-timeframe scanning is scheduled after the response path and cannot hold
+    // System Growth or the main trading tabs hostage.
+    const snapshot = testSignalResponse();
+    if (shouldScan && !testSignalBusy) {
+      setImmediate(() => {
+        void runTestSignalScan(force).catch(err => {
+          testSignalLastError = String(err?.message || err);
+          console.warn('[test-signal:v256-bg]', testSignalLastError);
+        });
+      });
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ...snapshot, scanScheduled: shouldScan, scanBusy: !!testSignalBusy, responseMode: 'NON_BLOCKING_V256' });
   } catch (err) {
     res.status(503).json({ ok:false, error:String(err?.message || err) });
   }
@@ -5260,17 +6859,21 @@ app.get('/api/data-probe', async (req, res) => {
   }catch(e){res.status(502).json({ok:false,symbol,error:String(e?.message||e)})}
 });
 
-app.post('/api/test-signal-push', async (_req, res) => {
+app.post('/api/test-signal-push', async (req, res) => {
   try {
-    await sendPush({
-      title:'測試｜多策略觀察完成 82',
-      body:'BTCUSDT 做多｜突破回測 · 校準 68.4%｜點開策略判讀',
-      tag:`test-signal-demo-${Date.now()}`,
+    const endpoint=String(req.body?.endpoint||'');
+    const result=await sendPush({
+      title:'影子測試｜A級通知通道正常',
+      body:'BTCUSDT 做多｜測試用 A 級訊號，不會寫入績效或學習樣本。',
+      tag:`shadow-test-${Date.now()}`,
       renotify:true,
       data:{url:'/?page=monitor&testSignal=BTCUSDT&dir=LONG'},
-    }, { testSignal:true });
-    res.json({ok:true});
-  } catch (e) { res.status(500).json({error:String(e?.message||e)}); }
+    }, {forceTest:true,endpoint:endpoint||null});
+    if(result.sent<1)return res.status(503).json({ok:false,error:'NO_PUSH_SENT',...result,subscriptions:loadSubRecords().length});
+    res.json({ok:true,...result,subscriptions:loadSubRecords().length});
+  } catch (e) {
+    res.status(500).json({ok:false,error:String(e?.message||e)});
+  }
 });
 
 app.get('/api/daily-brief', async (req, res) => {
@@ -5297,7 +6900,7 @@ app.get('/api/config', (_req, res) => {
     dailyBrief: { aiReady: Boolean(OPENAI_API_KEY), model: OPENAI_API_KEY ? OPENAI_MODEL : null, schedule:'08:05 Asia/Taipei', manualRefresh:true, runtime:{project:RUNTIME_PROJECT||null,service:RUNTIME_SERVICE||null,version:BUILD_VERSION} },
     rankedIdeas: { symbols: IDEA_SYMBOLS, cacheMs: IDEA_CACHE_MS, webAnalysisOnDemand:true, webAnalysisCacheMs:SYMBOL_ANALYSIS_CACHE_MS },
     dataMax: { primary:'Binance', fallbacks:ENABLE_CROSS_EXCHANGE?['Binance成交資料','Bybit','OKX']:['Binance成交資料'], crossExchange:ENABLE_CROSS_EXCHANGE, probe:'/api/data-probe?symbol=BTCUSDT' },
-    testSignals: { scanMs: TEST_SIGNAL_SCAN_MS, max: TEST_SIGNAL_MAX, confirmScore: TEST_SIGNAL_CONFIRM_SCORE, weakFlags: TEST_MONITOR_WEAK_FLAGS, stateBars: TEST_MONITOR_STATE_BARS, routeToMonitor: true, lifecycle: true, reentry:true, reentryScore:TEST_REENTRY_SCORE, reentryConfirmBars:TEST_REENTRY_CONFIRM_BARS },
+    testSignals: { scanMs: TEST_SIGNAL_SCAN_MS, max: TEST_SIGNAL_MAX, confirmScore: TEST_SIGNAL_CONFIRM_SCORE, weakFlags: TEST_MONITOR_WEAK_FLAGS, stateBars: TEST_MONITOR_STATE_BARS, routeToMonitor: true, lifecycle: true, reentry:true, reentryScore:TEST_REENTRY_SCORE, reentryConfirmBars:TEST_REENTRY_CONFIRM_BARS, structureEngine:{version:STRUCTURE_ENGINE_VERSION,minLearningSample:STRUCTURE_V2_MIN_SAMPLE,maxAdjustment:STRUCTURE_V2_MAX_ADJUST,notifyMinHealth:STRUCTURE_V2_NOTIFY_MIN_HEALTH,notifyMinConfidence:STRUCTURE_V2_NOTIFY_MIN_CONFIDENCE,notifyCooldownMinutes:Math.round(STRUCTURE_V2_NOTIFY_COOLDOWN_MS/60000)} },
     pushReady: true,
     traders: TRADERS,
     eventTypes: EVENT_TYPES,
@@ -5598,47 +7201,69 @@ app.post('/api/preferences', (req, res) => {
 });
 
 app.post('/api/test-push', async (req, res) => {
-  const traderId = TRADER_IDS.has(req.body?.traderId)
-    ? req.body.traderId
-    : TRADERS[0].id;
-
-  const trader = TRADER_BY_ID.get(traderId);
-
   try {
-    await sendPush({
-      title: `${trader.name}｜做多`,
-      body: 'BTCUSDT｜77,452.8',
-      tag: `test-${Date.now()}`,
-      renotify: true,
-      data: { url: '/' },
-    }, {
-      traderId,
-      eventType: 'OPEN',
-    });
-
-    res.json({ ok: true });
+    const endpoint=String(req.body?.endpoint||'');
+    const result=await sendPush({
+      title:'推播測試｜通知通道正常',
+      body:'如果你看到這則，Service Worker、VAPID、Subscription、Railway Web Push 都正常。',
+      tag:`notify-test-${Date.now()}`,
+      renotify:true,
+      data:{url:'/?page=monitor'},
+    }, {forceTest:true,endpoint:endpoint||null});
+    if(result.sent<1)return res.status(503).json({ok:false,error:'NO_PUSH_SENT',...result,subscriptions:loadSubRecords().length});
+    res.json({ok:true,...result,subscriptions:loadSubRecords().length});
   } catch (e) {
-    res.status(500).json({ error: String(e?.message || e) });
+    res.status(500).json({ok:false,error:String(e?.message||e)});
   }
 });
 
-app.post('/api/test-pullback-push', async (_req, res) => {
+app.post('/api/test-pullback-push', async (req, res) => {
   try {
-    await sendPush({
-      title: '熬鷹資本｜一般回踩',
-      body: 'BTCUSDT 做多｜77,452.8｜回撤 38.2%｜點開TV確認',
-      tag: `test-pullback-${Date.now()}`,
-      renotify: true,
-      data: { url: tradingViewLaunchUrl('BTCUSDT') },
-    }, {
-      traderId: CORE_TRADER_ID,
-      eventType: 'PULLBACK',
-    });
-    res.json({ ok: true });
+    const endpoint=String(req.body?.endpoint||'');
+    const result=await sendPush({
+      title:'策略測試｜影子通知通道正常',
+      body:'BTCUSDT 做多｜這是測試，不是進場訊號。',
+      tag:`shadow-test-${Date.now()}`,
+      renotify:true,
+      data:{url:'/?page=monitor&testSignal=BTCUSDT&dir=LONG'},
+    }, {forceTest:true,endpoint:endpoint||null});
+    if(result.sent<1)return res.status(503).json({ok:false,error:'NO_PUSH_SENT',...result,subscriptions:loadSubRecords().length});
+    res.json({ok:true,...result,subscriptions:loadSubRecords().length});
   } catch (e) {
-    res.status(500).json({ error: String(e?.message || e) });
+    res.status(500).json({ok:false,error:String(e?.message||e)});
   }
 });
+
+// RAILWAY_HOBBY_V267: lightweight capacity telemetry for checking whether Hobby resources are actually useful.
+function hobbyDirectoryBytesV267(dir){
+  let total=0;try{for(const name of fs.readdirSync(dir)){const p=path.join(dir,name);try{const st=fs.statSync(p);if(st.isFile())total+=st.size;else if(st.isDirectory()&&name==='backups-v267')for(const sub of fs.readdirSync(p)){try{total+=fs.statSync(path.join(p,sub)).size}catch{}}}catch{}}}catch{}return total
+}
+function hobbyDiskV267(){
+  try{const x=fs.statfsSync(DATA_DIR),block=Number(x.bsize||x.frsize||4096);return {totalBytes:Number(x.blocks||0)*block,freeBytes:Number(x.bavail||x.bfree||0)*block}}catch{return {totalBytes:null,freeBytes:null}}
+}
+app.get('/api/runtime-capacity', (_req,res)=>{
+  const mem=process.memoryUsage(),disk=hobbyDiskV267();
+  res.json({ok:true,profile:'HOBBY_V267',uptimeSec:Math.round(process.uptime()),memory:{rssBytes:mem.rss,heapUsedBytes:mem.heapUsed,heapTotalBytes:mem.heapTotal},storage:{dataDir:DATA_DIR,dataBytes:hobbyDirectoryBytesV267(DATA_DIR),...disk},learning:{shadowRecords:shadowPerformance.length,shadowMax:SHADOW_MAX_RECORDS,performanceRecords:signalPerformance.length,performanceMax:PERF_HISTORY_MAX_RECORDS,backupKeepDays:HOBBY_BACKUP_KEEP_DAYS},cache:{backtestTtlMs:BACKTEST_CACHE_MS}})
+});
+
+app.get('/api/push-health', (_req,res)=>{
+  const records=loadSubRecords(),manual=typeof manualPrefRows==='function'?manualPrefRows():[];
+  res.json({
+    ok:true,
+    version:'V2.6.65',
+    subscriptions:records.length,
+    autoShadowEnabled:records.filter(x=>x?.testSignalEnabled===true).length,
+    manualShadowEnabled:manual.filter(x=>x?.enabled===true).length,
+    coreTraderEnabled:records.filter(x=>(x?.enabledTraders||[]).includes(CORE_TRADER_ID)).length,
+    vapidPublicFingerprint:String(vapid?.publicKey||'').slice(0,8)+'…'+String(vapid?.publicKey||'').slice(-6),
+    tests:{general:'/api/test-push',shadow:'/api/test-signal-push'},
+    policy:'CORE_TRADER + FORMAL_SHADOW_A_B; USER_TEST_BYPASS_ONLY'
+  });
+});
+
+app.get('/api/shadow-bootcamp-v2681',(_req,res)=>{try{res.json(bootcampSummaryV2681())}catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}});
+
+app.get('/api/shadow-mentor',(_req,res)=>{try{res.set('cache-control','private, max-age=10');res.json(mentorTrainingSummaryV2622())}catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}});
 
 app.get('/healthz', (_req, res) => {
   const rows = [...states.values()];
@@ -5657,6 +7282,8 @@ app.get('/healthz', (_req, res) => {
 
 if (process.env.UNIT_TEST !== '1') {
   app.listen(PORT, () => {
+    researchEnsureAudit({checkpoint:true});
+    console.log(`[research-layer] ${RESEARCH_LAYER_REVISION} · core=${BUILD_VERSION} · research-only`);
     console.log(`Position Alert V10.2.7 SOLO MAX RECOVERABLE MONITOR started on ${PORT}`);
     console.log(`Tracking: ${TRADERS.map(t => `${t.name}(${t.id})`).join(', ')}`);
     loop();
@@ -5665,6 +7292,7 @@ if (process.env.UNIT_TEST !== '1') {
     screenTimer = setTimeout(screenLoop, 16000);
     dailyBriefTimer = setTimeout(dailyBriefLoop, 25000);
     testSignalTimer = setTimeout(testSignalLoop, 8000);
+    manualOpportunityTimer=setTimeout(manualOpportunityLoop,12000);
     performanceTimer=setInterval(performanceTrackerFallback,1000);performanceTimer.unref?.();
     scheduleNextFiveMinuteScan();
     startRealtime();
@@ -5678,12 +7306,14 @@ process.on('SIGTERM', () => {
   if (screenTimer) clearTimeout(screenTimer);
   if (dailyBriefTimer) clearTimeout(dailyBriefTimer);
   if (testSignalTimer) clearTimeout(testSignalTimer);
+  if (manualOpportunityTimer) clearTimeout(manualOpportunityTimer);
   if (testBarTimer) clearTimeout(testBarTimer);
   if (performanceTimer) clearInterval(performanceTimer);
   if (performanceSaveTimer) clearTimeout(performanceSaveTimer);
   if (shadowPerformanceSaveTimer) clearTimeout(shadowPerformanceSaveTimer);
   if (actualTradeSaveTimer) clearTimeout(actualTradeSaveTimer);
-  saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance.slice(0,1200));
+  researchEnsureAudit({checkpoint:true});
+  saveJson(SIGNAL_PERFORMANCE_FILE,signalPerformance.slice(0,PERF_HISTORY_MAX_RECORDS));
   saveJson(SHADOW_PERFORMANCE_FILE,shadowPerformance.slice(0,SHADOW_MAX_RECORDS));
   saveJson(ACTUAL_TRADE_FILE,actualTrades.slice(0,1500));
   stopRealtime();
@@ -5735,3 +7365,113 @@ export {
   sendTestLifecyclePush,
   analyzeTestTracker,
 };
+
+// STRUCTURE_ENGINE_V21_20260902
+
+
+/* CANDIDATE_UI_NOTIFY_CUSTOM_V2673_20260904 */
+const NOTIFICATION_CUSTOM_FILE_V2673=path.join(DATA_DIR,'notification-custom-v2673.json');
+const CANDIDATE_NOTICE_DEDUP_FILE_V2673=path.join(DATA_DIR,'candidate-notice-dedup-v2673.json');
+const CANDIDATE_NOTICE_REARM_MS_V2673=30*60*1000;
+const CANDIDATE_NOTICE_SCAN_MS_V2673=90*1000;
+let candidateNoticeBusyV2673=false;
+
+function notificationCustomPrefsV2673(){
+  const raw=loadJson(NOTIFICATION_CUSTOM_FILE_V2673,{});
+  const formal=String(raw?.formalMode||'AB').toUpperCase();
+  const candidate=String(raw?.candidateMode||'OFF').toUpperCase();
+  const minWin=Math.max(45,Math.min(80,Number(raw?.candidateMinWinRate??55)));
+  return {
+    formalMode:['A','AB'].includes(formal)?formal:'AB',
+    candidateMode:['OFF','PRIME','WATCH','ALL'].includes(candidate)?candidate:'OFF',
+    candidateMinWinRate:minWin,
+    updatedAt:raw?.updatedAt||null
+  };
+}
+function saveNotificationCustomPrefsV2673(next={}){
+  const old=notificationCustomPrefsV2673();
+  const formal=String(next?.formalMode??old.formalMode).toUpperCase();
+  const candidate=String(next?.candidateMode??old.candidateMode).toUpperCase();
+  const minWin=Math.max(45,Math.min(80,Number(next?.candidateMinWinRate??old.candidateMinWinRate)));
+  const out={
+    formalMode:['A','AB'].includes(formal)?formal:old.formalMode,
+    candidateMode:['OFF','PRIME','WATCH','ALL'].includes(candidate)?candidate:old.candidateMode,
+    candidateMinWinRate:minWin,
+    updatedAt:new Date().toISOString()
+  };
+  saveJson(NOTIFICATION_CUSTOM_FILE_V2673,out);
+  return out;
+}
+function candidateNoticeModeAllowsV2673(mode,band){
+  const b=String(band||'').toUpperCase(),m=String(mode||'OFF').toUpperCase();
+  if(m==='PRIME')return b==='PRIME';
+  if(m==='WATCH')return ['PRIME','WATCH'].includes(b);
+  if(m==='ALL')return ['PRIME','WATCH','RELATIVE','RESEARCH'].includes(b);
+  return false;
+}
+function candidateNoticeDedupV2673(){
+  const x=loadJson(CANDIDATE_NOTICE_DEDUP_FILE_V2673,{});
+  return x&&typeof x==='object'&&!Array.isArray(x)?x:{};
+}
+function candidateNoticeCanSendV2673(symbol,direction,now=Date.now()){
+  const m=candidateNoticeDedupV2673(),k=[cleanFuturesSymbol(symbol),String(direction||'LONG').toUpperCase()].join('|');
+  const at=Number(m[k]||0);
+  return !(at>0&&now-at<CANDIDATE_NOTICE_REARM_MS_V2673);
+}
+function candidateNoticeMarkV2673(symbol,direction,now=Date.now()){
+  const m=candidateNoticeDedupV2673(),cut=now-24*60*60*1000;
+  for(const [k,v] of Object.entries(m))if(Number(v)<cut)delete m[k];
+  m[[cleanFuturesSymbol(symbol),String(direction||'LONG').toUpperCase()].join('|')]=now;
+  saveJson(CANDIDATE_NOTICE_DEDUP_FILE_V2673,m);
+}
+function candidateNoticeLabelV2673(band){
+  return ({PRIME:'優先候選',WATCH:'觀察候選',RELATIVE:'相對候選',RESEARCH:'研究候選'})[String(band||'').toUpperCase()]||'候選';
+}
+async function candidateNoticeTickV2673(){
+  if(candidateNoticeBusyV2673)return;
+  const pref=notificationCustomPrefsV2673();
+  if(pref.candidateMode==='OFF')return;
+  candidateNoticeBusyV2673=true;
+  try{
+    const data=await manualOpportunityResponse(false);
+    const rows=(Array.isArray(data?.rows)?data.rows:[])
+      .filter(x=>x?.candidate===true&&x?.trade?.status!=='ACTIVE')
+      .filter(x=>candidateNoticeModeAllowsV2673(pref.candidateMode,x.candidateBand))
+      .filter(x=>Number(x?.candidateWinRate||0)>=pref.candidateMinWinRate)
+      .sort((a,b)=>Number(b?.candidateScore||0)-Number(a?.candidateScore||0))
+      .slice(0,5);
+
+    for(const x of rows){
+      if(!candidateNoticeCanSendV2673(x.symbol,x.direction))continue;
+      const label=candidateNoticeLabelV2673(x.candidateBand);
+      const title='候選｜'+label+'｜'+x.symbol+' '+(x.direction==='SHORT'?'做空':'做多');
+      const body='候選勝率 '+Number(x.candidateWinRate||0).toFixed(1)+'%｜Shadow '+Math.round(Number(x.candidateScore||0))+'分｜開圖後由你決定是否出手';
+      const tag='candidate-'+x.symbol+'-'+x.direction;
+      const result=await sendPush({
+        title,body,tag,renotify:false,data:{url:'/?page=advice'}
+      },{
+        candidateNotice:true,
+        candidateBand:x.candidateBand,
+        symbol:x.symbol,
+        direction:x.direction
+      });
+      if(Number(result?.sent||0)>0)candidateNoticeMarkV2673(x.symbol,x.direction);
+    }
+  }catch(e){
+    console.warn('[v2673] candidate notice',String(e?.message||e));
+  }finally{candidateNoticeBusyV2673=false}
+}
+
+app.get('/api/notification-custom-v2673',(_req,res)=>{
+  res.json({ok:true,version:'V2.6.73',coreTrader:'熬鷹資本',coreTraderFixed:true,...notificationCustomPrefsV2673()});
+});
+app.post('/api/notification-custom-v2673',(req,res)=>{
+  try{
+    const out=saveNotificationCustomPrefsV2673(req.body||{});
+    res.json({ok:true,version:'V2.6.73',coreTrader:'熬鷹資本',coreTraderFixed:true,...out});
+  }catch(e){res.status(500).json({ok:false,error:String(e?.message||e)})}
+});
+
+setInterval(candidateNoticeTickV2673,CANDIDATE_NOTICE_SCAN_MS_V2673);
+setTimeout(candidateNoticeTickV2673,20*1000);
+

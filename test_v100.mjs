@@ -30,3 +30,5 @@ const learnGood=stateLearningAdjustmentFromStats({sample:60,hitRate:68,expectanc
 const learnBad=stateLearningAdjustmentFromStats({sample:110,hitRate:40,expectancyR:-.25,profitFactor:.65});assert.ok(learnBad<0&&learnBad>=-6);
 console.log('V10.2.2 shadow/state-learning tests passed');
 
+
+process.exit(0); // TEST_RUNNER_EXIT_V2682: imported server owns timers; unit runner must terminate after assertions.

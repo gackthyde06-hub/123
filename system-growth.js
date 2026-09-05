@@ -432,7 +432,7 @@
     const symbol=btn.dataset.symbol||'',direction=btn.dataset.direction||'LONG',key=`${symbol}:${direction}`,box=btn.closest('.sg-intel')?.querySelector('[data-sg-intel-body]');if(!box)return;
     const cached=state.intel.get(key);if(cached&&Date.now()-cached.at<2*60*60*1000){box.innerHTML=intelBody(cached.data,true);return}
     btn.disabled=true;btn.textContent='搜尋中…';box.innerHTML='<div class="sg-intel-loading">同步最新情報…</div>';
-    try{const r=await fetch(`/api/symbol-analysis?symbol=${encodeURIComponent(symbol)}&direction=${encodeURIComponent(direction)}`,{cache:'no-store'}),d=await r.json();if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);state.intel.set(key,{at:Date.now(),data:d});box.innerHTML=intelBody(d,false)}catch(e){box.innerHTML=`<div class="sg-intel-loading">情報離線 · ${esc(e?.message||'未知錯誤')}</div>`}finally{btn.disabled=false;btn.textContent='查最新情報'}
+    try{const r=await fetch(`/api/symbol-analysis?symbol=${encodeURIComponent(symbol)}&direction=${encodeURIComponent(direction)}`,{cache:'no-cache'}),d=await r.json();if(!r.ok||!d?.ok)throw new Error(d?.error||`HTTP ${r.status}`);state.intel.set(key,{at:Date.now(),data:d});box.innerHTML=intelBody(d,false)}catch(e){box.innerHTML=`<div class="sg-intel-loading">情報離線 · ${esc(e?.message||'未知錯誤')}</div>`}finally{btn.disabled=false;btn.textContent='查最新情報'}
   }
   function intelBody(d,cached){
     const good=(d.bullish||[]).slice(0,3),bad=(d.bearish||[]).slice(0,3),watch=(d.watch||[]).slice(0,3),news=(d.news||[]).slice(0,3);
@@ -455,7 +455,7 @@
   }
 
   function showToast(text){const t=rootDoc.getElementById('sgToast');if(!t)return;t.textContent=text;t.classList.add('show');clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>t.classList.remove('show'),2200)}
-  async function getJson(path,timeout=6500){const c=typeof AbortController!=='undefined'?new AbortController():null,t=c?setTimeout(()=>c.abort(),timeout):null;try{const r=await fetch(path,{cache:'no-store',...(c?{signal:c.signal}:{})});if(!r.ok)throw new Error(`${path} ${r.status}`);return await r.json()}finally{if(t)clearTimeout(t)}}
+  async function getJson(path,timeout=6500){const c=typeof AbortController!=='undefined'?new AbortController():null,t=c?setTimeout(()=>c.abort(),timeout):null;try{const r=await fetch(path,{cache:'no-cache',...(c?{signal:c.signal}:{})});if(!r.ok)throw new Error(`${path} ${r.status}`);return await r.json()}finally{if(t)clearTimeout(t)}}
   async function loadData(force=false){
     if(state.loading)return;
     if(force&&state.open&&Date.now()<Number(state.interactUntil||0))return;
@@ -474,8 +474,10 @@
     state.open=!!open;const panel=rootDoc.getElementById('sgPanel'),btn=rootDoc.getElementById('sgBrandToggle');if(!panel||!btn)return;panel.hidden=!state.open;panel.classList.toggle('open',state.open);btn.classList.toggle('active',state.open);btn.setAttribute('aria-expanded',String(state.open));try{localStorage.setItem(OPEN_KEY,state.open?'1':'0')}catch{}
     if(state.open){markInteraction(INTERACT_HOLD_MS);updateVisits();void loadData(false);startTimer()}else stopTimer();updateScrollRail()
   }
-  function startTimer(){stopTimer();state.timer=setInterval(()=>{if(state.open)void loadData(true)},60_000)}
+  function startTimer(){stopTimer();state.timer=setInterval(()=>{if(state.open&&!document.hidden)void loadData(true)},60_000)}
   function stopTimer(){if(state.timer){clearInterval(state.timer);state.timer=null}}
+  const sgVisibilityV266=()=>{if(!document.hidden&&state.open)void loadData(false)};
+  document.addEventListener('visibilitychange',sgVisibilityV266);
   function init(){
     if(rootDoc.getElementById('sgPanel'))return;const brand=rootDoc.querySelector('.brandTitle'),top=rootDoc.querySelector('.top');if(!brand||!top){setTimeout(init,180);return}
     brand.classList.add('sg-brand');const btn=rootDoc.createElement('button');btn.type='button';btn.id='sgBrandToggle';btn.className='sg-brand-toggle';btn.setAttribute('aria-expanded','false');btn.innerHTML=`<span>系統養成</span><em id="sgBrandLevel" class="sg-inline-lv"><span class="sg-lv-prefix">Lv.</span><span class="sg-lv-num">—</span></em>`;brand.appendChild(btn);
