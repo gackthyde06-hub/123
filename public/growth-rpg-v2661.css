@@ -1,0 +1,1872 @@
+
+/* V2.6.53 — REFERENCE STYLE POLISH
+   Visual baseline: the user's preferred compact System Growth screen.
+   Deep navy cards + warm gold + restrained steel blue.
+   No pale large backgrounds. No giant game-menu redesign.
+*/
+:root{
+  --v53-page:#0a0f13;
+  --v53-card:#15222c;
+  --v53-card2:#1a2934;
+  --v53-card3:#1d2d39;
+  --v53-line:#334754;
+  --v53-line-gold:rgba(211,174,104,.28);
+  --v53-gold:#d3ae68;
+  --v53-gold2:#e8c985;
+  --v53-blue:#82a9c3;
+  --v53-green:#78bd98;
+  --v53-red:#c97772;
+  --v53-text:#eee8df;
+  --v53-soft:#c9c4bb;
+  --v53-muted:#8e9aa2;
+}
+
+/* top brand */
+.v53-brand{
+  display:flex!important;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+  min-width:0;
+  padding:2px 0 4px;
+}
+.v53-monitor{
+  color:#e3c382;
+  font-family:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  font-size:29px;
+  font-weight:900;
+  line-height:1.05;
+  letter-spacing:.015em;
+  white-space:nowrap;
+  text-shadow:0 1px 0 rgba(0,0,0,.35);
+}
+.v53-growth-toggle{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  display:inline-flex!important;
+  align-items:center;
+  gap:7px;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  padding:1px 0!important;
+  margin:0!important;
+  color:inherit;
+  cursor:pointer;
+}
+.v53-slash{
+  color:#586a78;
+  font-family:Georgia,serif;
+  font-size:24px;
+  font-weight:400;
+}
+.v53-growth-name{
+  color:#e4d5b4;
+  font-size:15px;
+  font-weight:850;
+  letter-spacing:.035em;
+}
+.v53-growth-toggle>strong{
+  color:#d4b578;
+  font-size:11px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.v53-growth-toggle>i{
+  color:#8c7651;
+  font-size:11px;
+  font-style:normal;
+}
+.v53-growth-toggle.open>i{transform:rotate(180deg)}
+.v53-panel{margin:5px 0 18px;min-width:0}
+.v53-panel[hidden]{display:none!important}
+
+/* fixed visual width like the preferred screenshot */
+.v53-root{
+  width:min(100%,820px);
+  margin:0 auto;
+  display:grid;
+  gap:13px;
+  color:var(--v53-text);
+  font-family:Inter,system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
+}
+.v53-root *{box-sizing:border-box;min-width:0;animation:none!important;transition:none!important}
+.v53-root b,.v53-root strong,.v53-root time{font-variant-numeric:tabular-nums}
+
+.v53-card{
+  border:1px solid var(--v53-line-gold);
+  border-radius:20px;
+  background:
+    linear-gradient(155deg,var(--v53-card2),var(--v53-card) 66%,#111c24);
+  box-shadow:
+    0 14px 30px rgba(0,0,0,.23),
+    inset 0 1px 0 rgba(255,255,255,.025);
+  padding:16px;
+  overflow:hidden;
+}
+.v53-hero{
+  background:
+    radial-gradient(circle at 8% 0,rgba(211,174,104,.13),transparent 30%),
+    radial-gradient(circle at 92% 0,rgba(72,110,143,.16),transparent 29%),
+    linear-gradient(145deg,#1c2d39,#15242f 66%,#101b23);
+}
+.v53-hero-title{
+  display:grid;
+  grid-template-columns:64px minmax(0,1fr);
+  gap:13px;
+  align-items:center;
+}
+.v53-emblem{
+  width:62px;height:62px;
+  display:grid;place-items:center;
+  border:1px solid #5b533f;
+  border-radius:15px;
+  background:#21313b;
+}
+.v53-emblem svg{width:31px;height:31px;fill:none;stroke:#d6ad61;stroke-width:2}
+.v53-hero-title>div:last-child>span{
+  display:block;
+  color:#b8965e;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.16em;
+}
+.v53-hero h2{
+  margin:4px 0 0;
+  color:#f0d59d;
+  font-size:22px;
+  font-weight:850;
+}
+.v53-hero p{
+  margin:6px 0 0;
+  max-width:610px;
+  color:#a3adb3;
+  font-size:10px;
+  line-height:1.55;
+}
+.v53-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:9px;
+  margin-top:14px;
+}
+.v53-summary>div{
+  min-height:91px;
+  padding:11px 12px;
+  border:1px solid #354754;
+  border-radius:13px;
+  background:linear-gradient(145deg,#1d2c37,#182630);
+}
+.v53-summary span,.v53-summary small{display:block;color:#8c989f;font-size:8px}
+.v53-summary b{display:block;margin:8px 0 5px;color:#eee8df;font-size:20px;font-weight:760}
+.v53-summary b.gold{color:#e3b95f}
+.v53-summary b.blue{color:#9abadd}
+.v53-warning{
+  display:grid;
+  grid-template-columns:19px minmax(0,1fr);
+  gap:7px;
+  align-items:start;
+  margin-top:11px;
+  padding:9px 11px;
+  border:1px solid #4e4636;
+  border-radius:11px;
+  background:#1b2429;
+  color:#b7a582;
+  font-size:8.8px;
+  line-height:1.45;
+}
+.v53-warning i{color:#d0a558;font-style:normal}
+.v53-warning.quiet{border-color:#364751;color:#899ba5;background:#18242c}
+
+.v53-section-head{
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr);
+  gap:10px;
+  align-items:center;
+  margin-bottom:12px;
+  padding:11px 12px;
+  border:1px solid #354752;
+  border-radius:13px;
+  background:linear-gradient(145deg,#22313b,#1b2933);
+}
+.v53-section-head.compact{padding:10px 11px}
+.v53-section-icon{
+  width:39px;height:39px;
+  display:grid;place-items:center;
+  border:1px solid #5c543f;
+  border-radius:11px;
+  background:#263640;
+}
+.v53-section-icon svg{width:23px;height:23px;fill:none;stroke:#d2a958;stroke-width:2.3}
+.v53-section-head h3{margin:0;color:#efd49c;font-size:16px}
+.v53-section-head p{margin:3px 0 0;color:#909aa1;font-size:8.5px}
+
+.v53-attrs{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+.v53-attr{
+  min-height:92px;
+  padding:11px 12px;
+  border:1px solid #354752;
+  border-radius:13px;
+  background:linear-gradient(145deg,#1d2c37,#182630);
+}
+.v53-attr-top{
+  display:grid;
+  grid-template-columns:36px minmax(0,1fr) auto;
+  gap:9px;
+  align-items:center;
+}
+.v53-attr-icon{
+  width:34px;height:34px;
+  display:grid;place-items:center;
+  border:1px solid #514d3d;
+  border-radius:10px;
+  background:#24343e;
+}
+.v53-attr-icon svg{width:20px;height:20px;fill:none;stroke:#cda656;stroke-width:2.2}
+.v53-attr-top b{display:block;color:#d9c6a1;font-size:10px}
+.v53-attr-top small{display:block;margin-top:3px;color:#818e96;font-size:7.7px;line-height:1.3}
+.v53-attr-top strong{color:#eee6dc;font-size:20px;font-weight:700}
+.v53-attr>i{
+  display:block;
+  height:5px;
+  margin-top:9px;
+  border-radius:99px;
+  background:#2b3b46;
+  overflow:hidden;
+}
+.v53-attr>i u{
+  display:block;height:100%;border-radius:inherit;
+  background:linear-gradient(90deg,#98743e,#dfb76d);
+}
+
+.v53-stages{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+  padding:3px 2px 0;
+}
+.v53-stages>div{
+  position:relative;
+  text-align:center;
+  min-height:74px;
+  padding:7px 3px 5px;
+}
+.v53-stages>div:after{
+  content:"";
+  position:absolute;
+  top:20px;
+  left:calc(50% + 18px);
+  width:calc(100% - 36px);
+  height:1px;
+  background:#5b4e39;
+}
+.v53-stages>div:last-child:after{display:none}
+.v53-stages i{
+  position:relative;z-index:1;
+  width:34px;height:34px;
+  margin:auto;
+  display:grid;place-items:center;
+  border-radius:50%;
+  border:1px solid #435563;
+  background:#20313d;
+  color:#81909a;
+  font-style:normal;
+  font-size:9px;
+  font-weight:850;
+}
+.v53-stages b{display:block;margin-top:7px;color:#a0a8ad;font-size:8px}
+.v53-stages small{display:block;margin-top:2px;color:#747f87;font-size:6.8px}
+.v53-stages .done i{border-color:#77643f;color:#d3ad68}
+.v53-stages .done b{color:#b7a57f}
+.v53-stages .current i{
+  border-color:#e2bb6b;
+  background:linear-gradient(145deg,#efd08b,#d4aa5a);
+  color:#202a30;
+}
+.v53-stages .current b,.v53-stages .current small{color:#e6c47c}
+
+.v53-overall{margin-top:13px}
+.v53-overall>div{display:flex;justify-content:space-between;gap:9px;align-items:baseline}
+.v53-overall b{color:#d5b36c;font-size:10px}
+.v53-overall span{color:#89949b;font-size:8px}
+.v53-overall>i{
+  display:block;height:7px;margin-top:6px;border-radius:99px;background:#2b3b46;overflow:hidden;
+}
+.v53-overall>i u{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#9d763c,#deb66b)}
+.v53-now{
+  display:flex;gap:6px;
+  margin-top:11px;
+  padding:9px 11px;
+  border:1px solid #354651;
+  border-radius:10px;
+  background:#192630;
+  font-size:8.7px;
+}
+.v53-now b{color:#d6b25f}.v53-now span{color:#9aa4aa}
+
+.v53-quests{display:grid;gap:4px}
+.v53-quest{
+  display:grid;
+  grid-template-columns:35px minmax(0,1fr) auto;
+  gap:10px;
+  align-items:center;
+  padding:10px 3px;
+  border-bottom:1px solid #32444f;
+}
+.v53-quest:last-child{border-bottom:0}
+.v53-quest-icon{
+  width:30px;height:30px;
+  display:grid;place-items:center;
+  border:1px solid #5a4e38;
+  border-radius:50%;
+  color:#d4aa59;
+  font-size:13px;
+}
+.v53-quest b{display:block;color:#d8d1c6;font-size:9.5px}
+.v53-quest small{display:block;margin-top:3px;color:#7f8b93;font-size:7.8px}
+.v53-quest>div:nth-child(2)>i{display:block;height:5px;margin-top:7px;border-radius:99px;background:#2c3c47;overflow:hidden}
+.v53-quest u{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#a47a3c,#deb66c)}
+.v53-quest>strong{color:#dcb46a;font-size:10px}
+
+.v53-duo{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.v53-training,.v53-logs{display:grid}
+.v53-training>div,.v53-logs>div{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:8px;
+  padding:9px 2px;
+  border-bottom:1px solid #32444f;
+}
+.v53-training>div:last-child,.v53-logs>div:last-child{border-bottom:0}
+.v53-training span{color:#aaa9a3;font-size:8.8px}
+.v53-training b{color:#91b6cb;font-size:8.5px}
+.v53-logs>div{grid-template-columns:44px minmax(0,1fr)}
+.v53-logs time{color:#c79e5e;font-size:8px}
+.v53-logs span{color:#939da3;font-size:8.5px;line-height:1.4}
+.v53-empty{padding:10px 2px;color:#77838a;font-size:8.5px}
+
+.v53-research{padding:0}
+.v53-research>summary{
+  list-style:none;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 18px;
+  gap:10px;
+  align-items:center;
+  padding:14px 16px;
+  cursor:pointer;
+}
+.v53-research>summary::-webkit-details-marker{display:none}
+.v53-research>summary span{display:block;color:#b28d55;font-size:7.5px;font-weight:850;letter-spacing:.14em}
+.v53-research>summary b{display:block;margin-top:3px;color:#dfd6c8;font-size:11px}
+.v53-research>summary small{display:block;margin-top:3px;color:#7f8a91;font-size:7.5px}
+.v53-research>summary>i{color:#9c8258;font-style:normal}
+.v53-research[open]>summary>i{transform:rotate(180deg)}
+.v53-research-body{padding:0 16px 16px;border-top:1px solid #354651}
+.v53-research-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding-top:13px}
+.v53-research-stats>div{padding:9px 0;border-bottom:1px solid #344650}
+.v53-research-stats span,.v53-research-stats small{display:block;color:#7f8b92;font-size:7.5px}
+.v53-research-stats b{display:block;margin:4px 0;color:#ded7ce;font-size:15px}
+.v53-research-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+.v53-research-cols h4{margin:0 0 7px;color:#ceb47f;font-size:9px}
+.v53-abc{display:grid;gap:5px}
+.v53-abc>div{display:grid;grid-template-columns:25px 1fr auto;gap:7px;align-items:center;padding:7px 0;border-bottom:1px solid #31434e}
+.v53-abc strong{color:#d9b46a;font-size:13px}
+.v53-abc span{color:#87939a;font-size:7.5px}
+.v53-abc b{color:#c8c6c0;font-size:7.5px}
+.v53-abc small{grid-column:2/-1;color:#77838a;font-size:7px}
+.v53-patterns>div{padding:7px 0;border-bottom:1px solid #31434e}
+.v53-patterns span{display:block;color:#7f8a91;font-size:7px}
+.v53-patterns b{display:block;margin-top:3px;color:#c8c6bf;font-size:7.8px;line-height:1.4}
+.v53-recent-title{margin-top:14px;color:#ceb47f;font-size:9px;font-weight:800}
+.v53-recent{display:grid;margin-top:5px}
+.v53-recent>div{display:grid;grid-template-columns:48px minmax(0,1fr) 62px 55px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #31434e}
+.v53-recent span{color:#82929b;font-size:7px}
+.v53-recent b{color:#d6d1c9;font-size:8.5px}
+.v53-recent small{color:#8a949a;font-size:7px}
+.v53-recent strong{text-align:right;color:#c5aa75;font-size:8px}
+
+@media(max-width:640px){
+  .v53-root{gap:11px}
+  .v53-card{padding:13px;border-radius:17px}
+  .v53-monitor{font-size:24px}
+  .v53-growth-name{font-size:14px}
+  .v53-summary{grid-template-columns:1fr 1fr}
+  .v53-summary>div{min-height:83px}
+  .v53-attrs{grid-template-columns:1fr 1fr}
+  .v53-duo{grid-template-columns:1fr}
+  .v53-research-stats{grid-template-columns:1fr 1fr}
+  .v53-research-cols{grid-template-columns:1fr}
+}
+@media(max-width:430px){
+  .v53-brand{gap:6px}
+  .v53-monitor{font-size:21px}
+  .v53-slash{font-size:19px}
+  .v53-growth-name{font-size:12px}
+  .v53-growth-toggle>strong{font-size:9px}
+  .v53-hero-title{grid-template-columns:53px minmax(0,1fr);gap:10px}
+  .v53-emblem{width:51px;height:51px;border-radius:13px}
+  .v53-emblem svg{width:27px;height:27px}
+  .v53-hero h2{font-size:19px}
+  .v53-hero p{font-size:9px}
+  .v53-summary>div{padding:9px 10px;min-height:77px}
+  .v53-summary b{font-size:18px}
+  .v53-section-head{grid-template-columns:40px minmax(0,1fr);padding:9px 10px}
+  .v53-section-icon{width:34px;height:34px}
+  .v53-section-head h3{font-size:14px}
+  .v53-section-head p{font-size:7.8px}
+  .v53-attr{padding:9px 10px}
+  .v53-attr-top{grid-template-columns:31px minmax(0,1fr) auto;gap:7px}
+  .v53-attr-icon{width:29px;height:29px}
+  .v53-attr-top strong{font-size:17px}
+  .v53-attr-top b{font-size:9px}
+  .v53-attr-top small{font-size:7px}
+  .v53-stages{gap:3px}
+  .v53-stages>div{min-height:66px;padding-left:0;padding-right:0}
+  .v53-stages i{width:29px;height:29px}
+  .v53-stages b{font-size:7.2px}
+  .v53-stages small{font-size:6px}
+  .v53-stages>div:after{left:calc(50% + 15px);width:calc(100% - 30px);top:18px}
+  .v53-recent>div{grid-template-columns:40px minmax(0,1fr) 52px 45px;gap:5px}
+}
+
+
+/* V2.6.54 — preferred V53 visual + expandable/gameplay logic */
+
+/* Background separation: app/panel darker, cards clearly one level above. */
+.v53-panel{
+  padding:12px 0 18px;
+  background:
+    radial-gradient(circle at 50% 0,rgba(69,100,122,.09),transparent 30%),
+    linear-gradient(180deg,#0b1217,#0d161c);
+}
+.v53-root{font-size:15px}
+.v53-card{
+  background:
+    linear-gradient(155deg,#1c2c37,#14232d 68%,#101b22)!important;
+  border-color:rgba(211,174,104,.25)!important;
+}
+.v53-card:nth-child(even){
+  background:
+    linear-gradient(155deg,#1e303b,#162630 68%,#111d24)!important;
+}
+
+/* Larger typography */
+.v53-monitor{font-size:31px}
+.v53-growth-name{font-size:17px}
+.v53-growth-toggle>strong{font-size:12px}
+.v53-hero-title>div:last-child>span{font-size:9px}
+.v53-hero h2{font-size:24px}
+.v53-hero p{font-size:11px}
+.v53-summary span,.v53-summary small{font-size:9px}
+.v53-summary b{font-size:22px}
+.v53-warning{font-size:9.7px}
+.v53-section-head h3{font-size:18px}
+.v53-section-head p{font-size:9.5px}
+.v53-stages b{font-size:9px}
+.v53-stages small{font-size:7.4px}
+.v53-now{font-size:9.5px}
+.v53-training span,.v53-training b{font-size:9.5px}
+.v53-logs time{font-size:8.7px}
+.v53-logs span{font-size:9.3px}
+
+/* Game logic, integrated instead of replacing the preferred UI */
+.v54-game-line{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+  margin-top:13px;
+  padding:9px 0 1px;
+  border-top:1px solid rgba(211,174,104,.18);
+}
+.v54-game-line>div{
+  padding:4px 8px 7px;
+  border-left:2px solid rgba(211,174,104,.35);
+}
+.v54-game-line span{display:block;color:#82919a;font-size:8px;letter-spacing:.08em}
+.v54-game-line b{display:block;margin-top:3px;color:#d6b56f;font-size:12px}
+
+/* Expandable role-status cards keep the original 3x2 grid. */
+.v54-attr{
+  border:1px solid #354752;
+  border-radius:13px;
+  background:linear-gradient(145deg,#1d2c37,#182630);
+  overflow:hidden;
+}
+.v54-attr>summary{
+  list-style:none;
+  display:grid;
+  grid-template-columns:36px minmax(0,1fr) auto 14px;
+  gap:9px;
+  align-items:center;
+  min-height:89px;
+  padding:11px 12px;
+  cursor:pointer;
+}
+.v54-attr>summary::-webkit-details-marker{display:none}
+.v54-attr>summary>div:nth-child(2)>b{display:block;color:#ddc9a3;font-size:11px}
+.v54-attr>summary>div:nth-child(2)>small{display:block;margin-top:3px;color:#84929a;font-size:8px;line-height:1.35}
+.v54-attr>summary>strong{color:#f0e9df;font-size:21px}
+.v54-attr>summary>em{color:#8e7650;font-size:10px;font-style:normal}
+.v54-attr>summary>i{
+  grid-column:1/-1;
+  display:block;height:5px;border-radius:99px;background:#2b3b46;overflow:hidden;
+}
+.v54-attr>summary>i u{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#98743e,#dfb76d)}
+.v54-attr[open]>summary{background:#1d2d38}
+.v54-attr[open]>summary>em{transform:rotate(180deg)}
+.v54-attr-detail{
+  padding:10px 12px 12px;
+  border-top:1px solid #314550;
+  background:#14232c;
+}
+.v54-detail-caption{display:flex;justify-content:space-between;gap:8px;margin-bottom:5px}
+.v54-detail-caption span{color:#a4895d;font-size:7.5px;letter-spacing:.10em}
+.v54-detail-caption b{color:#c9c0b1;font-size:8px}
+.v54-attr-detail>div:not(.v54-detail-caption){
+  display:flex;justify-content:space-between;gap:9px;
+  padding:6px 0;border-bottom:1px solid #2d404b;
+}
+.v54-attr-detail>div:last-child{border-bottom:0}
+.v54-attr-detail span{color:#87959c;font-size:8px}
+.v54-attr-detail b{color:#d0cbc3;font-size:8.5px;text-align:right}
+
+/* Expandable quest rows */
+.v54-quest{border-bottom:1px solid #32444f}
+.v54-quest:last-child{border-bottom:0}
+.v54-quest>summary{
+  list-style:none;
+  display:grid;
+  grid-template-columns:35px minmax(0,1fr) auto 14px;
+  gap:10px;
+  align-items:center;
+  padding:11px 3px;
+  cursor:pointer;
+}
+.v54-quest>summary::-webkit-details-marker{display:none}
+.v54-quest>summary>div:nth-child(2)>b{display:block;color:#ddd6cb;font-size:10.5px}
+.v54-quest>summary>div:nth-child(2)>small{display:block;margin-top:3px;color:#849098;font-size:8.5px}
+.v54-quest>summary>div:nth-child(2)>i{display:block;height:5px;margin-top:7px;border-radius:99px;background:#2c3c47;overflow:hidden}
+.v54-quest>summary u{display:block;height:100%;background:linear-gradient(90deg,#a47a3c,#deb66c)}
+.v54-quest>summary>strong{color:#ddb56a;font-size:11px}
+.v54-quest>summary>em{color:#917953;font-size:10px;font-style:normal}
+.v54-quest[open]>summary>em{transform:rotate(180deg)}
+.v54-quest-detail{
+  margin:0 3px 10px 45px;
+  padding:9px 11px;
+  border-left:2px solid rgba(211,174,104,.35);
+  background:#14232c;
+}
+.v54-quest-detail>div{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;padding:5px 0}
+.v54-quest-detail span{color:#829098;font-size:8px}
+.v54-quest-detail b{color:#cfc8bd;font-size:8.5px;line-height:1.4}
+.v54-quest-detail p{margin:7px 0 0;color:#8c999f;font-size:8.5px;line-height:1.45}
+
+/* Expandable daily training */
+.v54-training{border-bottom:1px solid #32444f}
+.v54-training:last-child{border-bottom:0}
+.v54-training>summary{
+  list-style:none;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto 14px;
+  gap:8px;
+  align-items:center;
+  padding:10px 2px;
+  cursor:pointer;
+}
+.v54-training>summary::-webkit-details-marker{display:none}
+.v54-training>summary span{color:#b0afa9;font-size:9.6px}
+.v54-training>summary b{color:#91b6cb;font-size:9.4px}
+.v54-training>summary i{color:#88734f;font-style:normal;font-size:9px}
+.v54-training[open]>summary i{transform:rotate(180deg)}
+.v54-training>div{
+  padding:8px 10px 10px;
+  margin-bottom:4px;
+  border-left:2px solid #4f6573;
+  background:#14232c;
+  color:#8d9aa1;
+  font-size:8.8px;
+  line-height:1.45;
+}
+
+/* Advanced game logic hidden inside Advanced Research */
+.v54-game-research{
+  display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:15px;
+}
+.v54-game-research h4{margin:0 0 7px;color:#ceb47f;font-size:9.5px}
+.v54-effects{display:grid;gap:5px}
+.v54-effects>div{
+  display:grid;grid-template-columns:18px minmax(0,1fr);gap:7px;align-items:center;
+  padding:7px 0;border-bottom:1px solid #31434e;
+}
+.v54-effects i{color:#74bd97;font-style:normal}.v54-effects .bad i{color:#ca7772}
+.v54-effects b{display:block;color:#cfcac2;font-size:8px}
+.v54-effects small{display:block;margin-top:2px;color:#7f8b92;font-size:7.5px}
+.v54-trials{display:grid}
+.v54-trials>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;padding:7px 0;border-bottom:1px solid #31434e}
+.v54-trials span{color:#8a969d;font-size:8px}
+.v54-trials b{color:#cbaa6a;font-size:8px}
+.v54-trials i{grid-column:1/-1;height:4px;background:#2d3e48}
+.v54-trials u{display:block;height:100%;background:#c29a55}
+.v54-trials .clear b{color:#78bd98}.v54-trials .clear u{background:#6daf8b}
+
+/* Clear visual separation from the lower "structure memory" style. */
+.v53-research{
+  background:linear-gradient(155deg,#182833,#111f28)!important;
+  border-color:rgba(126,153,169,.30)!important;
+}
+.v53-research>summary{background:#172630}
+.v53-research[open]>summary{background:#1a2a35}
+
+@media(max-width:640px){
+  .v53-monitor{font-size:26px}
+  .v53-growth-name{font-size:15px}
+  .v53-attrs{grid-template-columns:1fr 1fr}
+  .v54-game-research{grid-template-columns:1fr}
+}
+@media(max-width:430px){
+  .v53-monitor{font-size:23px}
+  .v53-growth-name{font-size:13px}
+  .v53-hero h2{font-size:21px}
+  .v53-hero p{font-size:10px}
+  .v54-game-line{grid-template-columns:1fr 1fr}
+  .v54-game-line>div:last-child{grid-column:1/-1}
+  .v54-attr>summary{grid-template-columns:31px minmax(0,1fr) auto 12px;padding:9px 9px}
+  .v54-attr>summary>strong{font-size:18px}
+  .v54-quest-detail{margin-left:37px}
+}
+
+
+/* =========================================================
+   V2.6.55 — STRUCTURE MEMORY UNIFIED VISUAL SYSTEM
+   The entire System Growth UI now uses the same visual grammar
+   as the existing Structure Mastery module below it.
+   ========================================================= */
+
+:root{
+  --v55-page:#080d12;
+  --v55-shell:#0d1218;
+  --v55-shell2:#0f151c;
+  --v55-cell:#0e141b;
+  --v55-cell2:#111821;
+  --v55-border:#252e3a;
+  --v55-border-soft:#202a34;
+  --v55-gold:#c7a25f;
+  --v55-gold2:#dfbc76;
+  --v55-ivory:#ece8df;
+  --v55-text:#d9dce0;
+  --v55-muted:#7f8994;
+  --v55-muted2:#6d7782;
+  --v55-blue:#8fa4bd;
+  --v55-green:#7cad91;
+  --v55-red:#c27470;
+}
+
+/* page background = same family as Structure Mastery */
+.v53-panel{
+  padding:10px 0 18px!important;
+  background:var(--v55-page)!important;
+}
+.v53-root{
+  width:min(100%,820px)!important;
+  gap:14px!important;
+  color:var(--v55-text)!important;
+}
+
+/* Every major System Growth block uses the lower module surface. */
+.v53-card,
+.v53-card:nth-child(even),
+.v53-hero,
+.v53-research{
+  background:linear-gradient(155deg,#10161d,#0c1218 72%,#0a1016)!important;
+  border:1px solid var(--v55-border)!important;
+  border-radius:20px!important;
+  box-shadow:0 16px 32px rgba(0,0,0,.30)!important;
+}
+.v53-card{padding:20px!important}
+.v53-hero{border-color:#403722!important}
+
+/* ---------------------------------------------------------
+   System Growth header = Structure Mastery header language
+   --------------------------------------------------------- */
+.v55-master-head{
+  grid-template-columns:48px minmax(0,1fr) auto!important;
+  gap:12px!important;
+  align-items:center!important;
+  padding:0 0 15px!important;
+  border-bottom:1px solid var(--v55-border)!important;
+}
+.v53-emblem{
+  width:42px!important;
+  height:42px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+.v55-diamond{
+  display:block;
+  width:27px;height:27px;
+  border:1px solid var(--v55-gold);
+  transform:rotate(45deg);
+}
+.v55-diamond.small{width:20px;height:20px;flex:0 0 auto}
+.v55-master-head h2{
+  margin:0!important;
+  color:var(--v55-ivory)!important;
+  font-size:21px!important;
+  font-weight:800!important;
+}
+.v55-master-head span{
+  display:block!important;
+  margin-top:4px!important;
+  color:#7d8497!important;
+  font-size:8px!important;
+  letter-spacing:.18em!important;
+  font-weight:800!important;
+}
+.v55-master-head>strong{
+  color:#bda168;
+  font-size:10px;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+/* compact game identity strip, no different-colored blue surface */
+.v54-game-line{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:0!important;
+  margin:13px 0 0!important;
+  padding:0!important;
+  border:1px solid var(--v55-border)!important;
+  border-radius:12px!important;
+  overflow:hidden;
+  background:var(--v55-cell)!important;
+}
+.v54-game-line>div{
+  padding:10px 12px!important;
+  border:0!important;
+  border-right:1px solid var(--v55-border)!important;
+}
+.v54-game-line>div:last-child{border-right:0!important}
+.v54-game-line span{color:var(--v55-muted)!important;font-size:8px!important}
+.v54-game-line b{color:#c5aa74!important;font-size:11px!important}
+
+/* ---------------------------------------------------------
+   2×2 metric cards exactly like Structure Mastery
+   --------------------------------------------------------- */
+.v53-summary{
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+  margin-top:12px!important;
+}
+.v53-summary>div{
+  min-height:103px!important;
+  padding:13px 14px!important;
+  border:1px solid var(--v55-border)!important;
+  border-radius:15px!important;
+  background:var(--v55-cell)!important;
+}
+.v53-summary span{
+  color:var(--v55-muted)!important;
+  font-size:9px!important;
+}
+.v53-summary b{
+  margin:7px 0 4px!important;
+  color:#e7e9ec!important;
+  font-size:25px!important;
+  line-height:1!important;
+  font-weight:760!important;
+}
+.v53-summary b.gold{color:#e0bb70!important}
+.v53-summary b.blue{color:#b0bfd0!important}
+.v53-summary small{color:#717b86!important;font-size:9px!important}
+
+/* warning/info = same warm-brown research rule banner */
+.v53-warning,
+.v53-warning.quiet{
+  margin-top:12px!important;
+  padding:11px 13px!important;
+  border:1px solid #493c25!important;
+  border-radius:13px!important;
+  background:linear-gradient(90deg,#17140f,#12120f)!important;
+  color:#9a9083!important;
+  font-size:9px!important;
+}
+.v53-warning i{color:#d0a75e!important}
+
+/* ---------------------------------------------------------
+   Section header: remove the different blue inner header boxes.
+   Diamond / title / english subtitle / meta = Structure Mastery.
+   --------------------------------------------------------- */
+.v53-section-head,
+.v53-section-head.compact{
+  display:grid!important;
+  grid-template-columns:46px minmax(0,1fr) auto!important;
+  gap:10px!important;
+  align-items:center!important;
+  margin:0 0 14px!important;
+  padding:0 0 12px!important;
+  border:0!important;
+  border-bottom:1px solid var(--v55-border)!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+.v53-section-icon{
+  width:33px!important;
+  height:33px!important;
+  border:1px solid var(--v55-gold)!important;
+  border-radius:0!important;
+  transform:rotate(45deg);
+  background:transparent!important;
+}
+.v53-section-icon svg{
+  width:20px!important;height:20px!important;
+  transform:rotate(-45deg);
+  stroke:var(--v55-gold)!important;
+}
+.v53-section-head h3{
+  margin:0!important;
+  color:var(--v55-ivory)!important;
+  font-size:18px!important;
+  font-weight:780!important;
+}
+.v53-section-head p{
+  margin-top:4px!important;
+  color:#737d91!important;
+  font-size:8px!important;
+  letter-spacing:.15em!important;
+  text-transform:uppercase;
+}
+.v55-head-meta{
+  color:#b39a68;
+  font-size:9px;
+  font-weight:650;
+  white-space:nowrap;
+}
+
+/* ---------------------------------------------------------
+   Role status layout = same 2-column stats-card grid.
+   Expand behavior from V54 remains.
+   --------------------------------------------------------- */
+.v53-attrs{
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+}
+.v54-attr{
+  border:1px solid var(--v55-border)!important;
+  border-radius:15px!important;
+  background:var(--v55-cell)!important;
+}
+.v54-attr>summary{
+  min-height:105px!important;
+  padding:13px 14px!important;
+  grid-template-columns:34px minmax(0,1fr) auto 12px!important;
+}
+.v53-attr-icon{
+  width:30px!important;height:30px!important;
+  border:0!important;border-radius:0!important;
+  background:transparent!important;
+}
+.v53-attr-icon svg{stroke:#aa8d59!important}
+.v54-attr>summary>div:nth-child(2)>b{
+  color:#cfc8bc!important;
+  font-size:11px!important;
+}
+.v54-attr>summary>div:nth-child(2)>small{
+  color:#707a84!important;
+  font-size:8px!important;
+}
+.v54-attr>summary>strong{
+  color:#e7e8eb!important;
+  font-size:24px!important;
+}
+.v54-attr>summary>em{color:#8b7654!important}
+.v54-attr>summary>i{
+  height:4px!important;
+  background:#202a34!important;
+}
+.v54-attr>summary>i u{background:linear-gradient(90deg,#846431,#d2aa60)!important}
+.v54-attr[open]>summary{background:#111821!important}
+.v54-attr-detail{
+  border-top:1px solid var(--v55-border)!important;
+  background:#0b1117!important;
+}
+.v54-detail-caption span{color:#a58959!important}
+.v54-detail-caption b,
+.v54-attr-detail b{color:#afb5bb!important}
+.v54-attr-detail span{color:#707b85!important}
+
+/* ---------------------------------------------------------
+   Growth path = dark, minimal, no blue panel.
+   --------------------------------------------------------- */
+.v53-stages{padding:8px 0 0!important}
+.v53-stages>div:after{background:#3b3427!important}
+.v53-stages i{
+  background:#111821!important;
+  border-color:#293642!important;
+  color:#707a84!important;
+}
+.v53-stages .done i{
+  border-color:#6f5b37!important;
+  color:#bd995b!important;
+}
+.v53-stages .current i{
+  background:#caa55f!important;
+  border-color:#d9b76f!important;
+  color:#10151a!important;
+}
+.v53-stages b{color:#818a93!important}
+.v53-stages .done b{color:#a49069!important}
+.v53-stages .current b,
+.v53-stages .current small{color:#c9a661!important}
+
+.v53-overall b{color:#c7a05d!important}
+.v53-overall span{color:#6e7882!important}
+.v53-overall>i{background:#202a34!important}
+.v53-overall>i u{background:linear-gradient(90deg,#846431,#d1aa60)!important}
+.v53-now{
+  border-color:var(--v55-border)!important;
+  background:#0e151c!important;
+}
+.v53-now b{color:#c6a15d!important}
+.v53-now span{color:#818b94!important}
+
+/* ---------------------------------------------------------
+   Main quests = Structure Mastery detail rows, still expandable.
+   --------------------------------------------------------- */
+.v54-quest{
+  border:1px solid var(--v55-border)!important;
+  border-radius:14px!important;
+  background:var(--v55-cell)!important;
+  margin-bottom:9px!important;
+  overflow:hidden;
+}
+.v54-quest:last-child{margin-bottom:0!important;border-bottom:1px solid var(--v55-border)!important}
+.v54-quest>summary{
+  padding:12px 13px!important;
+  grid-template-columns:31px minmax(0,1fr) auto 12px!important;
+}
+.v53-quest-icon{
+  border-color:#6a5633!important;
+  color:#c5a05d!important;
+}
+.v54-quest>summary>div:nth-child(2)>b{
+  color:#d4cec5!important;
+  font-size:10px!important;
+}
+.v54-quest>summary>div:nth-child(2)>small{color:#737d86!important}
+.v54-quest>summary>div:nth-child(2)>i{background:#202a34!important}
+.v54-quest>summary u{background:linear-gradient(90deg,#846431,#d1aa60)!important}
+.v54-quest>summary>strong{color:#c8a25e!important}
+.v54-quest-detail{
+  margin:0!important;
+  padding:10px 13px 12px!important;
+  border:0!important;
+  border-top:1px solid var(--v55-border)!important;
+  background:#0b1117!important;
+}
+.v54-quest-detail span{color:#707b85!important}
+.v54-quest-detail b{color:#afb5bb!important}
+.v54-quest-detail p{color:#77828b!important}
+
+/* ---------------------------------------------------------
+   Training + log: no visually different blue cards.
+   Same vertical module language as the lower section.
+   --------------------------------------------------------- */
+.v53-duo{
+  grid-template-columns:1fr!important;
+  gap:14px!important;
+}
+.v54-training{border-bottom:1px solid var(--v55-border)!important}
+.v54-training>summary span{color:#a8aaac!important;font-size:9.5px!important}
+.v54-training>summary b{color:#b39a68!important}
+.v54-training>div{
+  border-left-color:#6b5837!important;
+  background:#0b1117!important;
+  color:#78838c!important;
+}
+.v53-logs>div{
+  padding:10px 2px!important;
+  border-bottom:1px solid var(--v55-border)!important;
+}
+.v53-logs time{color:#b69458!important}
+.v53-logs span{color:#808b94!important;font-size:9px!important}
+
+/* ---------------------------------------------------------
+   Advanced research = SAME Structure Mastery module language.
+   --------------------------------------------------------- */
+.v53-research{
+  background:#0d131a!important;
+  border-color:var(--v55-border)!important;
+}
+.v53-research>summary{
+  padding:17px 18px!important;
+  background:#0d131a!important;
+}
+.v55-advanced-title{
+  display:flex;
+  align-items:center;
+  gap:13px;
+}
+.v55-advanced-title>b,
+.v55-advanced-title div>b{
+  color:var(--v55-ivory)!important;
+  font-size:15px!important;
+}
+.v55-advanced-title small{
+  display:block!important;
+  margin-top:4px!important;
+  color:#777f91!important;
+  font-size:7.5px!important;
+  letter-spacing:.10em!important;
+}
+.v53-research-body{
+  border-top:1px solid var(--v55-border)!important;
+  background:#0b1117!important;
+}
+.v53-research-stats{
+  grid-template-columns:1fr 1fr!important;
+  gap:10px!important;
+}
+.v53-research-stats>div{
+  padding:12px!important;
+  border:1px solid var(--v55-border)!important;
+  border-radius:14px!important;
+  background:var(--v55-cell)!important;
+}
+.v53-research-stats span,
+.v53-research-stats small{color:#737d86!important}
+.v53-research-stats b{color:#e2e4e7!important;font-size:20px!important}
+
+.v54-game-research{
+  grid-template-columns:1fr!important;
+  gap:14px!important;
+}
+.v54-effects>div,
+.v54-trials>div{
+  border-bottom-color:var(--v55-border)!important;
+}
+.v54-effects b{color:#afb4b9!important}
+.v54-effects small,
+.v54-trials span{color:#737e87!important}
+.v54-trials i{background:#202a34!important}
+.v54-trials u{background:#b48d4b!important}
+.v54-trials .clear u{background:#678b74!important}
+
+.v53-recent>div{border-bottom-color:var(--v55-border)!important}
+.v53-recent span,.v53-recent small{color:#737d87!important}
+.v53-recent b{color:#c6c9cc!important}
+.v53-recent strong{color:#b99c69!important}
+
+/* ---------------------------------------------------------
+   Top app brand: also match Structure Mastery's restrained typography.
+   --------------------------------------------------------- */
+.v53-monitor{
+  color:#d9b975!important;
+  font-size:28px!important;
+}
+.v53-growth-name{
+  color:#d3c8b2!important;
+  font-size:15px!important;
+}
+.v53-growth-toggle>strong{color:#b69a65!important}
+.v53-slash{color:#55616a!important}
+
+/* no light backgrounds from older versions */
+.v53-root [style*="background"]{}
+
+/* Responsive */
+@media(max-width:640px){
+  .v53-card{padding:15px!important}
+  .v53-summary{grid-template-columns:1fr 1fr!important}
+  .v53-attrs{grid-template-columns:1fr 1fr!important}
+}
+@media(max-width:430px){
+  .v53-monitor{font-size:24px!important}
+  .v53-growth-name{font-size:13px!important}
+  .v53-card{padding:13px!important;border-radius:17px!important}
+  .v55-master-head{grid-template-columns:40px minmax(0,1fr) auto!important}
+  .v55-master-head h2{font-size:19px!important}
+  .v53-summary>div{min-height:92px!important;padding:11px!important}
+  .v53-summary b{font-size:22px!important}
+  .v54-game-line>div{padding:9px 8px!important}
+  .v53-section-head,.v53-section-head.compact{
+    grid-template-columns:39px minmax(0,1fr) auto!important;
+  }
+  .v53-section-head h3{font-size:16px!important}
+  .v53-attrs{grid-template-columns:1fr 1fr!important}
+  .v54-attr>summary{padding:10px!important}
+  .v54-attr>summary>strong{font-size:20px!important}
+}
+
+
+/* =========================================================
+   V2.6.56 — SYSTEM DIAMOND SIGIL
+   Fill the empty System Growth diamond with a small icon
+   that matches Structure Memory / gold-line UI language.
+   ========================================================= */
+
+.v55-master-head .v55-diamond{
+  position:relative;
+  display:grid;
+  place-items:center;
+}
+
+.v56-sigil{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  transform:rotate(-45deg);
+}
+
+.v56-sigil svg{
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:#c7a25f;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.96;
+  filter:drop-shadow(0 0 1px rgba(0,0,0,.22));
+}
+
+.v56-sigil svg circle{
+  fill:rgba(199,162,95,.08);
+}
+
+@media(max-width:430px){
+  .v56-sigil svg{
+    width:14px;
+    height:14px;
+    stroke-width:1.65;
+  }
+}
+
+
+/* =========================================================
+   V2.6.57 — CENTERED DIAMONDS + TYPO POLISH
+   - all diamond icons truly centered
+   - shared icons for 進階研究資料 / 結構記憶
+   - typography, spacing, and top metric strip tuned
+   ========================================================= */
+
+/* Top brand spacing */
+.v53-brand{
+  gap:10px!important;
+  align-items:end!important;
+}
+.v53-monitor{
+  line-height:1.02!important;
+  letter-spacing:.01em!important;
+}
+.v53-growth-toggle{
+  gap:8px!important;
+  align-items:center!important;
+  transform:translateY(-1px);
+}
+.v53-growth-name{
+  line-height:1!important;
+  letter-spacing:.01em!important;
+}
+
+/* Shared diamond frame system: outer box is NOT rotated;
+   only the frame pseudo-element rotates, so the glyph stays centered. */
+.v55-master-head .v55-diamond,
+.v53-section-icon,
+.v57-shared-diamond{
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+  transform:none!important;
+  border:0!important;
+  background:transparent!important;
+  overflow:visible!important;
+}
+.v55-master-head .v55-diamond{
+  width:38px!important;
+  height:38px!important;
+}
+.v55-master-head .v55-diamond::before,
+.v53-section-icon::before,
+.v57-shared-diamond::before{
+  content:"";
+  position:absolute;
+  inset:2px;
+  border:1px solid var(--v55-gold)!important;
+  transform:rotate(45deg);
+  transform-origin:center;
+  pointer-events:none;
+}
+.v53-section-icon{
+  width:34px!important;
+  height:34px!important;
+}
+.v53-section-icon svg{
+  width:18px!important;
+  height:18px!important;
+  transform:none!important;
+  stroke:var(--v55-gold)!important;
+}
+.v55-master-head .v55-diamond.small,
+.v57-shared-diamond.v55-diamond.small{
+  width:24px!important;
+  height:24px!important;
+}
+.v55-master-head .v55-diamond.small::before,
+.v57-shared-diamond.v55-diamond.small::before{
+  inset:1px;
+}
+
+/* The main System Growth sigil */
+.v56-sigil,
+.v57-center-fix{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:18px!important;
+  height:18px!important;
+  display:grid!important;
+  place-items:center!important;
+  transform:translate(-50%,-50%)!important;
+  inset:auto!important;
+}
+.v56-sigil svg,
+.v57-center-fix svg{
+  width:16px!important;
+  height:16px!important;
+  fill:none!important;
+  stroke:#c7a25f!important;
+  stroke-width:1.7!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  opacity:.98!important;
+}
+.v56-sigil svg circle,
+.v57-center-fix svg circle{
+  fill:rgba(199,162,95,.08)!important;
+}
+
+/* Generic glyphs for cards the script decorates */
+.v57-shared-glyph{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:16px;
+  height:16px;
+  display:grid;
+  place-items:center;
+  transform:translate(-50%,-50%);
+}
+.v57-shared-glyph svg{
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:#c7a25f;
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.v57-card-structure .v57-shared-glyph svg{
+  width:15px;
+  height:15px;
+}
+.v57-card-research .v57-shared-glyph svg{
+  width:14px;
+  height:14px;
+}
+
+/* Hero/header type polish */
+.v55-master-head{
+  gap:13px!important;
+  padding-bottom:14px!important;
+}
+.v55-master-head h2{
+  line-height:1.03!important;
+  letter-spacing:.01em!important;
+}
+.v55-master-head span{
+  margin-top:5px!important;
+  line-height:1.2!important;
+  letter-spacing:.16em!important;
+}
+.v55-master-head>strong{
+  font-size:11px!important;
+  letter-spacing:.04em!important;
+}
+
+/* The top rank strip should never look like a broken grid. */
+.v54-game-line{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  align-items:stretch!important;
+}
+.v54-game-line>div{
+  min-height:64px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+.v54-game-line span{
+  display:block!important;
+  margin-bottom:5px!important;
+  line-height:1.2!important;
+  letter-spacing:.12em!important;
+}
+.v54-game-line b{
+  line-height:1.1!important;
+  letter-spacing:.01em!important;
+}
+
+/* Better number/card typography */
+.v53-summary b{
+  line-height:1.02!important;
+  letter-spacing:-.01em!important;
+}
+.v53-summary small{
+  line-height:1.3!important;
+}
+.v53-warning{
+  line-height:1.45!important;
+}
+
+/* Section headings */
+.v53-section-head h3{
+  line-height:1.08!important;
+  letter-spacing:.01em!important;
+}
+.v55-head-meta{
+  letter-spacing:.08em!important;
+}
+
+/* Role-status cards */
+.v54-attr{
+  overflow:hidden!important;
+}
+.v54-attr>summary{
+  align-items:start!important;
+  min-height:114px!important;
+}
+.v54-attr>summary>div:nth-child(2){
+  padding-top:1px;
+}
+.v54-attr>summary>div:nth-child(2)>b{
+  line-height:1.18!important;
+  letter-spacing:.005em!important;
+}
+.v54-attr>summary>div:nth-child(2)>small{
+  line-height:1.3!important;
+  margin-top:4px!important;
+}
+.v54-attr>summary>strong{
+  line-height:1!important;
+}
+.v54-attr>summary>em{
+  align-self:center!important;
+}
+
+/* Quest + research typography */
+.v54-quest>summary>div:nth-child(2)>b,
+.v55-advanced-title div>b{
+  line-height:1.16!important;
+}
+.v54-quest-detail p,
+.v53-logs span,
+.v54-training>div,
+.v54-attr-detail b{
+  line-height:1.45!important;
+}
+
+/* Make advanced research heading look centered and intentional */
+.v55-advanced-title{
+  align-items:center!important;
+}
+.v55-advanced-title div>b{
+  display:block;
+}
+.v55-advanced-title small{
+  line-height:1.35!important;
+  letter-spacing:.12em!important;
+}
+
+/* Mobile */
+@media(max-width:430px){
+  .v53-monitor{font-size:24px!important}
+  .v53-growth-name{font-size:13px!important}
+  .v55-master-head .v55-diamond{width:34px!important;height:34px!important}
+  .v56-sigil,.v57-center-fix,.v57-shared-glyph{width:14px!important;height:14px!important}
+  .v56-sigil svg,.v57-center-fix svg,.v57-shared-glyph svg{width:14px!important;height:14px!important}
+  .v54-game-line{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .v54-game-line>div{
+    min-height:58px!important;
+    padding:8px 7px!important;
+  }
+  .v54-game-line span{font-size:7px!important}
+  .v54-game-line b{font-size:10.5px!important}
+  .v54-attr>summary{
+    min-height:106px!important;
+  }
+  .v54-attr>summary>div:nth-child(2)>b{
+    font-size:10px!important;
+  }
+  .v54-attr>summary>div:nth-child(2)>small{
+    font-size:7.6px!important;
+  }
+}
+
+
+/* =========================================================
+   V2.6.58 — TRUE CENTER + STRUCTURE ICON + TYPOGRAPHY
+   ========================================================= */
+
+/* Old strip is gone from renderer; this guards stale DOM for one frame. */
+.v54-game-line{display:none!important}
+
+/* Diamond host itself never rotates. Only the frame pseudo-element rotates. */
+.v58-diamond,
+.v58-external-diamond{
+  position:relative!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  flex:0 0 auto!important;
+  transform:none!important;
+  border:0!important;
+  background:transparent!important;
+  overflow:visible!important;
+}
+
+.v58-diamond::before,
+.v58-external-diamond::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:calc(100% - 4px);
+  height:calc(100% - 4px);
+  border:1px solid #c7a25f!important;
+  transform:translate(-50%,-50%) rotate(45deg)!important;
+  transform-origin:center!important;
+  pointer-events:none;
+}
+
+.v58-diamond>svg,
+.v58-external-glyph,
+.v58-external-glyph>svg{
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  transform:translate(-50%,-50%)!important;
+  transform-origin:center!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+.v58-diamond>svg,
+.v58-external-glyph>svg{
+  width:15px!important;
+  height:15px!important;
+  fill:none!important;
+  stroke:#c7a25f!important;
+  stroke-width:1.65!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+
+.v58-system-icon{width:38px!important;height:38px!important}
+.v58-system-icon>svg{width:17px!important;height:17px!important}
+
+.v58-research-icon{width:25px!important;height:25px!important}
+.v58-research-icon>svg{width:13px!important;height:13px!important}
+
+.v58-external-diamond{width:30px!important;height:30px!important}
+.v58-external-glyph{width:16px!important;height:16px!important}
+.v58-external-glyph>svg{width:14px!important;height:14px!important}
+
+/* Kill old reverse-rotation centering rules. */
+.v56-sigil,.v57-center-fix{display:none!important}
+
+/* Font family / line-height consistency */
+.v53-root,
+.v53-brand,
+.v53-root button,
+.v53-root summary{
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif!important;
+}
+
+.v53-monitor,
+.v53-growth-name,
+.v55-master-head h2,
+.v53-section-head h3,
+.v54-attr>summary>div:nth-child(2)>b,
+.v55-advanced-title div>b{
+  font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,sans-serif!important;
+}
+
+.v53-summary b,
+.v54-attr>summary>strong,
+.v55-head-meta,
+.v53-growth-toggle>strong,
+.v55-master-head>strong{
+  font-family:Inter,"Noto Sans TC","PingFang TC",system-ui,sans-serif!important;
+  font-variant-numeric:tabular-nums!important;
+}
+
+/* Header alignment */
+.v53-brand{align-items:center!important}
+.v53-monitor{line-height:1!important}
+.v53-growth-toggle{transform:none!important;align-self:center!important}
+.v53-slash,.v53-growth-name,.v53-growth-toggle>strong,.v53-growth-toggle>i{line-height:1!important}
+
+/* System Growth header */
+.v55-master-head{align-items:center!important;gap:13px!important}
+.v55-master-head h2{line-height:1.08!important;letter-spacing:.01em!important}
+.v55-master-head span{line-height:1.25!important;letter-spacing:.15em!important}
+.v55-master-head>strong{line-height:1!important}
+
+/* Section headers */
+.v53-section-head{align-items:center!important}
+.v53-section-head h3{line-height:1.08!important}
+.v53-section-head p{line-height:1.25!important}
+
+/* Role cards: prevent ugly "Regime 適 應" type breaks */
+.v54-attr>summary{
+  grid-template-columns:31px minmax(0,1fr) auto 12px!important;
+  column-gap:9px!important;
+  align-items:start!important;
+}
+.v54-attr>summary>div:nth-child(2)>b{
+  white-space:normal!important;
+  word-break:keep-all!important;
+  overflow-wrap:normal!important;
+  line-height:1.15!important;
+}
+.v54-attr>summary>div:nth-child(2)>small{
+  word-break:normal!important;
+  overflow-wrap:break-word!important;
+  line-height:1.35!important;
+}
+.v54-attr>summary>strong{line-height:1!important}
+.v54-attr>summary>em{align-self:center!important}
+
+/* Advanced research title */
+.v55-advanced-title{
+  display:grid!important;
+  grid-template-columns:28px minmax(0,1fr)!important;
+  gap:12px!important;
+  align-items:center!important;
+}
+.v55-advanced-title div>b{display:block;line-height:1.1!important}
+.v55-advanced-title small{margin-top:5px!important;line-height:1.35!important;letter-spacing:.11em!important}
+
+@media(max-width:430px){
+  .v58-system-icon{width:34px!important;height:34px!important}
+  .v58-system-icon>svg{width:15px!important;height:15px!important}
+  .v58-research-icon{width:23px!important;height:23px!important}
+  .v54-attr>summary{grid-template-columns:28px minmax(0,1fr) auto 11px!important;column-gap:7px!important}
+  .v54-attr>summary>div:nth-child(2)>b{font-size:9.6px!important}
+}
+
+
+/* =========================================================
+   V2.6.59 — TRUE ICON CENTER + STRUCTURE HEADING ICON + NO LOCK
+   ========================================================= */
+
+/* New standalone diamond system.
+   No legacy rotate/reverse-rotate classes are used anymore. */
+.v59-diamond,
+.v59-heading-diamond{
+  position:relative!important;
+  display:inline-block!important;
+  flex:0 0 auto!important;
+  vertical-align:middle!important;
+  transform:none!important;
+  border:0!important;
+  background:transparent!important;
+  overflow:visible!important;
+  isolation:isolate!important;
+}
+.v59-diamond::before,
+.v59-heading-diamond::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:calc(100% - 4px);
+  height:calc(100% - 4px);
+  border:1px solid #c7a25f!important;
+  transform:translate(-50%,-50%) rotate(45deg)!important;
+  transform-origin:center center!important;
+}
+.v59-diamond::after,
+.v59-heading-diamond::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%)!important;
+  transform-origin:center center!important;
+  background-repeat:no-repeat!important;
+  background-position:center center!important;
+  background-size:contain!important;
+}
+
+.v59-system-icon{width:40px!important;height:40px!important}
+.v59-system-icon::after{
+  width:18px!important;height:18px!important;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23c7a25f' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'>\
+<circle cx='16' cy='16' r='4'/>\
+<path d='M16 6v5M16 21v5M6 16h5M21 16h5'/>\
+<path d='M10.6 10.6l3 3M18.4 18.4l3 3M21.4 10.6l-3 3M13.6 18.4l-3 3'/>\
+</svg>");
+}
+
+.v59-research-icon{width:24px!important;height:24px!important}
+.v59-research-icon::after{
+  width:13px!important;height:13px!important;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23c7a25f' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'>\
+<circle cx='14' cy='14' r='5.5'/>\
+<path d='m18.2 18.2 6 6'/>\
+<path d='M14 9.5v9M9.5 14h9'/>\
+</svg>");
+}
+
+/* Injected heading icon for external sections like Structure Memory */
+.v59-heading-diamond{
+  width:24px!important;
+  height:24px!important;
+  margin-right:10px!important;
+}
+.v59-heading-diamond.is-structure::after{
+  width:13px!important;height:13px!important;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23c7a25f' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'>\
+<rect x='6.5' y='6.5' width='6' height='6' rx='1'/>\
+<rect x='19.5' y='6.5' width='6' height='6' rx='1'/>\
+<rect x='6.5' y='19.5' width='6' height='6' rx='1'/>\
+<path d='M12.5 9.5h7M9.5 12.5v7M22.5 12.5v7M12.5 22.5h7'/>\
+</svg>");
+}
+.v59-empty-diamond-hide{display:none!important}
+
+/* Any legacy V58 icon hosts are fully neutralized */
+.v58-diamond,.v58-system-icon,.v58-research-icon,.v58-external-diamond{transform:none!important}
+.v58-system-icon>svg,.v58-research-icon>svg,.v58-external-glyph,.v58-external-glyph>svg{
+  display:none!important;
+}
+
+/* make the external section title line align with inserted icon */
+.v59-heading-diamond + .v55-head-meta,
+.v59-heading-diamond + h1,
+.v59-heading-diamond + h2,
+.v59-heading-diamond + h3,
+.v59-heading-diamond + h4,
+.v59-heading-diamond + b,
+.v59-heading-diamond + strong,
+.v59-heading-diamond + span,
+.v59-heading-diamond + div{
+  vertical-align:middle!important;
+}
+
+/* Stronger header alignment */
+.v55-master-head{
+  grid-template-columns:40px minmax(0,1fr) auto!important;
+  align-items:center!important;
+}
+.v55-master-head h2{
+  margin:0!important;
+  line-height:1.04!important;
+}
+.v55-master-head span{
+  display:block!important;
+  margin-top:5px!important;
+}
+.v55-master-head>strong{
+  align-self:start!important;
+  padding-top:2px!important;
+}
+
+/* Advanced research heading line */
+.v55-advanced-title{
+  grid-template-columns:24px minmax(0,1fr)!important;
+  align-items:center!important;
+}
+.v55-advanced-title > div{
+  min-width:0!important;
+}
+.v55-advanced-title small{
+  display:block!important;
+}
+
+/* Remove lock UI: class/id/aria based, and obvious floating lock buttons. */
+[id*="lock" i],
+[class*="lock" i],
+[aria-label*="lock" i],
+[title*="lock" i],
+[data-role*="lock" i],
+[data-action*="lock" i]{
+  display:none!important;
+}
+button:has(> span:only-child),
+a:has(> span:only-child),
+div:has(> span:only-child){
+  /* keep generic rule harmless; no display change here */
+}
+@media(max-width:430px){
+  .v59-system-icon{width:36px!important;height:36px!important}
+  .v59-system-icon::after{width:16px!important;height:16px!important}
+  .v59-heading-diamond{width:22px!important;height:22px!important;margin-right:8px!important}
+}
+
+/* V2.6.60 — quest icons + Structure Memory unified layout */
+.v60-quest-icon{
+  width:38px!important;height:38px!important;display:grid!important;place-items:center!important;
+  border:1px solid #765d32!important;border-radius:50%!important;background:#10171d!important;
+}
+.v60-quest-icon svg{
+  width:18px!important;height:18px!important;fill:none!important;stroke:#c7a25f!important;
+  stroke-width:1.7!important;stroke-linecap:round!important;stroke-linejoin:round!important;
+}
+.v60-quest-icon.q-edge svg{width:17px!important;height:20px!important}
+.v60-quest-icon.q-oos svg{width:19px!important;height:19px!important}
+.v60-quest-icon.q-stable svg{width:18px!important;height:19px!important}
+.v54-quest>summary{
+  grid-template-columns:40px minmax(0,1fr) auto 12px!important;
+  gap:13px!important;min-height:94px!important;padding:13px 16px!important;
+}
+.v54-quest>summary>div:nth-child(2)>b{font-size:11px!important;line-height:1.18!important}
+.v54-quest>summary>div:nth-child(2)>small{font-size:8.5px!important;line-height:1.35!important}
+.v54-quest>summary>strong{min-width:46px!important;text-align:right!important}
+
+.v59-heading-diamond,.v58-external-diamond,.v57-shared-diamond{display:none!important}
+
+.v60-structure-card{box-sizing:border-box!important;padding:20px 22px 24px!important}
+.v60-structure-head{
+  display:grid!important;grid-template-columns:38px minmax(0,1fr) auto!important;
+  gap:16px!important;align-items:center!important;width:100%!important;box-sizing:border-box!important;
+  padding:2px 2px 18px!important;margin:0 0 18px!important;border-bottom:1px solid #252e3a!important;
+}
+.v60-structure-icon{position:relative!important;width:32px!important;height:32px!important;display:block!important}
+.v60-structure-icon::before{
+  content:"";position:absolute;left:50%;top:50%;width:23px;height:23px;border:1px solid #c7a25f;
+  transform:translate(-50%,-50%) rotate(45deg);
+}
+.v60-structure-icon::after{
+  content:"";position:absolute;left:50%;top:50%;width:14px;height:14px;transform:translate(-50%,-50%);
+  background-repeat:no-repeat;background-position:center;background-size:contain;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23c7a25f' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'>\
+<rect x='6.5' y='6.5' width='6' height='6' rx='1'/><rect x='19.5' y='6.5' width='6' height='6' rx='1'/>\
+<rect x='6.5' y='19.5' width='6' height='6' rx='1'/><path d='M12.5 9.5h7M9.5 12.5v7M22.5 12.5v7M12.5 22.5h7'/>\
+</svg>");
+}
+.v60-structure-title-group{min-width:0!important;padding:0!important;margin:0!important}
+.v60-structure-title-group>*{margin-left:0!important}
+.v60-structure-sample{
+  justify-self:end!important;align-self:center!important;margin:0!important;padding:0!important;
+  color:#c3a46a!important;font-size:9px!important;letter-spacing:.08em!important;white-space:nowrap!important;
+}
+.v60-structure-inner-kicker{
+  margin:2px 2px 7px!important;color:#8596ad!important;font-size:8.5px!important;
+  line-height:1.2!important;letter-spacing:.14em!important;
+}
+.v60-structure-inner-title{
+  margin:0 2px 18px!important;color:#e9e5dd!important;font-size:19px!important;
+  line-height:1.1!important;font-weight:780!important;
+}
+.v60-structure-card>*{max-width:100%!important;box-sizing:border-box!important}
+
+@media(max-width:430px){
+  .v60-structure-card{padding:18px 18px 22px!important}
+  .v60-structure-head{
+    grid-template-columns:34px minmax(0,1fr) auto!important;gap:13px!important;
+    padding-bottom:16px!important;margin-bottom:17px!important;
+  }
+  .v60-structure-icon{width:29px!important;height:29px!important}
+  .v60-structure-icon::before{width:21px!important;height:21px!important}
+  .v60-structure-icon::after{width:12px!important;height:12px!important}
+  .v60-structure-sample{font-size:8.5px!important}
+  .v54-quest>summary{
+    grid-template-columns:36px minmax(0,1fr) auto 11px!important;gap:10px!important;padding:12px!important;
+  }
+  .v60-quest-icon{width:34px!important;height:34px!important}
+  .v60-quest-icon svg{width:16px!important;height:16px!important}
+}
+
+
+/* =========================================================
+   V2.6.61 — RESTORE ORIGINAL STRUCTURE MEMORY HEADER
+   Do NOT change Structure Memory flex/grid/layout.
+   Only fill its original empty diamond.
+   ========================================================= */
+
+/* Previous patch layout overrides are neutralized. */
+.v60-structure-card,
+.v60-structure-head,
+.v60-structure-title-group,
+.v60-structure-sample,
+.v60-structure-inner-title,
+.v60-structure-inner-kicker{
+  all:unset;
+}
+
+/* Previous injected diamonds must not exist visually. */
+.v59-heading-diamond,
+.v58-external-diamond,
+.v57-shared-diamond,
+.v60-structure-icon{
+  display:none!important;
+}
+
+/* Keep the ORIGINAL runtime diamond in its original layout.
+   No width/height/grid/margin/padding overrides here. */
+.v61-structure-original-diamond{
+  position:relative!important;
+  overflow:visible!important;
+}
+
+/* Icon is drawn inside the original diamond itself. 
+   Counter-rotate only the icon if the original host is rotated. */
+.v61-structure-original-diamond::after{
+  content:"";
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:13px!important;
+  height:13px!important;
+  transform:translate(-50%,-50%) rotate(-45deg)!important;
+  transform-origin:center center!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-size:contain!important;
+  pointer-events:none!important;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23c7a25f' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'>\
+<rect x='6.5' y='6.5' width='6' height='6' rx='1'/>\
+<rect x='19.5' y='6.5' width='6' height='6' rx='1'/>\
+<rect x='6.5' y='19.5' width='6' height='6' rx='1'/>\
+<path d='M12.5 9.5h7M9.5 12.5v7M22.5 12.5v7M12.5 22.5h7'/>\
+</svg>");
+}
+
+/* If runtime's diamond isn't transformed, JS does not alter it.
+   This fallback keeps the icon readable on square/unrotated hosts. */
+.v61-structure-original-diamond[style*="transform: none"]::after{
+  transform:translate(-50%,-50%)!important;
+}
+
+/* Do not let stale V60 mobile layout affect Structure Memory. */
+@media(max-width:430px){
+  .v61-structure-original-diamond::after{
+    width:12px!important;
+    height:12px!important;
+  }
+}
