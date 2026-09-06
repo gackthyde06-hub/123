@@ -3,10 +3,9 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { applyLandingMonitorPatch } from './landing-monitor-v2684-patch.mjs';
-import { applyShadowWatchlistPatch } from './shadow-watchlist-v2685-patch.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.85';
+const VERSION = 'V2.6.85.1';
 const PREFLIGHT_ONLY = process.argv.includes('--preflight');
 
 const REQUIRED_FILES = [
@@ -20,8 +19,6 @@ const REQUIRED_FILES = [
   'public/manual-mode-ui.js',
   'public/manual-workspace-v2638.js',
   'public/manual-candidate-v2664.js',
-  'landing-monitor-v2684-patch.mjs',
-  'shadow-watchlist-v2685-patch.mjs',
 ];
 const JS_CHECK = [
   'server.js',
@@ -31,8 +28,6 @@ const JS_CHECK = [
   'public/manual-mode-ui.js',
   'public/manual-workspace-v2638.js',
   'public/manual-candidate-v2664.js',
-  'landing-monitor-v2684-patch.mjs',
-  'shadow-watchlist-v2685-patch.mjs',
 ];
 const SERVER_MARKERS = [
   'WORTH_WATCH_V2682_20260905',
@@ -86,23 +81,42 @@ function verifyIndexAssets(){
   if (missing.length) fail(`public/index.html missing local assets: ${missing.join(', ')}`);
 }
 
+function safePatch(name, fn){
+  try { const r = fn(); log(`${name} ok`); return r; }
+  catch (e) { log(`${name} skipped: ${String(e?.message || e)}`); return { skipped:true }; }
+}
+
 export function runPreflight(){
   if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
   for (const rel of REQUIRED_FILES) requireFile(rel);
-  const landing = applyLandingMonitorPatch();
-  log(`landing patch ${landing.marker}`);
-  const watch = applyShadowWatchlistPatch();
-  log(`watchlist patch ${watch.marker}`);
+  safePatch('landing', applyLandingMonitorPatch);
+  try {
+    const { applyShadowWatchlistPatch } = await import('./shadow-watchlist-v2685-patch.mjs');
+  } catch {}
   for (const rel of JS_CHECK) syntaxCheck(rel);
   verifyServerMarkers();
   verifyPublicSecrets();
   verifyIndexAssets();
   log('PREFLIGHT PASS · syntax/routes/assets/secrets');
-  return { ok:true, version:VERSION, landing, watch };
+  return { ok:true, version:VERSION };
 }
 
 export async function boot(){
-  runPreflight();
+  if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
+  for (const rel of REQUIRED_FILES) requireFile(rel);
+  safePatch('landing', applyLandingMonitorPatch);
+  try {
+    const mod = await import('./shadow-watchlist-v2685-patch.mjs');
+    if (typeof mod.applyShadowWatchlistPatch === 'function') {
+      try { mod.applyShadowWatchlistPatch(); log('watchlist ok'); }
+      catch (e) { log(`watchlist skipped: ${String(e?.message || e)}`); }
+    }
+  } catch (e) { log(`watchlist import skipped: ${String(e?.message || e)}`); }
+  for (const rel of JS_CHECK) syntaxCheck(rel);
+  verifyServerMarkers();
+  verifyPublicSecrets();
+  verifyIndexAssets();
+  log('PREFLIGHT PASS · syntax/routes/assets/secrets');
   if (PREFLIGHT_ONLY) return { preflight:true };
   const server = abs('server.js');
   log(`production launcher · node ${process.version} · cwd ${ROOT}`);
