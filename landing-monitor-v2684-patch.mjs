@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const MARKER = 'LANDING_TABS_V2686_20260906';
+const MARKER = 'LANDING_TABS_V2690_20260906';
 
 function abs(rel) {
   return path.join(ROOT, rel);
@@ -17,11 +17,14 @@ function patchIndex(src) {
   out = out.replace('<section id="page-today" class="page active">', '<section id="page-today" class="page">');
   out = out.replace('<section id="page-monitor" class="page">', '<section id="page-monitor" class="page active">');
   const scripts = [
-    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2686"></script>'],
-    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2687"></script>'],
-    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2688"></script>']
+    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2690"></script>'],
+    ['ideas-layout-v2690.js', '<script src="/ideas-layout-v2690.js?v=2690"></script>'],
+    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2690"></script>'],
+    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2690"></script>']
   ];
   for (const [name, tag] of scripts) {
+    const re = new RegExp('<script[^>]+'+name.replace('.','\\.')+'[^>]*><\\/script>\\n?','g');
+    out = out.replace(re, '');
     if (!out.includes(name)) out = out.replace('</body>', tag + '\n</body>');
   }
   return out;

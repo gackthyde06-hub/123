@@ -1,10 +1,8 @@
+// LAYOUT_V2690_CACHE_BUST_20260906
 // CANDIDATE_UI_NOTIFY_CUSTOM_V2673_20260904
 // PUSH_RECOVERY_SKIP_WAITING_V2665
 self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
-self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
-// PUSH_RECOVERY_V2665_20260904
-// NOTIFICATION_POLICY_V2611: final client-side guard against old/queued status-noise notifications.
-// NOTIFICATION_CONTROL_V2616: final device-side whitelist.
+self.addEventListener('activate',event=>event.waitUntil((async()=>{try{const keys=await caches.keys();await Promise.all(keys.map(k=>caches.delete(k)))}catch{}await self.clients.claim()})()));
 function allowedNoticeV2616(data={}){
   const tag=String(data.tag||'').toLowerCase(),text=String(data.title||'')+' '+String(data.body||'');
   if(/^notify-test-/.test(tag)||/^shadow-test-/.test(tag))return true;
