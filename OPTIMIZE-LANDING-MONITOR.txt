@@ -1,0 +1,5 @@
+Landing UX 2026-09-06
+- Default tab is now 監控 instead of 今日.
+- Tab order: 監控 / 今日 / 績效 / 流向 / 建議 / 觀察
+- First-visit (no localStorage page pref) opens 監控.
+- Existing saved tab preference is unchanged.
