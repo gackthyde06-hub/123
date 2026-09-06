@@ -16,11 +16,13 @@ function patchIndex(src) {
   out = out.replace(/<div class="pageTabs" role="tablist">[\s\S]*?<\/div>/, NEW_TABS);
   out = out.replace('<section id="page-today" class="page active">', '<section id="page-today" class="page">');
   out = out.replace('<section id="page-monitor" class="page">', '<section id="page-monitor" class="page active">');
-  if (!out.includes('ideas-rescue-v2686.js')) {
-    out = out.replace('</body>', '<script src="/ideas-rescue-v2686.js?v=2686"></script>\n</body>');
-  }
-  if (!out.includes('align-shadow-v2687.js')) {
-    out = out.replace('</body>', '<script src="/align-shadow-v2687.js?v=2687"></script>\n</body>');
+  const scripts = [
+    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2686"></script>'],
+    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2687"></script>'],
+    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2688"></script>']
+  ];
+  for (const [name, tag] of scripts) {
+    if (!out.includes(name)) out = out.replace('</body>', tag + '\n</body>');
   }
   return out;
 }
