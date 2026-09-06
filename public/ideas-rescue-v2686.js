@@ -1,1 +1,1 @@
-(()=>{function wipe(){document.querySelectorAll('#ideasRescueV2686,#page-ideas .sectionTitle,#page-ideas .traderName').forEach(el=>{const t=el.textContent||'';if(t.includes('今日可看')||el.id==='ideasRescueV2686'){const box=el.id==='ideasRescueV2686'?el:el.closest('section,.traderCard,#ideasRescueV2686');if(box)box.remove();}});const r=document.getElementById('ideasRescueV2686');if(r)r.remove();}wipe();setInterval(wipe,1000);})();
+(()=>{function wipe(){document.getElementById('ideasRescueV2686')?.remove()}wipe();})();

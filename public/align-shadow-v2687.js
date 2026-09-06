@@ -1,63 +1,33 @@
 (()=>{
 'use strict';
+let t=0;
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 function dirOf(x){return String(x||'').toUpperCase().includes('SHORT')?'SHORT':'LONG'}
 function host(){
   const page=document.getElementById('page-monitor'); if(!page) return null;
   document.querySelector('#page-ideas #alignShadowV2687')?.remove();
   let box=document.getElementById('alignShadowV2687');
-  if(!box){
-    box=document.createElement('section');
-    box.id='alignShadowV2687';
-    box.className='traderCard';
-    box.style.margin='8px 0 14px';
-    page.prepend(box);
-  }
+  if(!box){box=document.createElement('section');box.id='alignShadowV2687';box.className='traderCard';box.style.margin='8px 0 14px';page.prepend(box)}
   return box;
-}
-function collectPositions(status){
-  const out=[];
-  for(const t of status?.traders||[]){
-    for(const p of t.positions||[]){
-      const sym=String(p.symbol||p.symbolName||'').toUpperCase();
-      if(!sym) continue;
-      const side=dirOf(p.positionSide||p.direction||p.side||(Number(p.positionAmt||p.qty||0)<0?'SHORT':'LONG'));
-      out.push({trader:t.name||t.screenName||t.id, core:!!t.core, symbol:sym, direction:side});
-    }
-  }
-  return out;
-}
-function render(box, aligns){
-  box.innerHTML='<div class="traderTop"><div class="traderMain"><div class="traderName">交易員 × 影子 同向</div><div class="stateInfo">只顯示在監控頁。建議頁不動這塊</div></div><div class="radarCount">'+aligns.length+'</div></div>'+
-    (aligns.length?aligns.map(x=>'<div class="consensusRow"><div class="consensusMain"><div class="consensusLine"><b class="consensusSymbol">'+esc(x.symbol)+'</b><span class="dirBadge '+(x.direction==='SHORT'?'short':'long')+'">'+(x.direction==='SHORT'?'做空':'做多')+'</span><span class="levelBadge '+(x.grade==='A'?'high':x.grade==='B'?'medium':'low')+'">'+esc(x.grade)+'</span></div><div class="consensusMeta">'+esc(x.traders.join('、'))+'</div></div></div>').join(''):'<div class="sourceNote">目前沒有同向</div>');
 }
 async function refresh(){
   if(document.hidden) return;
+  if(document.querySelector('.pageTab.active')?.dataset?.page!=='monitor') return;
+  const now=Date.now(); if(now-t<25000) return; t=now;
   const box=host(); if(!box) return;
   try{
-    const [s,o]=await Promise.all([
-      fetch('/api/status',{cache:'no-store'}).then(r=>r.json()),
-      fetch('/api/manual-opportunities',{cache:'no-store'}).then(r=>r.json()).catch(()=>({rows:[]}))
-    ]);
-    const by=new Map();
-    for(const p of collectPositions(s)){
-      const k=p.symbol+'|'+p.direction;
-      if(!by.has(k)) by.set(k,{symbol:p.symbol,direction:p.direction,traders:[],core:false});
-      const g=by.get(k);
-      if(!g.traders.includes(p.trader)) g.traders.push(p.trader);
-      if(p.core) g.core=true;
+    const s=await fetch('/api/status',{cache:'no-store'}).then(r=>r.json());
+    const positions=[];
+    for(const tr of s?.traders||[]){
+      for(const p of tr.positions||[]){
+        const sym=String(p.symbol||'').toUpperCase(); if(!sym) continue;
+        positions.push({trader:tr.name||tr.screenName||tr.id,symbol:sym,direction:dirOf(p.positionSide||p.direction||p.side)});
+      }
     }
-    const rows=o?.rows||[], aligns=[];
-    for(const g of by.values()){
-      const hit=rows.filter(x=>String(x.symbol||'').toUpperCase()===g.symbol && dirOf(x.direction)===g.direction);
-      const ab=hit.find(x=>x.grade==='A'||x.grade==='B');
-      const cand=hit.find(x=>x.candidate===true);
-      const pick=ab||cand; if(!pick) continue;
-      aligns.push({...g, grade:ab?ab.grade:'候選'});
-    }
-    render(box, aligns);
+    box.innerHTML='<div class="traderTop"><div class="traderMain"><div class="traderName">交易員開倉</div><div class="stateInfo">監控頁輕量顯示，不再連打建議 API</div></div><div class="radarCount">'+positions.length+'</div></div>'+
+      (positions.length?positions.slice(0,8).map(x=>'<div class="consensusRow"><div class="consensusMain"><div class="consensusLine"><b class="consensusSymbol">'+esc(x.symbol)+'</b><span class="dirBadge '+(x.direction==='SHORT'?'short':'long')+'">'+(x.direction==='SHORT'?'空':'多')+'</span></div><div class="consensusMeta">'+esc(x.trader)+'</div></div></div>').join(''):'<div class="sourceNote">交易員目前沒有倉</div>');
   }catch{}
 }
-function boot(){void refresh(); setInterval(()=>{ if(!document.hidden) void refresh(); }, 20000)}
+function boot(){void refresh(); setInterval(refresh,30000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

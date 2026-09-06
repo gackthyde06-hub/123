@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const MARKER = 'LANDING_TABS_V2691_20260906';
+const MARKER = 'LANDING_TABS_V2692_20260906';
 
 function abs(rel) {
   return path.join(ROOT, rel);
@@ -17,11 +17,11 @@ function patchIndex(src) {
   out = out.replace('<section id="page-today" class="page active">', '<section id="page-today" class="page">');
   out = out.replace('<section id="page-monitor" class="page">', '<section id="page-monitor" class="page active">');
   const scripts = [
-    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2691"></script>'],
-    ['ideas-layout-v2690.js', '<script src="/ideas-layout-v2690.js?v=2691"></script>'],
-    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2691"></script>'],
-    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2691"></script>'],
-    ['candidate-winrate-v2691.js', '<script src="/candidate-winrate-v2691.js?v=2691"></script>']
+    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2692"></script>'],
+    ['ideas-layout-v2690.js', '<script src="/ideas-layout-v2690.js?v=2692"></script>'],
+    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2692"></script>'],
+    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2692"></script>'],
+    ['candidate-winrate-v2691.js', '<script src="/candidate-winrate-v2691.js?v=2692"></script>']
   ];
   for (const [name, tag] of scripts) {
     if (!out.includes(name)) out = out.replace('</body>', tag + '\n</body>');
@@ -35,6 +35,8 @@ function patchApp(src) {
   out = out.replaceAll('position-alert-page-v79', 'position-alert-page-v80');
   out = out.replace("if(!valid.includes(name))name='today';", "if(!valid.includes(name))name='monitor';");
   out = out.replace("||'today')}catch{setPage('today')}", "||'monitor')}catch{setPage('monitor')}");
+  out = out.replace('setInterval(refreshActivePageV266,8_000)', 'setInterval(refreshActivePageV266,20_000)');
+  out = out.replace('setInterval(refreshActivePageV266,8000)', 'setInterval(refreshActivePageV266,20000)');
   return out;
 }
 
