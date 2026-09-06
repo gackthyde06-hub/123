@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const MARKER = 'LANDING_TABS_V2692_20260906';
+const MARKER = 'LANDING_TABS_V2694_20260906';
 
 function abs(rel) {
   return path.join(ROOT, rel);
@@ -17,11 +17,12 @@ function patchIndex(src) {
   out = out.replace('<section id="page-today" class="page active">', '<section id="page-today" class="page">');
   out = out.replace('<section id="page-monitor" class="page">', '<section id="page-monitor" class="page active">');
   const scripts = [
-    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2692"></script>'],
-    ['ideas-layout-v2690.js', '<script src="/ideas-layout-v2690.js?v=2692"></script>'],
-    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2692"></script>'],
-    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2692"></script>'],
-    ['candidate-winrate-v2691.js', '<script src="/candidate-winrate-v2691.js?v=2692"></script>']
+    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2694"></script>'],
+    ['ideas-layout-v2690.js', '<script src="/ideas-layout-v2690.js?v=2694"></script>'],
+    ['align-shadow-v2687.js', '<script src="/align-shadow-v2687.js?v=2694"></script>'],
+    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2694"></script>'],
+    ['candidate-winrate-v2691.js', '<script src="/candidate-winrate-v2691.js?v=2694"></script>'],
+    ['aoying-style-v2694.js', '<script src="/aoying-style-v2694.js?v=2694"></script>']
   ];
   for (const [name, tag] of scripts) {
     if (!out.includes(name)) out = out.replace('</body>', tag + '\n</body>');
