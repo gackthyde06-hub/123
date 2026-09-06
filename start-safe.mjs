@@ -86,32 +86,10 @@ function safePatch(name, fn){
   catch (e) { log(`${name} skipped: ${String(e?.message || e)}`); return { skipped:true }; }
 }
 
-export function runPreflight(){
-  if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
-  for (const rel of REQUIRED_FILES) requireFile(rel);
-  safePatch('landing', applyLandingMonitorPatch);
-  try {
-    const { applyShadowWatchlistPatch } = await import('./shadow-watchlist-v2685-patch.mjs');
-  } catch {}
-  for (const rel of JS_CHECK) syntaxCheck(rel);
-  verifyServerMarkers();
-  verifyPublicSecrets();
-  verifyIndexAssets();
-  log('PREFLIGHT PASS · syntax/routes/assets/secrets');
-  return { ok:true, version:VERSION };
-}
-
 export async function boot(){
   if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
   for (const rel of REQUIRED_FILES) requireFile(rel);
   safePatch('landing', applyLandingMonitorPatch);
-  try {
-    const mod = await import('./shadow-watchlist-v2685-patch.mjs');
-    if (typeof mod.applyShadowWatchlistPatch === 'function') {
-      try { mod.applyShadowWatchlistPatch(); log('watchlist ok'); }
-      catch (e) { log(`watchlist skipped: ${String(e?.message || e)}`); }
-    }
-  } catch (e) { log(`watchlist import skipped: ${String(e?.message || e)}`); }
   for (const rel of JS_CHECK) syntaxCheck(rel);
   verifyServerMarkers();
   verifyPublicSecrets();
