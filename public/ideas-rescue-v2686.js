@@ -10,40 +10,46 @@ function reorderTabs(){
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]))}
 function tv(sym){return 'https://www.tradingview.com/chart/?symbol='+encodeURIComponent('BINANCE:'+String(sym||'').toUpperCase()+'.P')}
-function gradeLabel(g){return g==='A'?'A 可看可打':g==='B'?'B 值得看圖':'C 先看圖不追'}
-function renderList(host, payload){
-  const rows=Array.isArray(payload?.rows)?payload.rows:[];
-  const ab=rows.filter(x=>x.grade==='A'||x.grade==='B');
-  const c=rows.filter(x=>x.grade==='C');
-  const cand=rows.filter(x=>x.grade!=='A'&&x.grade!=='B'&&x.grade!=='C');
-  const show=[...ab,...c.slice(0,8),...cand.slice(0,4)];
-  if(!show.length){
-    host.innerHTML='<div class="mw-empty">現在沒有 A/B。影子沒有放行正式訊號時，這裡會空；請先看監控倉位，不要亂打。</div>';
+function winText(x){
+  const cal=Number(x?.calibratedWinRate);
+  const est=Number(x?.estimatedWinRate);
+  const sh=Number(x?.shadow?.hitRate);
+  const main=Number.isFinite(cal)?cal:Number.isFinite(est)?est:null;
+  const extra=Number.isFinite(sh)?`影子 ${sh.toFixed(0)}%`:'';
+  return (main==null?'—':main.toFixed(0)+'%')+(extra?' · '+extra:'');
+}
+function placeHost(){
+  const ideas=document.getElementById('page-ideas'); if(!ideas) return null;
+  let host=document.getElementById('ideasRescueV2686');
+  if(!host){host=document.createElement('section');host.id='ideasRescueV2686';host.className='traderCard';host.style.margin='12px 0 16px'}
+  const ws=document.getElementById('manualWorkspaceV2638');
+  const notices=document.getElementById('manualNoticeLedgerV2639');
+  if(notices&&notices.parentNode) notices.parentNode.insertBefore(host, notices.nextSibling);
+  else if(ws&&ws.parentNode) ws.parentNode.insertBefore(host, ws.nextSibling);
+  else ideas.appendChild(host);
+  return host;
+}
+function renderRef(host, rows){
+  const ref=rows.filter(x=>x && x.grade!=='A' && x.grade!=='B').slice(0,12);
+  if(!ref.length){
+    host.innerHTML='<div class="traderTop"><div class="traderMain"><div class="traderName">參考標的</div><div class="stateInfo">A/B 仍在上方原位。下面沒有 C 可參考。</div></div></div>';
     return;
   }
-  host.innerHTML='<div class="sectionBar"><div class="sectionTitle">今日可看標的</div><div class="radarCount">'+show.length+'檔</div></div>'+
-    show.map(x=>'<div class="consensusRow"><div class="consensusMain"><div class="consensusLine"><b class="consensusSymbol">'+esc(x.symbol)+'</b><span class="dirBadge '+(String(x.direction).toLowerCase()==='short'?'short':'long')+'">'+(x.direction==='SHORT'?'做空':'做多')+'</span><span class="levelBadge '+(x.grade==='A'?'high':x.grade==='B'?'medium':'low')+'">'+esc(gradeLabel(x.grade))+'</span></div><div class="consensusMeta">'+(esc(x.strategyLabel||x.strategyId||'待定'))+' · 校準 '+(x.calibratedWinRate!=null?Number(x.calibratedWinRate).toFixed(0)+'%':'—')+' · 完成度 '+(x.observationProgress!=null?Number(x.observationProgress).toFixed(0):'—')+'</div></div><div class="consensusScore"><a href="'+tv(x.symbol)+'" target="_blank" rel="noopener" style="color:#e0bb68;text-decoration:none;font-size:11px">開圖</a><small>'+esc(x.grade||'')+'</small></div></div>').join('')+
-    '<div class="sourceNote">A/B 才會推播。C 只是你可以開圖的候補，不是下單指令。</div>';
+  host.innerHTML='<div class="traderTop"><div class="traderMain"><div class="traderName">參考標的</div><div class="stateInfo">不推播。想打再開圖，勝率是估算不是保證</div></div><div class="radarCount">'+ref.length+'檔</div></div>'+
+    ref.map(x=>'<div class="consensusRow"><div class="consensusMain"><div class="consensusLine"><b class="consensusSymbol">'+esc(x.symbol)+'</b><span class="dirBadge '+(String(x.direction).toLowerCase()==='short'?'short':'long')+'">'+(x.direction==='SHORT'?'做空':'做多')+'</span><span class="levelBadge low">C 參考</span></div><div class="consensusMeta">'+esc(x.strategyLabel||x.strategyId||'未分類')+' · 校準勝率 <b>'+esc(winText(x))+'</b>'+(x.observationProgress!=null?' · 完成度 '+Number(x.observationProgress).toFixed(0):'')+'</div></div><div class="consensusScore"><a href="'+tv(x.symbol)+'" target="_blank" rel="noopener" style="color:#e0bb68;text-decoration:none;font-size:11px">開圖</a><small>'+esc(x.grade||'C')+'</small></div></div>').join('');
 }
-async function rescue(){
-  const page=document.getElementById('page-ideas'); if(!page) return;
-  let host=document.getElementById('ideasRescueV2686');
-  if(!host){host=document.createElement('div');host.id='ideasRescueV2686';host.style.margin='8px 0 12px';page.prepend(host)}
-  const broken=document.querySelector('#manualWorkspaceV2638 .mw-empty');
+async function refresh(){
+  const host=placeHost(); if(!host) return;
   try{
     const r=await fetch('/api/manual-opportunities',{cache:'no-store'});
     const d=await r.json();
-    if(d?.ok && Array.isArray(d.rows) && (d.rows.length||broken)) renderList(host,d);
-    else if(broken) host.innerHTML='<div class="mw-empty">建議暫時讀不到，10 秒後會重試。</div>';
-  }catch{
-    if(broken) host.innerHTML='<div class="mw-empty">建議連線中，系統會自動重試。</div>';
-  }
+    if(d?.ok) renderRef(host, d.rows||[]);
+  }catch{}
 }
 function boot(){
   reorderTabs();
-  void rescue();
-  setInterval(()=>{reorderTabs();void rescue();},12000);
-  document.querySelector('.pageTabs')?.addEventListener('click',()=>setTimeout(rescue,80));
+  void refresh();
+  setInterval(()=>{reorderTabs();void refresh();},15000);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
