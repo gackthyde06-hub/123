@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { applyLandingMonitorPatch } from './landing-monitor-v2684-patch.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.83';
+const VERSION = 'V2.6.84';
 const PREFLIGHT_ONLY = process.argv.includes('--preflight');
 
 const REQUIRED_FILES = [
@@ -18,6 +19,7 @@ const REQUIRED_FILES = [
   'public/manual-mode-ui.js',
   'public/manual-workspace-v2638.js',
   'public/manual-candidate-v2664.js',
+  'landing-monitor-v2684-patch.mjs',
 ];
 const JS_CHECK = [
   'server.js',
@@ -27,6 +29,7 @@ const JS_CHECK = [
   'public/manual-mode-ui.js',
   'public/manual-workspace-v2638.js',
   'public/manual-candidate-v2664.js',
+  'landing-monitor-v2684-patch.mjs',
 ];
 const SERVER_MARKERS = [
   'WORTH_WATCH_V2682_20260905',
@@ -83,12 +86,14 @@ function verifyIndexAssets(){
 export function runPreflight(){
   if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
   for (const rel of REQUIRED_FILES) requireFile(rel);
+  const landing = applyLandingMonitorPatch();
+  log(`landing patch ${landing.marker}`);
   for (const rel of JS_CHECK) syntaxCheck(rel);
   verifyServerMarkers();
   verifyPublicSecrets();
   verifyIndexAssets();
   log('PREFLIGHT PASS · syntax/routes/assets/secrets');
-  return { ok:true, version:VERSION };
+  return { ok:true, version:VERSION, landing };
 }
 
 export async function boot(){
