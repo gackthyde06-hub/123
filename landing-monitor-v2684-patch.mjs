@@ -19,6 +19,9 @@ function patchIndex(src) {
   if (!out.includes('ideas-rescue-v2686.js')) {
     out = out.replace('</body>', '<script src="/ideas-rescue-v2686.js?v=2686"></script>\n</body>');
   }
+  if (!out.includes('align-shadow-v2687.js')) {
+    out = out.replace('</body>', '<script src="/align-shadow-v2687.js?v=2687"></script>\n</body>');
+  }
   return out;
 }
 
