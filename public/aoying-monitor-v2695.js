@@ -1,1 +1,1 @@
-(()=>{document.getElementById('aoyingMonitorV2695')?.remove();})();
+(()=>{document.getElementById('aoyingMonitorV2695')?.remove()})();

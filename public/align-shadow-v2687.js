@@ -1,1 +1,1 @@
-(()=>{document.getElementById('alignShadowV2687')?.remove();})();
+(()=>{document.getElementById('alignShadowV2687')?.remove()})();

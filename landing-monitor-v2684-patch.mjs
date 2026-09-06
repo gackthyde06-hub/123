@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const MARKER = 'LANDING_TABS_V2696_20260906';
+const MARKER = 'LANDING_TABS_V2697_20260906';
 
 function abs(rel) {
   return path.join(ROOT, rel);
@@ -16,14 +16,10 @@ function patchIndex(src) {
   out = out.replace(/<div class="pageTabs" role="tablist">[\s\S]*?<\/div>/, NEW_TABS);
   out = out.replace('<section id="page-today" class="page active">', '<section id="page-today" class="page">');
   out = out.replace('<section id="page-monitor" class="page">', '<section id="page-monitor" class="page active">');
-  out = out.replace(/<script src="\/aoying-style-v2694\.js[^"']*"><\/script>\n?/g, '');
-  out = out.replace(/<script src="\/aoying-monitor-v2695\.js[^"']*"><\/script>\n?/g, '');
-  out = out.replace(/<script src="\/align-shadow-v2687\.js[^"']*"><\/script>\n?/g, '');
+  out = out.replace(/<script src="\/(align-shadow-v2687|aoying-style-v2694|aoying-monitor-v2695|ideas-rescue-v2686|ideas-layout-v2690|candidate-winrate-v2691)\.js[^"']*"><\/script>\n?/g, '');
   const scripts = [
-    ['ideas-rescue-v2686.js', '<script src="/ideas-rescue-v2686.js?v=2696"></script>'],
-    ['ideas-layout-v2690.js', '<script src="/ideas-layout-v2690.js?v=2696"></script>'],
-    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2696"></script>'],
-    ['candidate-winrate-v2691.js', '<script src="/candidate-winrate-v2691.js?v=2696"></script>']
+    ['ideas-clean-v2697.js', '<script src="/ideas-clean-v2697.js?v=2697"></script>'],
+    ['reconnect-fast-v2688.js', '<script src="/reconnect-fast-v2688.js?v=2697"></script>']
   ];
   for (const [name, tag] of scripts) {
     if (!out.includes(name)) out = out.replace('</body>', tag + '\n</body>');
