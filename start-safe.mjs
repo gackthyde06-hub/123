@@ -5,48 +5,29 @@ import { fileURLToPath } from 'node:url';
 import { applyLandingMonitorPatch } from './landing-monitor-v2684-patch.mjs';
 import { applyLiveShadowV2690Patch } from './shadow-live-v2690-patch.mjs';
 import { applyLiveShadowLockV2691Patch } from './shadow-live-v2691-lock-patch.mjs';
+import { applyStrongestBookV2692Patch } from './shadow-strongest-v2692-patch.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.91';
+const VERSION = 'V2.6.92';
 const PREFLIGHT_ONLY = process.argv.includes('--preflight');
 
 const REQUIRED_FILES = [
-  'server.js',
-  'package.json',
-  'railway.json',
-  'worth-watch-v2682-core.mjs',
-  'shadow-live-v2690-patch.mjs',
-  'shadow-live-v2691-lock-patch.mjs',
-  'public/index.html',
-  'public/app.js',
-  'public/sw.js',
-  'public/manual-mode-ui.js',
-  'public/manual-workspace-v2638.js',
-  'public/manual-candidate-v2664.js',
+  'server.js','package.json','railway.json','worth-watch-v2682-core.mjs',
+  'shadow-live-v2690-patch.mjs','shadow-live-v2691-lock-patch.mjs','shadow-strongest-v2692-patch.mjs',
+  'public/index.html','public/app.js','public/sw.js',
+  'public/manual-mode-ui.js','public/manual-workspace-v2638.js','public/manual-candidate-v2664.js',
 ];
 const JS_CHECK = [
-  'server.js',
-  'worth-watch-v2682-core.mjs',
-  'shadow-live-v2690-patch.mjs',
-  'shadow-live-v2691-lock-patch.mjs',
-  'public/app.js',
-  'public/sw.js',
-  'public/manual-mode-ui.js',
-  'public/manual-workspace-v2638.js',
-  'public/manual-candidate-v2664.js',
+  'server.js','worth-watch-v2682-core.mjs',
+  'shadow-live-v2690-patch.mjs','shadow-live-v2691-lock-patch.mjs','shadow-strongest-v2692-patch.mjs',
+  'public/app.js','public/sw.js','public/manual-mode-ui.js',
+  'public/manual-workspace-v2638.js','public/manual-candidate-v2664.js',
 ];
 const SERVER_MARKERS = [
-  'WORTH_WATCH_V2682_20260905',
-  'WORTH_WATCH_STICKY_V2683_20260905',
-  'SHADOW_BOOTCAMP_V2681_20260905',
-  '/api/worth-watch-v2682',
-  '/api/manual-opportunities',
-  '/api/structure-learning',
-  '/api/actual-trades',
-  '/api/push-health',
+  'WORTH_WATCH_V2682_20260905','WORTH_WATCH_STICKY_V2683_20260905','SHADOW_BOOTCAMP_V2681_20260905',
+  '/api/worth-watch-v2682','/api/manual-opportunities','/api/structure-learning','/api/actual-trades','/api/push-health',
 ];
 const PUBLIC_FORBIDDEN = ['vapid.json','subscriptions.json','events.json','events-v5.json'];
-
 function abs(rel){ return path.join(ROOT, rel); }
 function log(msg){ console.log(`[boot:${VERSION}] ${msg}`); }
 function fail(msg){ throw new Error(`[boot:${VERSION}] ${msg}`); }
@@ -84,17 +65,15 @@ function safePatch(name, fn){
   try { const r = fn(); log(`${name} ok`); return r; }
   catch (e) { log(`${name} skipped: ${String(e?.message || e)}`); return { skipped:true }; }
 }
-
 export async function boot(){
   if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
   for (const rel of REQUIRED_FILES) requireFile(rel);
   safePatch('landing', applyLandingMonitorPatch);
   safePatch('live-shadow-v2690', applyLiveShadowV2690Patch);
   safePatch('live-shadow-lock-v2691', applyLiveShadowLockV2691Patch);
+  safePatch('strongest-book-v2692', applyStrongestBookV2692Patch);
   for (const rel of JS_CHECK) syntaxCheck(rel);
-  verifyServerMarkers();
-  verifyPublicSecrets();
-  verifyIndexAssets();
+  verifyServerMarkers(); verifyPublicSecrets(); verifyIndexAssets();
   log('PREFLIGHT PASS · syntax/routes/assets/secrets');
   if (PREFLIGHT_ONLY) return { preflight:true };
   const server = abs('server.js');
@@ -108,7 +87,6 @@ export async function boot(){
   });
   return { child, summary:'preflight:ok · server:started' };
 }
-
 const isMain = process.argv[1] && path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1]);
 if (isMain) {
   try { await boot(); } catch (e) { console.error(e?.stack || e); process.exit(1); }
