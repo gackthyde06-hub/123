@@ -4,9 +4,10 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { applyLandingMonitorPatch } from './landing-monitor-v2684-patch.mjs';
 import { applyLiveShadowV2690Patch } from './shadow-live-v2690-patch.mjs';
+import { applyLiveShadowLockV2691Patch } from './shadow-live-v2691-lock-patch.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.90';
+const VERSION = 'V2.6.91';
 const PREFLIGHT_ONLY = process.argv.includes('--preflight');
 
 const REQUIRED_FILES = [
@@ -15,6 +16,7 @@ const REQUIRED_FILES = [
   'railway.json',
   'worth-watch-v2682-core.mjs',
   'shadow-live-v2690-patch.mjs',
+  'shadow-live-v2691-lock-patch.mjs',
   'public/index.html',
   'public/app.js',
   'public/sw.js',
@@ -26,6 +28,7 @@ const JS_CHECK = [
   'server.js',
   'worth-watch-v2682-core.mjs',
   'shadow-live-v2690-patch.mjs',
+  'shadow-live-v2691-lock-patch.mjs',
   'public/app.js',
   'public/sw.js',
   'public/manual-mode-ui.js',
@@ -42,17 +45,11 @@ const SERVER_MARKERS = [
   '/api/actual-trades',
   '/api/push-health',
 ];
-const PUBLIC_FORBIDDEN = [
-  'vapid.json',
-  'subscriptions.json',
-  'events.json',
-  'events-v5.json',
-];
+const PUBLIC_FORBIDDEN = ['vapid.json','subscriptions.json','events.json','events-v5.json'];
 
 function abs(rel){ return path.join(ROOT, rel); }
 function log(msg){ console.log(`[boot:${VERSION}] ${msg}`); }
 function fail(msg){ throw new Error(`[boot:${VERSION}] ${msg}`); }
-
 function nodeMajor(){ return Number(String(process.versions.node || '0').split('.')[0] || 0); }
 function requireFile(rel){ if (!fs.existsSync(abs(rel))) fail(`required file missing: ${rel}`); }
 function syntaxCheck(rel){
@@ -83,7 +80,6 @@ function verifyIndexAssets(){
   const missing = [...refs].filter(rel => !fs.existsSync(abs(path.join('public', rel))));
   if (missing.length) fail(`public/index.html missing local assets: ${missing.join(', ')}`);
 }
-
 function safePatch(name, fn){
   try { const r = fn(); log(`${name} ok`); return r; }
   catch (e) { log(`${name} skipped: ${String(e?.message || e)}`); return { skipped:true }; }
@@ -94,6 +90,7 @@ export async function boot(){
   for (const rel of REQUIRED_FILES) requireFile(rel);
   safePatch('landing', applyLandingMonitorPatch);
   safePatch('live-shadow-v2690', applyLiveShadowV2690Patch);
+  safePatch('live-shadow-lock-v2691', applyLiveShadowLockV2691Patch);
   for (const rel of JS_CHECK) syntaxCheck(rel);
   verifyServerMarkers();
   verifyPublicSecrets();
