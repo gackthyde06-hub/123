@@ -3,9 +3,10 @@ import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { applyLandingMonitorPatch } from './landing-monitor-v2684-patch.mjs';
+import { applyLiveShadowV2690Patch } from './shadow-live-v2690-patch.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const VERSION = 'V2.6.85.1';
+const VERSION = 'V2.6.90';
 const PREFLIGHT_ONLY = process.argv.includes('--preflight');
 
 const REQUIRED_FILES = [
@@ -13,6 +14,7 @@ const REQUIRED_FILES = [
   'package.json',
   'railway.json',
   'worth-watch-v2682-core.mjs',
+  'shadow-live-v2690-patch.mjs',
   'public/index.html',
   'public/app.js',
   'public/sw.js',
@@ -23,6 +25,7 @@ const REQUIRED_FILES = [
 const JS_CHECK = [
   'server.js',
   'worth-watch-v2682-core.mjs',
+  'shadow-live-v2690-patch.mjs',
   'public/app.js',
   'public/sw.js',
   'public/manual-mode-ui.js',
@@ -90,6 +93,7 @@ export async function boot(){
   if (nodeMajor() < 22) fail(`Node >=22 required, found ${process.version}`);
   for (const rel of REQUIRED_FILES) requireFile(rel);
   safePatch('landing', applyLandingMonitorPatch);
+  safePatch('live-shadow-v2690', applyLiveShadowV2690Patch);
   for (const rel of JS_CHECK) syntaxCheck(rel);
   verifyServerMarkers();
   verifyPublicSecrets();
